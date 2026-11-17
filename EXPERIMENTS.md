@@ -35,3 +35,9 @@ Route decision (03:10): **C** (privileged teacher → vision student), with **B*
 | 03:36 | BC trainer throughput test, 150 steps | bc@36337e1 | | microbatch 64: 0.43 GB peak; GPU-only step 5.7 it/s, data loader 349 it/s | GPU-bound (15 W cap). Use full batch, no accumulation |
 | 03:39 | **BC baseline training** human60, H=20, exec 10, 8k steps (≈30 epochs), EMA 0.999, DrQ shift | bc@36337e1 | 54 train / 6 val demos | running | 8k instead of the 20k default: time budget |
 | 03:58 | Teacher v1 data generation, successful episodes only | teacher@6c9f0e6 | 2100000–2100399 | running | v1 is good enough as a data source (failures are filtered out) |
+| 04:54 | BC baseline training finished: train L1 0.0176, val L1 0.0193 (8k steps, ~1.4 it/s under sim load) | bc@36337e1 | | ckpt `bc_human60_v1` (sha 2cc397d71e8ef46a) | Val loss is low, but the loss is not the metric |
+| 04:56 | **Baseline dev eval: BC human60** | bc@36337e1 | dev 1000000 (30, balanced) | **0/30** (all timeouts), 5 ms/call policy time | Gripper never closes in any episode; arm moves |
+| 05:15 | Diagnosis 1: policy on held-out demo observations (offline) | | 6 val demos | gripper-close predicted within 2–21 steps of human; arm/base L1 0.006–0.011 | Model is accurate in-distribution. Not a pipeline bug |
+| 05:16 | Diagnosis 2: evaluator vs demo images, same seed | | demo 0 | mean abs pixel diff 5–7/255, same scene | No rendering domain gap. Failure = compounding error / covariate shift with 54 demos |
+| 05:10 | Teacher v1 generation stopped (resumable) | teacher@6c9f0e6 | 2100000–2100029, 2100200–… | 46/58 success (79%), 73 saved demos incl. first 30-seed eval | Lower than the 90% eval; throttled ~45 eps/h |
+| 05:15 | Teacher v2 (object-centric placement) on the **same** 30 seeds as v1 | teacher@8b4744d | 2000000–2000029 | running | Paired comparison v1 vs v2 |
