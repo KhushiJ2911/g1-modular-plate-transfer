@@ -7,6 +7,8 @@ from pathlib import Path
 
 import numpy as np
 
+from method.teacher.diagnostics import PrivilegedSensors, failure_category, plate_up
+
 METHOD_DIR = Path(__file__).resolve().parents[1]
 REPO_DIR = METHOD_DIR.parent
 # Fixed MovePlateG1 nominal rack origin, from the pinned move_plates.py.
@@ -14,26 +16,11 @@ TARGET_RACK_XY = np.array([0.55, -0.24])
 
 
 class Teacher:
-    """Replay the nearest human arm motion while shifting its base trajectory.
+    """Privileged demo transfer: v1 pelvis replay, v2 object placement feedback.
 
-    At reset, read the true plate and destination rack positions. The first
-    act() supplies the starting pelvis from the reset observation, selects the
-    nearest plate-relative-to-pelvis demonstration (excluding demo 45), and
-    computes small world-frame grasp and placement shifts. Replay both arms,
-    grippers, height and yaw on a single demonstration clock. Track the shifted
-    pelvis with the recorded base velocity plus proportional feedback, rotating
-    the world position error into the current body's frame.
-
-    Hold the grasp shift until 30 demo steps after closing, then blend toward
-    the destination rack shift until 40 steps before release. Before closing
-    or opening, pause the clock and hold the preceding arm/gripper targets for
-    at most 100 physical steps if tracking error exceeds 1 cm. Pauses suppress
-    velocity feed-forward so feedback can settle at a fixed pelvis target.
-    After replay, hold the final recorded action with both grippers open.
-
-    This uses simulator-only information and is NOT an evaluation policy.
-    Numerical operations require only NumPy; no simulator imports or writes.
-    Call env.reset(seed=...), reset(env), then act(ts) once per env.step().
+    Only actions affect physics. reset/observe read live privileged geometry.
+    Call reset(env), then act(ts) for each step; observe() also samples the final
+    post-action state and is called by the runner for complete diagnostics.
     """
 
     def __init__(
@@ -41,12 +28,17 @@ class Teacher:
         demos_path: str | Path = METHOD_DIR / "data/demos_lowdim.npz",
         meta_path: str | Path = METHOD_DIR / "data/demo_meta.json",
         *,
+        mode: str = "v2",
         kp: float = 2.0,
-        tolerance: float = 0.01,
+        tolerance: float | None = None,
         max_wait: int = 100,
         lift_steps: int = 30,
         pre_release_steps: int = 40,
     ):
+        if mode not in ("v1", "v2"):
+            raise ValueError("mode must be v1 or v2")
+        if tolerance is None:
+            tolerance = 0.01 if mode == "v1" else 0.015
         if not np.isfinite(kp) or kp < 0:
             raise ValueError("kp must be finite and nonnegative")
         if not np.isfinite(tolerance) or tolerance <= 0:
@@ -56,12 +48,33 @@ class Teacher:
         if not isinstance(pre_release_steps, int) or pre_release_steps < 1:
             raise ValueError("pre_release_steps must be a positive integer")
         self.config = {
+            "mode": mode,
             "kp": float(kp),
             "tolerance": float(tolerance),
             "max_wait": max_wait,
             "lift_steps": lift_steps,
             "pre_release_steps": pre_release_steps,
         }
+        if mode == "v2":
+            self.config.update(
+                object_tolerance=0.01,
+                object_gate_tolerance=0.015,
+                object_max_wait=150,
+                min_planar_speed=0.06,
+                tilt_limit_deg=14.0,
+                tilt_max_wait=60,
+                wrist_step_rad=0.01,
+                wrist_limit_rad=0.18,
+                release_settle_steps=25,
+                held_check_steps=50,
+                retreat_distance=0.015,
+                retreat_tilt_deg=5.0,
+                recovery_hold_steps=50,
+                recovery_lift_steps=50,
+                recovery_lift_m=0.06,
+                recovery_joint_limit_rad=0.35,
+                recovery_rejoin_steps=50,
+            )
         metadata = json.loads(Path(meta_path).read_text())
         self.meta = {int(row["demo"]): row for row in metadata}
         if len(self.meta) != len(metadata):
@@ -125,10 +138,33 @@ class Teacher:
 
         Selection is finalized on the first act(reset_timestep), because this
         API receives env rather than the reset timestep containing pelvis0.
-        No environment reference is retained.
+        The privileged sensor retains a read-only reference for live feedback.
         """
         self._ready = False
         inner = env.inner_env
+        self.sensors = PrivilegedSensors(inner)
+        self.physical_step = 0
+        self.initial_snapshot = self.sensors.snapshot(0)
+        self.current_snapshot = self.initial_snapshot
+        self.grasp_physical_step = None
+        self.release_physical_step = None
+        self.lifted_snapshot = None
+        self.release_snapshot = None
+        self.held_50_snapshot = None
+        self.dropped_in_carry = False
+        self.previous_gripper = -1.0
+        self.wrist_offset = np.zeros(2)
+        self.tilt_correction_steps = 0
+        self.tilt_before_correction = None
+        self.wrist_sensitivity = None
+        self.release_action = None
+        self.last_action = None
+        self.retreat_baseline = None
+        self.recovery_phase = None
+        self.recovery_step = 0
+        self.recovery_events = []
+        self.held_check_done = False
+        self.rejoin_step = None
         self.plate_xy = np.asarray(inner.plates[0].get_pose(), dtype=float)[:2].copy()
         self.target_offset = (
             np.asarray(inner.rack_target.get_position(), dtype=float)[:2] - TARGET_RACK_XY
@@ -140,8 +176,11 @@ class Teacher:
         self.place_shift = np.zeros(2)
         self.demo_step = 0
         self.wait_steps = {"grasp": 0, "release": 0}
+        if self.config["mode"] == "v2":
+            self.wait_steps["pre_release"] = 0
         self.max_tracking_error = 0.0
         self.tracking_error = 0.0
+        self.object_tracking_error = None
         self._ready = True
 
     def shift_at(self, demo_step: int) -> np.ndarray:
@@ -152,7 +191,7 @@ class Teacher:
         weight = np.clip((demo_step - start) / (end - start), 0.0, 1.0)
         return (1.0 - weight) * self.grasp_shift + weight * self.place_shift
 
-    def act(self, ts) -> np.ndarray:
+    def _act_replay(self, ts) -> np.ndarray:
         """Return one finite normalized float32 (20,) action."""
         if not self._ready:
             raise RuntimeError("Call reset(env) after the environment reset first")
@@ -174,6 +213,8 @@ class Teacher:
         error_world = desired_xy - state[18:20]
         self.tracking_error = float(np.linalg.norm(error_world))
         self.max_tracking_error = max(self.max_tracking_error, self.tracking_error)
+        if self.config["mode"] == "v2":
+            return self._act_v2(state, error_world)
         if t >= len(actions):
             # Exact final-action hold; no continuing base corrections after replay.
             action = actions[-1].copy()
@@ -202,3 +243,271 @@ class Teacher:
         if not paused:
             self.demo_step += 1
         return np.clip(action, -1.0, 1.0).astype(np.float32)
+
+    def observe(self) -> dict:
+        """Sample the current pre-action/terminal state without advancing clocks."""
+        snap = self.sensors.snapshot(self.physical_step)
+        self.current_snapshot = snap
+        if (
+            self.release_physical_step is not None
+            and self.physical_step >= self.release_physical_step + 50
+            and self.held_50_snapshot is None
+        ):
+            self.held_50_snapshot = snap
+        if self.grasp_physical_step is not None:
+            if self.physical_step >= self.grasp_physical_step + 60:
+                if self.lifted_snapshot is None:
+                    self.lifted_snapshot = snap
+                if self.release_snapshot is None and not snap["held"]:
+                    self.dropped_in_carry = True
+        return snap
+
+    def act(self, ts) -> np.ndarray:
+        """Return an action and record the physical timing of gripper events."""
+        if not self._ready:
+            raise RuntimeError("Call reset(env) after the environment reset first")
+        self.observe()
+        action = self._act_replay(ts)
+        if self.previous_gripper <= 0 < action[18] and self.grasp_physical_step is None:
+            self.grasp_physical_step = self.physical_step
+        if (
+            self.previous_gripper > 0 >= action[18]
+            and self.grasp_physical_step is not None
+            and self.release_snapshot is None
+        ):
+            # Command-time pose, immediately BEFORE the first opening action.
+            self.release_physical_step = self.physical_step
+            self.release_snapshot = self.current_snapshot
+            self.retreat_baseline = self.release_snapshot
+            self.release_action = action.copy()
+        self.previous_gripper = float(action[18])
+        self.last_action = action.copy()
+        self.physical_step += 1
+        return action
+
+    def diagnostics(self, *, success: bool, fell: bool) -> dict:
+        end = self.observe()
+        release = self.release_snapshot
+        return {
+            "mode": self.config["mode"],
+            "grasp_physical_step": self.grasp_physical_step,
+            "release_physical_step": self.release_physical_step,
+            "plate_at_grasp_plus_60": self.lifted_snapshot,
+            "plate_at_release": release,
+            "plate_at_end": end,
+            "plate_50_steps_after_opening": self.held_50_snapshot,
+            "nearest_site_distance_at_release": None
+            if release is None
+            else release["site_distance"],
+            "nearest_site_distance_at_end": end["site_distance"],
+            "tilt_deg_at_release": None if release is None else release["tilt_deg"],
+            "tilt_deg_at_end": end["tilt_deg"],
+            "held_at_end": end["held"],
+            "contacts_at_end": end["contacts"],
+            "drop_in_carry": self.dropped_in_carry,
+            "tilt_correction": {
+                "steps": self.tilt_correction_steps,
+                "before_deg": self.tilt_before_correction,
+                "wrist_offset_rad": self.wrist_offset.tolist(),
+                "normal_sensitivity_per_rad": self.wrist_sensitivity,
+                "unresolved_at_release": release is not None and release["tilt_deg"] > 14,
+            },
+            "recovery_events": self.recovery_events,
+            "failure_category": failure_category(
+                success,
+                fell,
+                self.initial_snapshot,
+                self.lifted_snapshot,
+                release,
+                end,
+                self.dropped_in_carry,
+            ),
+        }
+
+    def _normalize_xy(self, raw_xy) -> np.ndarray:
+        raw_xy = np.clip(raw_xy, self.low[:2], self.high[:2])
+        return 2 * (raw_xy - self.low[:2]) / (self.high[:2] - self.low[:2]) - 1
+
+    def _base_feedback(self, error_world, yaw, tolerance) -> np.ndarray:
+        """No feed-forward: stop in tolerance, otherwise beat the walk deadzone."""
+        distance = float(np.linalg.norm(error_world))
+        if distance <= tolerance:
+            return self._normalize_xy(np.zeros(2))
+        speed = max(self.config["min_planar_speed"], self.config["kp"] * distance)
+        velocity = speed * error_world / distance
+        c, s = np.cos(yaw), np.sin(yaw)
+        return self._normalize_xy(
+            [c * velocity[0] + s * velocity[1], -s * velocity[0] + c * velocity[1]]
+        )
+
+    def _correct_tilt(self):
+        """Small bounded wrist roll/pitch correction, assuming a rigid grasp."""
+        if self.tilt_before_correction is None:
+            self.tilt_before_correction = self.current_snapshot["tilt_deg"]
+        axes, _, _ = self.sensors.joint_geometry([8, 9])
+        normal = plate_up(self.current_snapshot["pose"][3:])
+        jac = np.cross(axes, normal).T
+        if self.wrist_sensitivity is None:
+            self.wrist_sensitivity = np.linalg.norm(jac, axis=0).tolist()
+        # d(normal)/dq = world_axis cross normal. Damping bounds near-singular
+        # wrists; only the local tilt-reducing component is requested.
+        delta = np.linalg.solve(
+            jac.T @ jac + 0.05 * np.eye(2), jac.T @ (np.array([0.0, -1.0, 0.0]) - normal)
+        )
+        length = np.linalg.norm(delta)
+        delta *= min(1.0, self.config["wrist_step_rad"] / max(length, 1e-12))
+        self.wrist_offset = np.clip(
+            self.wrist_offset + delta,
+            -self.config["wrist_limit_rad"],
+            self.config["wrist_limit_rad"],
+        )
+        self.tilt_correction_steps += 1
+
+    def _add_wrist_offset(self, action):
+        action[8:10] += 2 * self.wrist_offset / (self.high[8:10] - self.low[8:10])
+        return np.clip(action, -1, 1).astype(np.float32)
+
+    def _act_v2(self, state, pelvis_error) -> np.ndarray:
+        k, t, cfg = self.chosen_demo, self.demo_step, self.config
+        actions, row = self.actions[k], self.meta[k]
+        if self.release_snapshot is not None:
+            return self._retreat_action()
+        if t >= len(actions):
+            action = actions[-1].copy()
+            action[:2] = self._normalize_xy(np.zeros(2))
+            action[18:20] = -1
+            return self._add_wrist_offset(action)
+        blend_end = row["release_step"] - cfg["pre_release_steps"]
+        object_phase = t >= blend_end
+        error = pelvis_error
+        tolerance = cfg["tolerance"]
+        if object_phase:
+            snap = self.current_snapshot
+            error = np.asarray(snap["site_xyz"])[:2] - np.asarray(snap["pose"])[:2]
+            self.object_tracking_error = float(np.linalg.norm(error))
+            tolerance = cfg["object_tolerance"]
+        paused = False
+        if t == row["grasp_step"]:
+            if (
+                self.tracking_error > cfg["tolerance"]
+                and self.wait_steps["grasp"] < cfg["max_wait"]
+            ):
+                self.wait_steps["grasp"] += 1
+                paused = True
+        event = None
+        if t == blend_end:
+            event = "pre_release"
+        elif t == row["release_step"]:
+            event = "release"
+        if event is not None:
+            position_bad = self.object_tracking_error >= cfg["object_gate_tolerance"]
+            tilt_bad = (
+                event == "release"
+                and self.current_snapshot["tilt_deg"] > cfg["tilt_limit_deg"]
+                and self.tilt_correction_steps < cfg["tilt_max_wait"]
+            )
+            if (position_bad or tilt_bad) and self.wait_steps[event] < cfg["object_max_wait"]:
+                self.wait_steps[event] += 1
+                paused = True
+                if tilt_bad:
+                    self._correct_tilt()
+        # At blend_end hold that pose: t-1 is appropriate for the actual gripper
+        # transitions, but would step backwards across the pre-lowering gate.
+        index = t - 1 if paused and event != "pre_release" else t
+        action = self._add_wrist_offset(actions[index].copy())
+        action[:2] = self._base_feedback(error, state[21], tolerance)
+        if not paused:
+            if t == row["release_step"]:
+                action[:2] = self._normalize_xy(np.zeros(2))
+                action[18:20] = -1
+            self.demo_step += 1
+        return action
+
+    def _start_recovery(self, reason):
+        self.recovery_phase = "hold"
+        self.recovery_step = 0
+        self.recovery_action = self.last_action.copy()
+        self.recovery_action[:2] = self._normalize_xy(np.zeros(2))
+        self.recovery_action[18:20] = -1
+        self.rejoin_step = None
+        self.recovery_events.append(
+            {"step": self.physical_step, "reason": reason, "plate": self.current_snapshot}
+        )
+
+    def _recovery_action(self):
+        cfg = self.config
+        action = self.recovery_action.copy()
+        if self.recovery_phase == "hold":
+            self.recovery_step += 1
+            if self.recovery_step >= cfg["recovery_hold_steps"]:
+                self.recovery_phase = "lift"
+                self.recovery_step = 0
+                _, _, self.lift_start_xyz = self.sensors.joint_geometry([4, 7])
+                self.lift_start_targets = action[[4, 7]].astype(float).copy()
+            return action
+        self.recovery_step += 1
+        axes, anchors, hand = self.sensors.joint_geometry([4, 7])
+        jac = np.cross(axes, hand - anchors).T
+        fraction = min(1.0, self.recovery_step / cfg["recovery_lift_steps"])
+        goal = self.lift_start_xyz + np.array([0.0, 0.0, cfg["recovery_lift_m"] * fraction])
+        delta = np.linalg.solve(jac.T @ jac + 0.002 * np.eye(2), jac.T @ (goal - hand))
+        delta = np.clip(delta, -0.015, 0.015)
+        normalized = 2 * delta / (self.high[[4, 7]] - self.low[[4, 7]])
+        limit = 2 * cfg["recovery_joint_limit_rad"] / (self.high[[4, 7]] - self.low[[4, 7]])
+        action[[4, 7]] = np.clip(
+            action[[4, 7]] + normalized,
+            self.lift_start_targets - limit,
+            self.lift_start_targets + limit,
+        )
+        action = np.clip(action, -1, 1).astype(np.float32)
+        self.recovery_action = action.copy()
+        if self.recovery_step >= cfg["recovery_lift_steps"]:
+            self.recovery_phase = None
+            self.rejoin_step = 0
+            self.rejoin_action = action.copy()
+            # Re-arm against additional disturbance rather than repeatedly
+            # reacting to the same already-recorded displacement.
+            self.retreat_baseline = self.current_snapshot
+        return action
+
+    def _retreat_action(self) -> np.ndarray:
+        cfg, snap = self.config, self.current_snapshot
+        elapsed = self.physical_step - self.release_physical_step
+        reason = None
+        if elapsed >= cfg["held_check_steps"] and not self.held_check_done:
+            self.held_check_done = True
+            if snap["held"]:
+                if self.recovery_phase is None:
+                    reason = "held_50_steps_after_opening"
+                else:
+                    # The requested recovery is already in progress. Retain
+                    # the exact deadline observation without restarting it.
+                    self.recovery_events[-1]["also_held_after_50_steps"] = True
+        if self.recovery_phase is not None:
+            return self._recovery_action()
+        baseline = self.retreat_baseline
+        distance = np.linalg.norm(np.asarray(snap["pose"])[:3] - np.asarray(baseline["pose"])[:3])
+        if elapsed > cfg["release_settle_steps"]:
+            if distance > cfg["retreat_distance"]:
+                reason = reason or "plate_displacement"
+            elif snap["tilt_deg"] > baseline["tilt_deg"] + cfg["retreat_tilt_deg"]:
+                reason = reason or "plate_tilt_increased"
+        if reason is not None:
+            self._start_recovery(reason)
+            return self._recovery_action()
+        if elapsed <= cfg["release_settle_steps"]:
+            return self.release_action.copy()
+        actions = self.actions[self.chosen_demo]
+        action = self._add_wrist_offset(actions[min(self.demo_step, len(actions) - 1)].copy())
+        # No locomotion after release: do not drag a plate while withdrawing.
+        action[:2] = self._normalize_xy(np.zeros(2))
+        action[18:20] = -1
+        if self.rejoin_step is not None:
+            self.rejoin_step += 1
+            weight = min(1.0, self.rejoin_step / cfg["recovery_rejoin_steps"])
+            action[4:18] = (1 - weight) * self.rejoin_action[4:18] + weight * action[4:18]
+            if weight == 1:
+                self.rejoin_step = None
+        if self.demo_step < len(actions):
+            self.demo_step += 1
+        return np.clip(action, -1, 1).astype(np.float32)

@@ -106,13 +106,17 @@ def save_demo(directory: Path, seed: int, slot: int, rgb, states, actions) -> Pa
     return destination
 
 
-def run_episode(env, teacher: Teacher, seed: int, save_directory: Path | None) -> dict:
+def run_episode(
+    env, teacher: Teacher, seed: int, save_directory: Path | None, *, trace=None
+) -> dict:
     started = time.monotonic()
     ts = env.reset(seed=seed)
     from advaitic_eval.environment import observed_source_slot
 
     slot = observed_source_slot(env)
     teacher.reset(env)
+    if trace is not None:
+        trace(0, teacher, teacher.current_snapshot, False)
     rgb, states, actions = [], [], []
     steps = 0
     while not ts.last():
@@ -126,6 +130,9 @@ def run_episode(env, teacher: Teacher, seed: int, save_directory: Path | None) -
                 rgb.append(np.asarray(ts.rgb_obs, dtype=np.uint8).copy())
         ts = env.step(action)
         steps += 1
+        snapshot = teacher.observe()
+        if trace is not None:
+            trace(steps, teacher, snapshot, ts.last())
     fell = bool(env.episode_fell())
     success = bool(env.episode_succeeded() and not fell)
     record = {
@@ -144,6 +151,7 @@ def run_episode(env, teacher: Teacher, seed: int, save_directory: Path | None) -
         "demo_step": teacher.demo_step,
         "demo_file": None,
     }
+    record.update(teacher.diagnostics(success=success, fell=fell))
     if success and save_directory is not None:
         record["demo_file"] = str(save_demo(save_directory, seed, slot, rgb, states, actions))
     record["wall_time"] = time.monotonic() - started
@@ -155,13 +163,20 @@ def run(args) -> int:
     teacher = Teacher(
         args.demos,
         args.meta,
+        mode=args.mode,
         kp=args.kp,
         tolerance=args.tolerance,
         max_wait=args.max_wait,
     )
     # Prevent accidentally resuming a changed controller/data configuration.
     digest = hashlib.sha256()
-    for path in (Path(__file__), Path(__file__).with_name("teacher.py"), args.demos, args.meta):
+    for path in (
+        Path(__file__),
+        Path(__file__).with_name("teacher.py"),
+        Path(__file__).with_name("diagnostics.py"),
+        args.demos,
+        args.meta,
+    ):
         digest.update(path.read_bytes())
     digest.update((REPO_DIR / "src/advaitic_eval/action_layout.json").read_bytes())
     digest.update(json.dumps(teacher.config, sort_keys=True).encode())
@@ -196,7 +211,8 @@ def run(args) -> int:
                     records[seed] = record
                     print(
                         f"seed={seed} slot={record['slot']} demo={record['chosen_demo']} "
-                        f"success={record['success']} end={record['termination']} "
+                        f"success={record['success']} category={record['failure_category']} "
+                        f"end={record['termination']} "
                         f"steps={record['steps']} error={record['max_pelvis_tracking_error']:.4f}m",
                         flush=True,
                     )
@@ -212,6 +228,22 @@ def run(args) -> int:
     return 0
 
 
+def add_controller_arguments(parser):
+    parser.add_argument("--mode", choices=("v1", "v2"), default="v2")
+    parser.add_argument("--demos", type=Path, default=METHOD_DIR / "data/demos_lowdim.npz")
+    parser.add_argument("--meta", type=Path, default=METHOD_DIR / "data/demo_meta.json")
+    parser.add_argument("--kp", type=float, default=2.0, help="Base position gain in 1/s")
+    parser.add_argument(
+        "--tolerance",
+        type=float,
+        default=None,
+        help="Pelvis gate tolerance in m (v1: .01; v2: .015)",
+    )
+    parser.add_argument(
+        "--max-wait", type=int, default=100, help="Pelvis gate wait limit (v2: grasp only)"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -219,11 +251,7 @@ def main() -> int:
     )
     parser.add_argument("--out", type=Path, required=True, help="Append-only episode JSONL")
     parser.add_argument("--save-demos", type=Path, help="Save successful episodes atomically here")
-    parser.add_argument("--demos", type=Path, default=METHOD_DIR / "data/demos_lowdim.npz")
-    parser.add_argument("--meta", type=Path, default=METHOD_DIR / "data/demo_meta.json")
-    parser.add_argument("--kp", type=float, default=2.0, help="Base position gain in 1/s")
-    parser.add_argument("--tolerance", type=float, default=0.01, help="Gate tracking error in m")
-    parser.add_argument("--max-wait", type=int, default=100, help="Max extra steps per event")
+    add_controller_arguments(parser)
     args = parser.parse_args()
     try:
         return run(args)
