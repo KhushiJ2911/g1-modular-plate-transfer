@@ -25,3 +25,13 @@ Machine: RTX 3050 4 GB laptop (15 W cap), 16 threads, 15 GB RAM. Max 2 sim worke
 | 03:14 | Thermal: CPU pkg 92 °C, GPU 88 °C with 3 sim workers (EGL rendering) | Killed workers; cooled to 74/69 °C | Cap at 2 sim workers + watchdog |
 
 Route decision (03:10): **C** (privileged teacher → vision student), with **B** (BC on 60 human demos) as the baseline. Reasoning in `PLAN.md`.
+
+## Phase 1: baseline and teacher (Wed 18 Nov)
+
+| Time | What | Commit | Seeds | Result | Interpretation |
+|---|---|---|---|---|---|
+| 03:32 | Teacher v1 (privileged nearest-demo transfer + residual pelvis tracking), kp=2, tol=1 cm, max_wait=100 | teacher@6c9f0e6 | 2000000–2000029 | **27/30 (90%)**. All 3 failures are source slot 1 (3/6 slot-1 seeds), 24/24 on other slots | Grasp always worked (plate traces). Failures: placed 23.6° tilted (limit 20°); lowered 6.5 cm from slot and toppled; dragged off the rack by the demo's retreat. The robot-centric tracking doesn't close the loop on the plate |
+| 03:32 | Same run: pelvis gates | | | 18/30 hit the 100-step release wait | 1 cm tolerance is below what the WBC can settle to (walk-entry speed ≈ 0.05 m/s, P-command too small) |
+| 03:36 | BC trainer throughput test, 150 steps | bc@36337e1 | | microbatch 64: 0.43 GB peak; GPU-only step 5.7 it/s, data loader 349 it/s | GPU-bound (15 W cap). Use full batch, no accumulation |
+| 03:39 | **BC baseline training** human60, H=20, exec 10, 8k steps (≈30 epochs), EMA 0.999, DrQ shift | bc@36337e1 | 54 train / 6 val demos | running | 8k instead of the 20k default: time budget |
+| 03:58 | Teacher v1 data generation, successful episodes only | teacher@6c9f0e6 | 2100000–2100399 | running | v1 is good enough as a data source (failures are filtered out) |
