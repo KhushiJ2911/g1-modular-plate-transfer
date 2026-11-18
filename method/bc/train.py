@@ -21,9 +21,11 @@ from .dataset import EpisodeStore
 from .model import (
     PROPRIO_DIMS,
     BCModel,
+    action_loss_terms,
+    action_masks,
     auxiliary_loss,
     load_bc_weights,
-    masked_l1,
+    validate_gripper_config,
     validate_proprio_dims,
 )
 
@@ -56,10 +58,20 @@ class Config:
     ensemble_decay: float = 0.01
     aux_weight: float = 0.1
     proprio_dims: tuple = PROPRIO_DIMS
+    gripper_loss: str = "l1"
+    gripper_weight: float = 1.0
+    gripper_pos_weight: float = 1.0
+    gripper_threshold: float = 0.5
 
 
 def validate_config(config):
     validate_proprio_dims(config.proprio_dims)
+    validate_gripper_config(
+        config.gripper_loss,
+        config.gripper_weight,
+        config.gripper_pos_weight,
+        config.gripper_threshold,
+    )
     if not math.isfinite(config.aux_weight) or config.aux_weight < 0:
         raise ValueError("aux_weight must be finite and nonnegative")
     if not 1 <= config.exec_steps <= config.horizon <= 50:
@@ -154,17 +166,75 @@ def to_device(batch, device):
     return {key: value.to(device, non_blocking=True) for key, value in batch.items()}
 
 
+def loss_terms(prediction, batch, config):
+    return action_loss_terms(
+        prediction.float(),
+        batch["target"],
+        batch["pad_mask"],
+        batch["label_mask"],
+        gripper_loss=config.gripper_loss,
+        gripper_pos_weight=config.gripper_pos_weight,
+        gripper_threshold=config.gripper_threshold,
+    )
+
+
+class ActionMetrics:
+    """Aggregate sums before dividing, so partial labels have the right weight."""
+
+    def __init__(self):
+        self.totals = {}
+
+    def add(self, terms):
+        for key, value in terms.items():
+            self.totals[key] = self.totals.get(key, 0.0) + float(value.detach())
+
+    def means(self):
+        def ratio(numerator, denominator, empty=0.0):
+            count = self.totals.get(denominator, 0)
+            return self.totals.get(numerator, 0) / count if count else empty
+
+        return {
+            "l1": ratio("l1_sum", "l1_count"),
+            "gripper_bce": ratio("gripper_bce_sum", "gripper_count"),
+            "gripper_accuracy": ratio("gripper_correct", "gripper_count", float("nan")),
+            "gripper_open_accuracy": ratio(
+                "gripper_open_correct", "gripper_open_count", float("nan")
+            ),
+        }
+
+
+def prepare_log(path, columns):
+    """Extend legacy CSV headers on resume while retaining their existing rows."""
+    if not path.exists() or not path.stat().st_size:
+        return
+    with path.open(newline="") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames == columns:
+            return
+        rows = list(reader)
+    with tempfile.NamedTemporaryFile(mode="w", newline="", dir=path.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            writer = csv.DictWriter(stream, fieldnames=columns)
+            writer.writeheader()
+            writer.writerows(rows)
+            stream.flush()
+            os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
 @torch.inference_mode()
-def validate(model, loader, device, cuda):
+def validate(model, loader, device, cuda, config):
     model.eval()
-    total, count, aux_total, aux_count = 0.0, 0, 0.0, 0
+    metrics = ActionMetrics()
+    aux_total, aux_count = 0.0, 0
     for batch in loader:
         batch = to_device(batch, device)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
             prediction, aux = model(batch["rgb"], batch["proprio"], return_aux=True)
-            loss = masked_l1(
-                prediction.float(), batch["target"], batch["pad_mask"], batch["label_mask"]
-            )
+            metrics.add(loss_terms(prediction, batch, config))
             if aux is not None:
                 labeled = int(batch["aux_mask"].sum())
                 aux_total += (
@@ -172,10 +242,9 @@ def validate(model, loader, device, cuda):
                     * labeled
                 )
                 aux_count += labeled
-        valid = int((batch["label_mask"] & ~batch["pad_mask"].unsqueeze(-1)).sum())
-        total += float(loss) * valid
-        count += valid
-    return total / max(count, 1), aux_total / aux_count if aux_count else 0.0
+    means = metrics.means()
+    action_loss = means["l1"] + config.gripper_weight * means["gripper_bce"]
+    return action_loss, aux_total / aux_count if aux_count else 0.0, means
 
 
 @torch.no_grad()
@@ -247,8 +316,14 @@ def train(config, *, stop_after=None, init_from=None):
         if previous.get("version") != 2:
             raise ValueError("Legacy training checkpoint: use --init-from in a new run directory")
         allowed_changes = {"run_dir", "cache_dir", "num_workers", "device"}
+        # Older version-2 checkpoints predate these fields and used L1.
+        old_config = {
+            key: getattr(Config(), key)
+            for key in ("gripper_loss", "gripper_weight", "gripper_pos_weight", "gripper_threshold")
+        }
+        old_config.update(previous["config"])
         for key, value in asdict(config).items():
-            if key not in allowed_changes and value != previous["config"][key]:
+            if key not in allowed_changes and value != old_config[key]:
                 raise ValueError(f"Resume config changed: {key}; use a new run directory")
         if previous["data_digest"] != store.digest:
             raise ValueError("Resume data changed; use a new run directory")
@@ -278,6 +353,7 @@ def train(config, *, stop_after=None, init_from=None):
     step = 0
     last_val = float("nan")
     last_val_aux = float("nan")
+    last_val_metrics = dict.fromkeys(ActionMetrics().means(), float("nan"))
     if previous is not None:
         model.load_state_dict(previous["model"])
         ema.load_state_dict(previous["ema"])
@@ -286,6 +362,7 @@ def train(config, *, stop_after=None, init_from=None):
         step = previous["step"]
         last_val = previous["val_loss"]
         last_val_aux = previous["val_aux_loss"]
+        last_val_metrics.update(previous.get("val_metrics", {}))
         restore_rng(previous["rng"], cuda)
         print(f"Resumed {checkpoint_path} at step {step}", flush=True)
     del previous
@@ -308,6 +385,10 @@ def train(config, *, stop_after=None, init_from=None):
         **loader_options,
     )
     log_path = run_dir / "log.csv"
+    metric_names = tuple(ActionMetrics().means())
+    columns = ["step", "train_loss", "val_loss", "train_aux_loss", "val_aux_loss", "lr", "it/s"]
+    columns += [f"{split}_{key}" for split in ("train", "val") for key in metric_names]
+    prepare_log(log_path, columns)
     print(
         f"{len(store.train_ids)} train / {len(store.val_ids)} val episodes; "
         f"{len(train_data)} train frames; cache={store.image_path}",
@@ -315,12 +396,11 @@ def train(config, *, stop_after=None, init_from=None):
     )
     started, logged_step = time.monotonic(), step
     train_total, train_count, aux_total, aux_count = 0.0, 0, 0.0, 0
+    train_metrics = ActionMetrics()
     with log_path.open("a", newline="") as log:
         writer = csv.writer(log)
         if log.tell() == 0:
-            writer.writerow(
-                ["step", "train_loss", "val_loss", "train_aux_loss", "val_aux_loss", "lr", "it/s"]
-            )
+            writer.writerow(columns)
             log.flush()
         model.train()
         for batch in train_loader:
@@ -330,26 +410,30 @@ def train(config, *, stop_after=None, init_from=None):
             ):
                 group["lr"] = base_lr * factor
             optimizer.zero_grad(set_to_none=True)
-            valid_count = (batch["label_mask"] & ~batch["pad_mask"].unsqueeze(-1)).sum().item()
+            l1_mask, gripper_mask = action_masks(
+                batch["target"],
+                batch["pad_mask"],
+                batch["label_mask"],
+                gripper_loss=config.gripper_loss,
+            )
+            l1_count = int(l1_mask.sum())
+            gripper_count = int(gripper_mask.sum())
             labeled_count = batch["aux_mask"].sum().item() if config.aux_weight > 0 else 0
             batch_loss = 0.0
             batch_aux = 0.0
             # Only microbatch_size * 3 images occupy backbone activation RAM.
-            # Weight by valid elements to preserve the logical batch-64 mean.
+            # Each loss uses its own logical-batch denominator, never a shared
+            # fraction that would dilute gripper-only samples.
             for start in range(0, len(batch["rgb"]), config.microbatch_size):
                 micro = to_device(
                     {k: v[start : start + config.microbatch_size] for k, v in batch.items()}, device
                 )
                 with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
                     prediction, aux = model(micro["rgb"], micro["proprio"], return_aux=True)
-                    action_loss = masked_l1(
-                        prediction.float(), micro["target"], micro["pad_mask"], micro["label_mask"]
-                    )
-                    micro_count = (
-                        (micro["label_mask"] & ~micro["pad_mask"].unsqueeze(-1)).sum().item()
-                    )
-                    fraction = micro_count / max(valid_count, 1)
-                    action_loss = action_loss * fraction
+                    terms = loss_terms(prediction, micro, config)
+                    action_loss = terms["l1_sum"] / max(
+                        l1_count, 1
+                    ) + config.gripper_weight * terms["gripper_bce_sum"] / max(gripper_count, 1)
                     aux_loss = action_loss.new_zeros(())
                     if aux is not None and labeled_count:
                         aux_loss = auxiliary_loss(
@@ -358,11 +442,15 @@ def train(config, *, stop_after=None, init_from=None):
                         aux_loss = aux_loss * micro["aux_mask"].sum() / labeled_count
                     loss = action_loss + config.aux_weight * aux_loss
                 scaler.scale(loss).backward()
+                train_metrics.add(terms)
                 batch_loss += float(action_loss.detach())
                 batch_aux += float(aux_loss.detach())
             # A gripper-only batch can contain no oracle-defined states. Do not
             # apply weight decay or Adam momentum without any supervision.
-            if valid_count or labeled_count:
+            action_labeled = l1_count or (
+                config.gripper_loss == "bce" and config.gripper_weight > 0 and gripper_count
+            )
+            if action_labeled or labeled_count:
                 scaler.unscale_(optimizer)
                 norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 if not cuda and not torch.isfinite(norm):
@@ -380,7 +468,9 @@ def train(config, *, stop_after=None, init_from=None):
             check = step % config.save_every == 0 or step == stop
             evaluate = step % config.val_every == 0 or check
             if evaluate:
-                last_val, last_val_aux = validate(ema, val_loader, device, cuda)
+                last_val, last_val_aux, last_val_metrics = validate(
+                    ema, val_loader, device, cuda, config
+                )
             if step % config.log_every == 0 or evaluate:
                 if cuda:
                     torch.cuda.synchronize(device)
@@ -388,6 +478,7 @@ def train(config, *, stop_after=None, init_from=None):
                 throughput = (step - logged_step) / max(elapsed, 1e-9)
                 train_loss = train_total / train_count
                 train_aux = aux_total / aux_count if aux_count else 0.0
+                means = train_metrics.means()
                 writer.writerow(
                     [
                         step,
@@ -397,16 +488,25 @@ def train(config, *, stop_after=None, init_from=None):
                         last_val_aux,
                         optimizer.param_groups[1]["lr"],
                         throughput,
+                        *(means[key] for key in metric_names),
+                        *(last_val_metrics[key] for key in metric_names),
                     ]
                 )
                 log.flush()
                 print(
                     f"step={step} train={train_loss:.5f} val={last_val:.5f} "
                     f"aux={train_aux:.5f} val_aux={last_val_aux:.5f} "
+                    f"l1={means['l1']:.5f}/{last_val_metrics['l1']:.5f} "
+                    f"gripper_bce={means['gripper_bce']:.5f}/{last_val_metrics['gripper_bce']:.5f} "
+                    f"gripper_acc={means['gripper_accuracy']:.3f}/"
+                    f"{last_val_metrics['gripper_accuracy']:.3f} "
+                    f"open_acc={means['gripper_open_accuracy']:.3f}/"
+                    f"{last_val_metrics['gripper_open_accuracy']:.3f} "
                     f"lr={optimizer.param_groups[1]['lr']:.3g} it/s={throughput:.2f}",
                     flush=True,
                 )
                 train_total, train_count, aux_total, aux_count = 0.0, 0, 0.0, 0
+                train_metrics = ActionMetrics()
                 started, logged_step = time.monotonic(), step
             if check:
                 atomic_save(
@@ -425,6 +525,7 @@ def train(config, *, stop_after=None, init_from=None):
                         "val_episodes": [store.files[i] for i in store.val_ids],
                         "val_loss": last_val,
                         "val_aux_loss": last_val_aux,
+                        "val_metrics": last_val_metrics,
                         "init_from": init_source,
                     },
                     checkpoint_path,

@@ -1,12 +1,26 @@
 """Shared BC network; kept in submission so evaluator digests cover inference code."""
 
+import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
 from torchvision.models import ResNet18_Weights, resnet18
 
 ACTIVE_DIMS = (0, 1, 4, 5, 6, 7, 8, 9, 10, 18)
+GRIPPER_INDEX = ACTIVE_DIMS.index(18)
 PROPRIO_DIMS = (*range(9), *range(18, 22), *range(40, 44), 44, 45)
+
+
+def validate_gripper_config(loss="l1", weight=1.0, pos_weight=1.0, threshold=0.5):
+    if loss not in ("l1", "bce"):
+        raise ValueError("gripper_loss must be l1 or bce")
+    if not math.isfinite(weight) or weight < 0:
+        raise ValueError("gripper_weight must be finite and nonnegative")
+    if not math.isfinite(pos_weight) or pos_weight <= 0:
+        raise ValueError("gripper_pos_weight must be finite and positive")
+    if not math.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError("gripper_threshold must be finite and in [0, 1]")
 
 
 def validate_proprio_dims(dims):
@@ -125,6 +139,60 @@ def masked_l1(prediction, target, pad_mask, label_mask=None):
     if label_mask is not None:
         valid = valid & label_mask
     return ((prediction - target).abs() * valid).sum() / valid.sum().clamp_min(1)
+
+
+def action_masks(target, pad_mask, label_mask=None, *, gripper_loss="l1"):
+    """Separate denominators for continuous actions and the gripper classifier."""
+    valid = (~pad_mask).unsqueeze(-1).expand_as(target)
+    if label_mask is not None:
+        valid = valid & label_mask
+    gripper = valid[..., GRIPPER_INDEX]
+    if gripper_loss == "bce":
+        valid = valid.clone()
+        valid[..., GRIPPER_INDEX] = False
+    return valid, gripper
+
+
+def action_loss_terms(
+    prediction,
+    target,
+    pad_mask,
+    label_mask=None,
+    *,
+    gripper_loss="l1",
+    gripper_pos_weight=1.0,
+    gripper_threshold=0.5,
+):
+    """Additive sums/counts for exact logical-batch losses and dataset metrics.
+
+    Dim 18 has unchanged shape but represents an open-class logit in BCE mode.
+    Empty supervision produces differentiable zero loss and zero gradients.
+    """
+    valid, gripper = action_masks(target, pad_mask, label_mask, gripper_loss=gripper_loss)
+    value = prediction[..., GRIPPER_INDEX]
+    opened = target[..., GRIPPER_INDEX] < 0
+    if gripper_loss == "bce":
+        errors = F.binary_cross_entropy_with_logits(
+            value,
+            opened.to(value.dtype),
+            pos_weight=value.new_tensor(gripper_pos_weight),
+            reduction="none",
+        )
+        bce_sum = (errors * gripper).sum()
+        predicted_open = value.sigmoid() > gripper_threshold
+    else:
+        bce_sum = value.sum() * 0
+        predicted_open = value < 0
+    correct = predicted_open == opened
+    return {
+        "l1_sum": ((prediction - target).abs() * valid).sum(),
+        "l1_count": valid.sum(),
+        "gripper_bce_sum": bce_sum,
+        "gripper_count": gripper.sum(),
+        "gripper_correct": (correct & gripper).sum(),
+        "gripper_open_count": (opened & gripper).sum(),
+        "gripper_open_correct": (correct & opened & gripper).sum(),
+    }
 
 
 def auxiliary_loss(prediction, target, mask):

@@ -7,6 +7,7 @@ import os
 import tempfile
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import torch
@@ -14,8 +15,16 @@ import torch
 from submission.policy import BCPolicy, make_policy
 
 from .dataset import PRIV_LABELS, EpisodeStore
-from .model import ACTIVE_DIMS, PROPRIO_DIMS, BCModel, auxiliary_loss, masked_l1
-from .train import Config, StepBatches, atomic_save, initialize_from, train
+from .model import (
+    ACTIVE_DIMS,
+    GRIPPER_INDEX,
+    PROPRIO_DIMS,
+    BCModel,
+    action_loss_terms,
+    auxiliary_loss,
+    masked_l1,
+)
+from .train import ActionMetrics, Config, StepBatches, atomic_save, initialize_from, train
 
 
 def fake_data(root):
@@ -189,6 +198,157 @@ def check_losses():
     assert auxiliary_loss(aux, target, torch.zeros_like(mask)) == 0
 
 
+def check_gripper_losses():
+    torch.manual_seed(17)
+    prediction = torch.randn(4, 3, len(ACTIVE_DIMS), requires_grad=True)
+    target = torch.ones_like(prediction)
+    target[0, 0, GRIPPER_INDEX] = -1
+    target[1, :, GRIPPER_INDEX] = -1
+    mask = torch.zeros_like(target, dtype=torch.bool)
+    mask[0] = True  # Full sample.
+    mask[1, :, GRIPPER_INDEX] = True  # Gripper-only sample.
+    mask[2, :, :2] = True  # No gripper labels.
+    pad = torch.tensor([[False, False, True]] * 4)
+    terms = action_loss_terms(
+        prediction, target, pad, mask, gripper_loss="bce", gripper_pos_weight=3
+    )
+    assert terms["l1_count"] == 22 and terms["gripper_count"] == 4
+    assert terms["gripper_open_count"] == 3
+    valid = mask & ~pad.unsqueeze(-1)
+    gripper = valid[..., GRIPPER_INDEX]
+    expected = torch.nn.functional.binary_cross_entropy_with_logits(
+        prediction[..., GRIPPER_INDEX][gripper],
+        (target[..., GRIPPER_INDEX][gripper] < 0).float(),
+        pos_weight=torch.tensor(3.0),
+    )
+    torch.testing.assert_close(terms["gripper_bce_sum"] / terms["gripper_count"], expected)
+    weight = 2.5
+    loss = terms["l1_sum"] / terms["l1_count"] + weight * expected
+    gradient = torch.autograd.grad(loss, prediction, retain_graph=True)[0]
+    assert (gradient[~valid] == 0).all() and (gradient[valid] != 0).all()
+    metrics = ActionMetrics()
+    accumulated = prediction.sum() * 0
+    for i in range(4):
+        micro = action_loss_terms(
+            prediction[i : i + 1],
+            target[i : i + 1],
+            pad[i : i + 1],
+            mask[i : i + 1],
+            gripper_loss="bce",
+            gripper_pos_weight=3,
+        )
+        metrics.add(micro)
+        accumulated = (
+            accumulated
+            + micro["l1_sum"] / terms["l1_count"]
+            + weight * micro["gripper_bce_sum"] / terms["gripper_count"]
+        )
+    torch.testing.assert_close(accumulated, loss)
+    torch.testing.assert_close(torch.autograd.grad(accumulated, prediction)[0], gradient)
+    torch.testing.assert_close(torch.tensor(metrics.means()["gripper_bce"]), expected)
+    empty = action_loss_terms(prediction, target, pad, torch.zeros_like(mask), gripper_loss="bce")
+    zero = empty["l1_sum"] + empty["gripper_bce_sum"]
+    assert zero == 0
+    assert not torch.autograd.grad(zero, prediction)[0].any()
+    # Legacy mode is exactly the existing all-active-dimension masked L1.
+    old = action_loss_terms(prediction, target, pad, mask)
+    torch.testing.assert_close(
+        old["l1_sum"] / old["l1_count"], masked_l1(prediction, target, pad, mask)
+    )
+
+
+def check_rare_open_overfit():
+    """Fit the actual BC action head on synthetic features, without image training."""
+    torch.manual_seed(19)
+    model = BCModel(horizon=3, pretrained=False).eval()
+    # Fixed ambiguous observations: 1/32 labels open, with no separating cue.
+    # pos_weight lets BCE overcome that prior; L1 retains its closed median.
+    with torch.no_grad():
+        features = model.head[:-1](torch.zeros(32, model.head[0].in_features))
+    target = torch.ones(32, 3, len(ACTIVE_DIMS))
+    target[0, :, GRIPPER_INDEX] = -1
+    mask = torch.zeros_like(target, dtype=torch.bool)
+    mask[..., GRIPPER_INDEX] = True
+    pad = torch.zeros(32, 3, dtype=torch.bool)
+    results = {}
+    for mode, initial in (("bce", -2.0), ("l1", 0.93)):
+        head = model.head[-1]
+        with torch.no_grad():
+            head.weight.zero_()
+            head.bias.fill_(initial)
+        optimizer = torch.optim.Adam(head.parameters(), lr=0.03)
+        history = []
+        for step in range(101):
+            prediction = head(features).reshape_as(target)
+            terms = action_loss_terms(
+                prediction, target, pad, mask, gripper_loss=mode, gripper_pos_weight=62
+            )
+            loss = terms["l1_sum"] / terms["l1_count"].clamp_min(1) + terms[
+                "gripper_bce_sum"
+            ] / terms["gripper_count"].clamp_min(1)
+            if step in (0, 100):
+                history.append((float(loss.detach()), float(terms["gripper_open_correct"] / 3)))
+            if step < 100:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+        results[mode] = history
+    assert results["bce"][1][0] < results["bce"][0][0]
+    assert results["bce"][0][1] == 0 and results["bce"][1][1] == 1
+    assert results["l1"][1][1] == 0
+    print(f"Rare-open synthetic head overfit (loss, open accuracy): {results}")
+
+
+def check_bce_policy(root, checkpoint, obs):
+    class FixedChunk(torch.nn.Module):
+        def __init__(self, logits):
+            super().__init__()
+            self.chunk = torch.zeros(1, 20, len(ACTIVE_DIMS))
+            self.chunk[0, :, GRIPPER_INDEX] = logits
+
+        def forward(self, *args):
+            return self.chunk
+
+    saved = dict(checkpoint)
+    saved["config"] = {**checkpoint["config"], "gripper_loss": "bce", "gripper_threshold": 0.8}
+    path = root / "bce-policy.pt"
+    atomic_save(saved, path)
+    logits = torch.tensor([-4, -1, 0, 1, 2, 4, 0, 2, -4, 4] * 2, dtype=torch.float32)
+    with patch.dict(os.environ):
+        os.environ.pop("ADV_GRIPPER_THRESHOLD", None)
+        policy = BCPolicy(path)
+        policy.model = FixedChunk(logits)
+        expected = np.where(logits[:10].sigmoid().numpy() > 0.8, -1, 1)
+        np.testing.assert_array_equal(policy(obs)[:, 18], expected)
+        os.environ["ADV_GRIPPER_THRESHOLD"] = "0.5"
+        policy = BCPolicy(path)
+        policy.model = FixedChunk(logits)
+        np.testing.assert_array_equal(policy(obs)[:, 18], np.where(logits[:10] > 0, -1, 1))
+        # Strict threshold: probability == 0.5 closes. Legacy ignores even a bad override.
+        os.environ["ADV_GRIPPER_THRESHOLD"] = "invalid"
+        old_path = root / "legacy.pt"
+        old = BCPolicy(old_path)
+        old.model = FixedChunk(logits)
+        np.testing.assert_array_equal(old(obs)[:, 18], np.where(logits[:10] >= 0, 1, -1))
+        for invalid in ("nan", "-0.1", "1.1", "invalid"):
+            os.environ["ADV_GRIPPER_THRESHOLD"] = invalid
+            try:
+                BCPolicy(path)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"Accepted invalid threshold {invalid}")
+        os.environ.pop("ADV_GRIPPER_THRESHOLD")
+        saved["config"]["temporal_ensemble"] = True
+        atomic_save(saved, path)
+        policy = BCPolicy(path)
+        policy.model = FixedChunk(torch.full((20,), 4.0))
+        assert (policy(obs)[:, 18] == -1).all()
+        policy.model = FixedChunk(torch.full((20,), -1.0))
+        # The overlapping logits average to ~1.51, above logit(0.8), at every step.
+        assert (policy(obs)[:, 18] == -1).all()
+
+
 def check_initialization(checkpoint, path, legacy_path):
     stats = {key: value.copy() for key, value in checkpoint["stats"].items()}
     stats["proprio_mean"] += 0.5
@@ -298,6 +458,8 @@ def main():
         directories, episodes = fake_data(root)
         store = check_dataset(root, directories, episodes)
         check_losses()
+        check_gripper_losses()
+        check_rare_open_overfit()
         config = Config(
             data_dirs=tuple(directories),
             data_weights=(2, 1, 1),
@@ -316,6 +478,19 @@ def main():
             pretrained=False,
         )
         train(config, stop_after=10)
+        # Emulate a version-2 checkpoint/log written before gripper config/metrics.
+        old_path = root / "interrupted" / "last.pt"
+        old = torch.load(old_path, map_location="cpu", weights_only=False)
+        for key in ("gripper_loss", "gripper_weight", "gripper_pos_weight", "gripper_threshold"):
+            old["config"].pop(key)
+        old.pop("val_metrics")
+        atomic_save(old, old_path)
+        del old
+        log_path = root / "interrupted" / "log.csv"
+        with log_path.open(newline="") as stream:
+            old_rows = list(csv.reader(stream))
+        with log_path.open("w", newline="") as stream:
+            csv.writer(stream).writerows(row[:7] for row in old_rows)
         checkpoint_path = train(replace(config, num_workers=0))
         checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
         assert checkpoint["step"] == 20 and checkpoint["optimizer"]["state"]
@@ -336,16 +511,31 @@ def main():
             for key, value in checkpoint["ema"].items()
         )
         legacy_path, obs = check_policy(root, store, checkpoint, checkpoint_path, episodes)
+        check_bce_policy(root, checkpoint, obs)
         check_initialization(checkpoint, checkpoint_path, legacy_path)
         # Fine-tuning an old checkpoint creates fresh optimizer state and step count.
         init_path = train(
             replace(
-                config, run_dir=str(root / "finetune"), steps=1, num_workers=0, pretrained=True
+                config,
+                run_dir=str(root / "finetune"),
+                steps=1,
+                num_workers=0,
+                pretrained=True,
+                gripper_loss="bce",
+                gripper_pos_weight=3,
             ),
             init_from=legacy_path,
         )
         initialized = torch.load(init_path, map_location="cpu", weights_only=False)
         assert initialized["step"] == 1 and "aux_head.weight" in initialized["ema"]
+        assert initialized["config"]["gripper_loss"] == "bce"
+        assert initialized["val_metrics"]["gripper_bce"] > 0
+        assert BCPolicy(init_path)(obs).shape == (10, 20)
+        with (root / "finetune" / "log.csv").open() as stream:
+            row = next(csv.DictReader(stream))
+        for split in ("train", "val"):
+            assert float(row[f"{split}_gripper_bce"]) > 0
+            assert 0 <= float(row[f"{split}_gripper_open_accuracy"]) <= 1
         assert all(int(state["step"]) == 1 for state in initialized["optimizer"]["state"].values())
         del initialized
         # Training with aux disabled and a reordered proprio subset also serves inference.
@@ -356,6 +546,7 @@ def main():
                 steps=1,
                 num_workers=0,
                 aux_weight=0,
+                gripper_loss="bce",
                 proprio_dims=(44, 0, 18),
             )
         )
@@ -384,6 +575,7 @@ def main():
                 steps=1,
                 num_workers=0,
                 aux_weight=0,
+                gripper_loss="bce",
             )
         )
         empty = torch.load(empty_path, map_location="cpu", weights_only=False)
@@ -392,7 +584,7 @@ def main():
         for key in empty["model"]:
             torch.testing.assert_close(empty["model"][key], empty["ema"][key], rtol=0, atol=0)
         print(
-            f"CPU smoke passed: mixed/partial labels, weighted sources, 20-step exact resume with {workers}/0 workers, init-from, old/new policies and custom proprio. Wiring only; no task-success evidence."
+            f"CPU smoke passed: mixed/partial labels, BCE rare-open fit, independent microbatch losses, thresholds/ensembling, weighted sources, 20-step exact resume with {workers}/0 workers, L1-to-BCE init-from, old/new policies and custom proprio. Wiring only; no task-success evidence."
         )
 
 

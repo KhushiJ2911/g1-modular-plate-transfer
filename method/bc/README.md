@@ -140,6 +140,98 @@ The default remains `0:9,18:22,40:44,44:46` (19 dims). The ordered indices are
 stored in config/checkpoints and read by the policy. A different proprio
 architecture requires a fresh run without an incompatible `--init-from`.
 
+## BCE gripper fine-tune
+
+`gripper_loss: l1` is the default and retains the old action loss and inference
+sign convention. In `bce` mode the unchanged `H x 10` head predicts an **open
+logit** at active dim 18 for each chunk step. The target is `action[:,18] < 0`.
+The action loss becomes
+`mean_valid_L1(other active dims) + gripper_weight * mean_valid_gripper_BCE`.
+Both losses intersect label masks with nonpadding steps and use independent
+denominators across the entire logical batch, including microbatches. Thus a
+gripper-only sample contributes no arm loss and its gripper labels carry the
+same weight as each fully labeled sample's gripper labels. An empty component
+has zero loss/gradient. Auxiliary loss is still added separately when enabled.
+
+The four saved config fields (also CLI flags) are:
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `gripper_loss` | `l1` | `l1` regression or `bce` open logits |
+| `gripper_weight` | `1.0` | Multiplier on the separately averaged BCE, nonnegative |
+| `gripper_pos_weight` | `1.0` | BCE positive/open term multiplier, strictly positive |
+| `gripper_threshold` | `0.5` | Open iff sigmoid(logit) is strictly greater, in [0,1] |
+
+The weights/threshold must be finite. In L1 mode the three numeric fields do
+not change the objective or action mapping. Old checkpoints missing all four
+fields use L1, and `ADV_GRIPPER_THRESHOLD` is ignored for them.
+
+`--init-from` **supports L1-to-BCE directly**: head dimensions and saved tensors
+are identical. The dim-18 output is simply reinterpreted as a logit; its sign
+meaning therefore changes (an inherited +0.93 becomes sigmoid(+0.93) ~0.72 open
+probability). There is no sign flip, head reset or probability calibration.
+The existing normalization rebasing, fresh optimizer/EMA and horizon/proprio
+compatibility checks still apply. Use a fresh run directory to change loss
+mode; resuming an L1 run as BCE is rejected. Older version-2 L1 training runs
+can resume with the new defaults; their CSV headers are extended atomically,
+leaving unavailable historical metrics blank.
+
+With ambiguous frames, unweighted BCE learns the conditional open frequency;
+at threshold 0.5 it can still predict closed for a rare open class. Positive
+weighting and/or a dev-selected threshold can change that decision. Increasing
+`gripper_pos_weight` favors open recall and may also cause premature releases;
+neither the example weight nor threshold has been validated on real rollouts.
+
+CPU fine-tune command, **provided but not executed**:
+
+```bash
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+UV_CACHE_DIR=/tmp/adv-bc-uv-cache uv run --locked --no-sync \
+  /home/keyu/advaitic/mlenv/bin/python -m method.bc.train \
+  --config method/bc/student_v1b_bce.yaml \
+  --init-from /home/keyu/advaitic/ckpts/student_v1b.pt
+```
+
+`uv run --locked --no-sync` uses the committed project lock without changing it;
+the explicit Python command uses the existing torch/torchvision model environment
+(these packages are not in the evaluator lock). The config includes **human60 +
+teacher_v1 + teacher_v1_dart0 + dagger + dagger2**, H=20/exec=10, 8k fresh steps,
+batch 64/microbatch 8, zero auxiliary weight and zero workers. Source weights
+`[1,0.68,0.32,0.5,0.5]` preserve v1b's original human/teacher ratio and allocate
+one third of draws to the two DAgger directories together. Two episodes per
+directory are held out: `dagger2` was still being collected (five complete
+episodes on first check), so the usual six-episode holdout would reject that
+snapshot. This changes the offline
+validation split from v1b; losses are not directly comparable. Once every
+source has at least seven episodes, a fresh run can use `--val-episodes 6`.
+Finish collection and keep input files fixed before launching. Cache and run
+output stay under `method/bc/`. Its
+`gripper_weight=1`, `gripper_pos_weight=5`, `gripper_threshold=0.5` are an
+experimental starting point; the default positive weight remains 1 elsewhere.
+Omit `--init-from` with the same config to resume.
+
+For BCE inference, temporal ensembling averages **raw logits**, then each
+executed step opens to -1 iff its sigmoid exceeds the threshold; all other
+steps close to +1. Classification happens before action clipping. Set
+`ADV_GRIPPER_THRESHOLD` only for **dev-set sweeps**, for example:
+
+```bash
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 MUJOCO_GL=egl \
+ADV_GRIPPER_THRESHOLD=0.3 ADV_CKPT=method/bc/checkpoints/student_v1b_bce/last.pt \
+UV_CACHE_DIR=/tmp/adv-bc-uv-cache uv run --locked --no-sync advaitic-eval \
+  --policy submission.policy:make_policy \
+  --policy-python /home/keyu/advaitic/mlenv/bin/python \
+  --episodes 30 --seed-start 1000000 --method bc-student-v1b-bce-t03 \
+  --out results/bc-student-v1b-bce-t03-dev-001
+```
+
+Use a new result directory per threshold/run and record the checkpoint identifier.
+**The final submission must bake the chosen threshold into the checkpoint's
+`config.gripper_threshold` (and matching saved config), unset the override, and
+verify that artifact. It must not depend on `ADV_GRIPPER_THRESHOLD`.** Changing
+only the YAML after training does not change an existing checkpoint. Threshold
+sweeps, full union training and real release/success performance remain unverified.
+
 ## Model, losses and speed
 
 - Shared ResNet-18 through layer3, ImageNet initialization, 32 spatial-softmax
@@ -149,7 +241,8 @@ architecture requires a fresh run without an incompatible `--init-from`.
   existing two-layer 512-wide GELU/dropout action head predicts `H x 10` actions.
   A separate **linear 368-to-9 head** reads the same fused feature, encouraging
   observation features to encode privileged geometry without using it as input.
-- Total optimization loss is action L1 plus `aux_weight * auxiliary_loss`.
+- Total optimization loss is the configured action loss (L1 or L1+BCE as above)
+  plus `aux_weight * auxiliary_loss`.
   Auxiliary loss averages eight MSE terms and one held BCE-with-logits term over
   the **available dimensions**. Each microbatch is scaled by its valid action
   count for L1 and independently by its labeled-dimension count for auxiliary
@@ -167,13 +260,22 @@ architecture requires a fresh run without an incompatible `--init-from`.
 
 `last.pt` is atomically replaced every 1,000 steps and at completion, with full
 validation on each save. `log.csv` columns are
-`step,train_loss,val_loss,train_aux_loss,val_aux_loss,lr,it/s`. Action and auxiliary
+`step,train_loss,val_loss,train_aux_loss,val_aux_loss,lr,it/s`, followed by
+`train_l1,train_gripper_bce,train_gripper_accuracy,train_gripper_open_accuracy`
+and the corresponding four `val_` columns. Action and auxiliary
 losses are logged separately, before multiplying by `aux_weight`; auxiliary
 loss is zero when disabled or no labels are available. Train action loss averages
 batches since the last log; train auxiliary loss averages labeled dimensions.
 Validation fields retain the latest result (NaN before first validation).
 Throughput includes validation/checkpoint overhead. Logs append across resume;
 entries after the last durable checkpoint can repeat following a crash.
+L1/BCE metrics aggregate valid elements before division; BCE includes
+`gripper_pos_weight` but excludes the outer `gripper_weight` multiplier. BCE is
+zero when disabled or unlabeled. Gripper accuracy measures all valid gripper
+labels; open accuracy measures only open-labeled elements (open recall). Both
+use the saved threshold in BCE mode and the legacy zero/sign rule in L1 mode;
+accuracy is NaN when its denominator is empty. Console pairs show train/val.
+Checkpoints also retain the latest `val_metrics` dictionary.
 
 The trainer reports allocated/reserved CUDA peaks and rejects reserved peak
 >=3 GB. Existing human-only measurements were about 5 it/s, 0.43 GB peak; these
@@ -183,8 +285,9 @@ cuDNN benchmarking and pinned-memory behavior remain unverified here.
 ## CPU verification
 
 ```bash
-CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 /home/keyu/advaitic/mlenv/bin/python \
-  -m method.bc.smoke_test
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+UV_CACHE_DIR=/tmp/adv-bc-uv-cache uv run --locked --no-sync \
+  /home/keyu/advaitic/mlenv/bin/python -m method.bc.smoke_test --num-workers 0
 # Also exercise worker prefetch on a host permitting local multiprocessing sockets:
 CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 /home/keyu/advaitic/mlenv/bin/python \
   -m method.bc.smoke_test --num-workers 2
@@ -201,6 +304,17 @@ training (online and EMA); initialization/rebased normalization/fresh optimizer;
 old/new checkpoint inference; disabled auxiliary head; reordered proprio subset;
 policy output contract, reset and temporal ensembling. No simulator, downloads,
 fixture injection or task success evidence is involved.
+The BCE additions check mixed full/gripper-only/arm-only/empty masks, separate
+microbatch denominators and gradients, positive weighting, per-step strict
+threshold boundaries, overrides (including invalid values and legacy ignoring),
+classification before clipping, logit ensembling, BCE logging and empty BCE
+batches. The 100-update synthetic output-head test has identical inputs with
+1/32 open labels: weighted BCE (`pos_weight=62`) falls from 4.24 to 1.85 and
+open recall rises from 0% to 100%, while L1 stays at 0% open recall. This
+deliberately ambiguous toy predicts open for all inputs once weighted; it
+demonstrates a working objective/gradient, not selective real release behavior.
+The real `student_v1b.pt` also passed CPU policy loading/forward on a synthetic
+observation and exact EMA initialization with unchanged normalization stats.
 
 In the restricted implementation sandbox, the zero-worker smoke passes. The
 2-worker attempt is blocked by socket permissions. Locked uv dependency sync is
@@ -208,11 +322,11 @@ unavailable offline; static checks instead use the already-cached Ruff binary
 through uv without syncing:
 
 ```bash
-UV_CACHE_DIR=/tmp/advaitic-uv-cache uv run --locked --no-sync \
-  /home/keyu/.cache/uv/archive-v0/ZcJum6eSe-tIuzaS/ruff-0.17.4.data/scripts/ruff \
+UV_CACHE_DIR=/tmp/adv-bc-uv-cache uv run --locked --no-sync \
+  /home/keyu/advaitic/robot-learning-assignment/.venv/bin/ruff \
   check method/bc submission
-UV_CACHE_DIR=/tmp/advaitic-uv-cache uv run --locked --no-sync \
-  /home/keyu/.cache/uv/archive-v0/ZcJum6eSe-tIuzaS/ruff-0.17.4.data/scripts/ruff \
+UV_CACHE_DIR=/tmp/adv-bc-uv-cache uv run --locked --no-sync \
+  /home/keyu/advaitic/robot-learning-assignment/.venv/bin/ruff \
   format --check method/bc submission
 ```
 

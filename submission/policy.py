@@ -6,7 +6,14 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .model import ACTIVE_DIMS, PROPRIO_DIMS, BCModel, load_bc_weights, validate_proprio_dims
+from .model import (
+    ACTIVE_DIMS,
+    PROPRIO_DIMS,
+    BCModel,
+    load_bc_weights,
+    validate_gripper_config,
+    validate_proprio_dims,
+)
 
 
 class BCPolicy:
@@ -15,6 +22,12 @@ class BCPolicy:
         # Our own checkpoints contain optimizer/RNG objects as well as tensors.
         checkpoint = torch.load(checkpoint, map_location="cpu", weights_only=False)
         config = checkpoint["config"]
+        self.gripper_loss = config.get("gripper_loss", "l1")
+        self.gripper_threshold = config.get("gripper_threshold", 0.5)
+        # Dev sweeps only: final submission thresholds belong in the checkpoint.
+        if self.gripper_loss == "bce" and "ADV_GRIPPER_THRESHOLD" in os.environ:
+            self.gripper_threshold = float(os.environ["ADV_GRIPPER_THRESHOLD"])
+        validate_gripper_config(self.gripper_loss, threshold=self.gripper_threshold)
         self.horizon = config["horizon"]
         self.exec_steps = config["exec_steps"]
         if not 1 <= self.exec_steps <= self.horizon <= 50:
@@ -72,7 +85,14 @@ class BCPolicy:
         self.time += self.exec_steps
         actions = np.broadcast_to(self.action_mean, (self.exec_steps, 20)).copy()
         actions[:, ACTIVE_DIMS] = active
-        actions[:, 18] = np.where(actions[:, 18] >= 0, 1.0, -1.0)
+        if self.gripper_loss == "bce":
+            # Ensemble raw logits first; classify every executed step before clipping.
+            if not np.isfinite(actions[:, 18]).all():
+                raise ValueError("BC prediction contains nonfinite gripper logits")
+            probability = torch.from_numpy(actions[:, 18].copy()).sigmoid().numpy()
+            actions[:, 18] = np.where(probability > self.gripper_threshold, -1.0, 1.0)
+        else:
+            actions[:, 18] = np.where(actions[:, 18] >= 0, 1.0, -1.0)
         if not np.isfinite(actions).all():
             raise ValueError("BC prediction contains nonfinite actions")
         return np.clip(actions, -1, 1).astype(np.float32)
