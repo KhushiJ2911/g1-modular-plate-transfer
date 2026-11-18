@@ -73,3 +73,4 @@ Route decision (03:10): **C** (privileged teacher → vision student), with **B*
 | 10:45 | **Student v1b-BCE1** = fine-tune v1b 6k steps, gripper as BCE (pos_weight 2, threshold 0.5), on human60 + teacher_v1 + dart0 + dagger (1 : 0.4 : 0.6 : 0.67) | bc@5233dc7 | 298 train / 24 val episodes | running | |
 | 10:50 | Thermal: watchdog thresholds lowered (pause CPU ≥ 85 / GPU ≥ 82 °C, resume ≤ 72 / 70 °C); DAgger2 cut to 1 worker | | | 92 → 72 °C within a minute of pausing | |
 | 10:55 | Paused at the user's request after the BCE fine-tune finishes. Dev eval of v1b-BCE1 not started yet; DAgger2 collection stopped (resumable) | | | | |
+| 11:09 | v1b-BCE1 training finished: val L1 0.0118, val gripper acc 0.969, **val open-label acc 0.961** (v1a+DAgger1: 0% on open labels). DAgger2 stopped at 50/60 episodes | bc@5233dc7 | | ckpt `student_v1b_bce1` | Offline only; closed-loop dev eval pending (paused) |
