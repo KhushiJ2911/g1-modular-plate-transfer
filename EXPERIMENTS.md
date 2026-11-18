@@ -68,3 +68,6 @@ Route decision (03:10): **C** (privileged teacher → vision student), with **B*
 | 09:50 | **Student v1c-long**: 30k steps (vs 8k) on human60 + teacher_v1 + teacher_v1_dart0 (112), weights 1 : 0.4 : 0.6; snapshots at 8k/15k/22k/30k | bc@a5b5dc7 | 227 train episodes | running | Tests "undertrained" (8k steps ≈ 7 epochs) |
 | 10:05 | DAgger collection 2 from **v1b**, with `--relabel-execute` (oracle executes the gripper), so post-release states are recorded too | bc@a5b5dc7 | 2410000–2410059 | running | |
 | 10:05 | Teacher generation stopped | teacher@2cc0622 | | teacher_v1_dart0: 112 saved demos (≈84% yield) | Enough teacher data for now |
+| 10:35 | Long run v1c paused at step 3.5k (resumable). Thermal throttling held it at 1.8 it/s, i.e. ≈4.6 h for 30k | | | | GPU time goes to the BCE hypothesis first |
+| 10:40 | **FAILED RUN:** BCE fine-tune crashed while building its image cache: disk full (`OSError: Not enough free space`) | bc@5233dc7 | | | Each data mix writes a full ≈5 GB uncompressed cache. Deleted the finished DAgger1 run's cache and the partial file; brief #9 = per-episode shared cache |
+| 10:45 | **Student v1b-BCE1** = fine-tune v1b 6k steps, gripper as BCE (pos_weight 2, threshold 0.5), on human60 + teacher_v1 + dart0 + dagger (1 : 0.4 : 0.6 : 0.67) | bc@5233dc7 | 298 train / 24 val episodes | running | |
