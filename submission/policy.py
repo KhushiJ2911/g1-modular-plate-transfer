@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .model import ACTIVE_DIMS, PROPRIO_DIMS, BCModel
+from .model import ACTIVE_DIMS, PROPRIO_DIMS, BCModel, load_bc_weights, validate_proprio_dims
 
 
 class BCPolicy:
@@ -19,14 +19,17 @@ class BCPolicy:
         self.exec_steps = config["exec_steps"]
         if not 1 <= self.exec_steps <= self.horizon <= 50:
             raise ValueError("Require 1 <= exec_steps <= horizon <= 50")
-        self.model = BCModel(self.horizon, pretrained=False)
-        self.model.load_state_dict(checkpoint["ema"])
+        self.proprio_dims = validate_proprio_dims(config.get("proprio_dims", PROPRIO_DIMS))
+        # The auxiliary head never participates in inference, even when saved.
+        self.model = BCModel(self.horizon, pretrained=False, proprio_dims=self.proprio_dims)
+        load_bc_weights(self.model, checkpoint["ema"])
         self.model.to(self.device).eval()
         stats = checkpoint["stats"]
         self.mean = np.asarray(stats["proprio_mean"], dtype=np.float32)
         self.std = np.asarray(stats["proprio_std"], dtype=np.float32)
         self.action_mean = np.asarray(stats["action_mean"], dtype=np.float32)
-        if self.mean.shape != (19,) or self.std.shape != (19,) or self.action_mean.shape != (20,):
+        shape = (len(self.proprio_dims),)
+        if self.mean.shape != shape or self.std.shape != shape or self.action_mean.shape != (20,):
             raise ValueError("Checkpoint normalization shapes do not match this policy")
         self.temporal_ensemble = config.get("temporal_ensemble", False)
         self.ensemble_decay = config.get("ensemble_decay", 0.01)
@@ -42,7 +45,7 @@ class BCPolicy:
         state = np.asarray(obs["state"], dtype=np.float32)
         if rgb.shape != (3, 3, 84, 84) or state.shape != (50,):
             raise ValueError("Expected RGB (3,3,84,84) and state (50,)")
-        proprio = (state[list(PROPRIO_DIMS)] - self.mean) / self.std
+        proprio = (state[list(self.proprio_dims)] - self.mean) / self.std
         chunk = (
             self.model(
                 torch.from_numpy(rgb.copy())[None].to(self.device),

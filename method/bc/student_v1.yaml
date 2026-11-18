@@ -1,0 +1,18 @@
+# Flat YAML; CLI flags override these values. All three directories must exist.
+data_dirs: ["/home/keyu/advaitic/data/human60", "/home/keyu/advaitic/data/teacher_v1", "/home/keyu/advaitic/data/teacher_v2"]
+# Total sampling mass: human 50%, each teacher 25%, regardless of frame counts.
+data_weights: [2, 1, 1]
+cache_dir: /home/keyu/advaitic/data/cache
+run_dir: method/bc/checkpoints/student_v1
+horizon: 20
+exec_steps: 10
+steps: 15000
+batch_size: 64
+microbatch_size: 8
+val_episodes: 6
+num_workers: 2
+aux_weight: 0.1
+proprio_dims: [0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 40, 41, 42, 43, 44, 45]
+device: cuda
+pretrained: true
+temporal_ensemble: false

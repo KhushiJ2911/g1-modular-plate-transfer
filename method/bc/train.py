@@ -15,15 +15,23 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Sampler
+from torch.utils.data import DataLoader, Sampler, WeightedRandomSampler
 
 from .dataset import EpisodeStore
-from .model import BCModel, masked_l1
+from .model import (
+    PROPRIO_DIMS,
+    BCModel,
+    auxiliary_loss,
+    load_bc_weights,
+    masked_l1,
+    validate_proprio_dims,
+)
 
 
 @dataclass
 class Config:
     data_dirs: tuple = ("/home/keyu/advaitic/data/human60",)
+    data_weights: tuple = ()
     cache_dir: str = "/home/keyu/advaitic/data/cache"
     run_dir: str = "method/bc/checkpoints/human60"
     horizon: int = 20
@@ -46,9 +54,14 @@ class Config:
     pretrained: bool = True
     temporal_ensemble: bool = False
     ensemble_decay: float = 0.01
+    aux_weight: float = 0.1
+    proprio_dims: tuple = PROPRIO_DIMS
 
 
 def validate_config(config):
+    validate_proprio_dims(config.proprio_dims)
+    if not math.isfinite(config.aux_weight) or config.aux_weight < 0:
+        raise ValueError("aux_weight must be finite and nonnegative")
     if not 1 <= config.exec_steps <= config.horizon <= 50:
         raise ValueError("Require 1 <= exec_steps <= horizon <= 50")
     if not 0 <= config.num_workers <= 2:
@@ -75,14 +88,18 @@ def validate_config(config):
 class StepBatches(Sampler):
     """Reproducible random batches independent of worker prefetch and restarts."""
 
-    def __init__(self, size, batch_size, start, stop, seed):
-        self.size, self.batch_size = size, batch_size
+    def __init__(self, weights, batch_size, start, stop, seed):
+        self.weights, self.batch_size = torch.as_tensor(weights, dtype=torch.double), batch_size
         self.start, self.stop, self.seed = start, stop, seed
 
     def __iter__(self):
         for step in range(self.start, self.stop):
             generator = torch.Generator().manual_seed(self.seed + step)
-            yield torch.randint(self.size, (self.batch_size,), generator=generator).tolist()
+            yield list(
+                WeightedRandomSampler(
+                    self.weights, self.batch_size, replacement=True, generator=generator
+                )
+            )
 
     def __len__(self):
         return self.stop - self.start
@@ -140,21 +157,60 @@ def to_device(batch, device):
 @torch.inference_mode()
 def validate(model, loader, device, cuda):
     model.eval()
-    total, count = 0.0, 0
+    total, count, aux_total, aux_count = 0.0, 0, 0.0, 0
     for batch in loader:
         batch = to_device(batch, device)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
-            prediction = model(batch["rgb"], batch["proprio"])
+            prediction, aux = model(batch["rgb"], batch["proprio"], return_aux=True)
             loss = masked_l1(prediction.float(), batch["target"], batch["pad_mask"])
+            if aux is not None:
+                labeled = int(batch["aux_mask"].sum())
+                aux_total += (
+                    float(auxiliary_loss(aux.float(), batch["aux_target"], batch["aux_mask"]))
+                    * labeled
+                )
+                aux_count += labeled
         valid = int((~batch["pad_mask"]).sum()) * prediction.shape[-1]
         total += float(loss) * valid
         count += valid
-    return total / count
+    return total / count, aux_total / aux_count if aux_count else 0.0
 
 
-def train(config, *, stop_after=None):
+@torch.no_grad()
+def initialize_from(model, path, stats):
+    """Start from EMA weights, preserving their meaning under new normalization."""
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    source = checkpoint["config"]
+    if (
+        source["horizon"] != model.horizon
+        or tuple(source.get("proprio_dims", PROPRIO_DIMS)) != model.proprio_dims
+    ):
+        raise ValueError("--init-from requires matching horizon and proprio_dims")
+    load_bc_weights(model, checkpoint["ema"])
+    old = checkpoint["stats"]
+    layer = model.proprio[0]
+    mean_shift = torch.as_tensor(
+        (stats["proprio_mean"] - old["proprio_mean"]) / old["proprio_std"],
+        device=layer.weight.device,
+    )
+    scale = torch.as_tensor(stats["proprio_std"] / old["proprio_std"], device=layer.weight.device)
+    layer.bias.add_(layer.weight @ mean_shift)
+    layer.weight.mul_(scale)
+    if model.aux_head is not None and "aux_head.weight" in checkpoint["ema"]:
+        # New normalized predictions correspond to the same physical labels.
+        layer = model.aux_head
+        scale = torch.as_tensor(old["aux_std"] / stats["aux_std"], device=layer.weight.device)
+        shift = torch.as_tensor(
+            (old["aux_mean"] - stats["aux_mean"]) / stats["aux_std"], device=layer.weight.device
+        )
+        layer.weight.mul_(scale[:, None])
+        layer.bias.mul_(scale).add_(shift)
+
+
+def train(config, *, stop_after=None, init_from=None):
     """stop_after tests interruption without changing the total LR schedule."""
     validate_config(config)
+    torch.backends.cudnn.benchmark = True
     device = torch.device(config.device)
     cuda = device.type == "cuda"
     if cuda and not torch.cuda.is_available():
@@ -172,8 +228,22 @@ def train(config, *, stop_after=None):
         if checkpoint_path.exists()
         else None
     )
-    store = EpisodeStore(config.data_dirs, config.cache_dir, config.val_episodes)
+    if previous is not None and init_from is not None:
+        raise ValueError("--init-from requires a new run directory; omit it to resume")
+    init_source = str(init_from) if init_from is not None else None
     if previous is not None:
+        init_source = previous.get("init_from")
+    store = EpisodeStore(
+        config.data_dirs, config.cache_dir, config.val_episodes, config.proprio_dims
+    )
+    train_data, val_data = (
+        store.dataset("train", config.horizon),
+        store.dataset("val", config.horizon),
+    )
+    sample_weights = train_data.sample_weights(config.data_weights)
+    if previous is not None:
+        if previous.get("version") != 2:
+            raise ValueError("Legacy training checkpoint: use --init-from in a new run directory")
         allowed_changes = {"run_dir", "cache_dir", "num_workers", "device"}
         for key, value in asdict(config).items():
             if key not in allowed_changes and value != previous["config"][key]:
@@ -181,7 +251,15 @@ def train(config, *, stop_after=None):
         if previous["data_digest"] != store.digest:
             raise ValueError("Resume data changed; use a new run directory")
     (run_dir / "config.json").write_text(json.dumps(asdict(config), indent=2) + "\n")
-    model = BCModel(config.horizon, pretrained=config.pretrained and previous is None).to(device)
+    model = BCModel(
+        config.horizon,
+        pretrained=config.pretrained and previous is None and init_from is None,
+        proprio_dims=config.proprio_dims,
+        aux_head=config.aux_weight > 0,
+    ).to(device)
+    if init_from is not None:
+        initialize_from(model, init_from, store.stats)
+        print(f"Initialized EMA weights from {init_from}; fresh optimizer/step", flush=True)
     backbone_ids = {id(p) for p in model.backbone.parameters()}
     optimizer = torch.optim.AdamW(
         [
@@ -197,6 +275,7 @@ def train(config, *, stop_after=None):
     ema = copy.deepcopy(model).eval().requires_grad_(False)
     step = 0
     last_val = float("nan")
+    last_val_aux = float("nan")
     if previous is not None:
         model.load_state_dict(previous["model"])
         ema.load_state_dict(previous["ema"])
@@ -204,13 +283,10 @@ def train(config, *, stop_after=None):
         scaler.load_state_dict(previous["scaler"])
         step = previous["step"]
         last_val = previous["val_loss"]
+        last_val_aux = previous["val_aux_loss"]
         restore_rng(previous["rng"], cuda)
         print(f"Resumed {checkpoint_path} at step {step}", flush=True)
     del previous
-    train_data, val_data = (
-        store.dataset("train", config.horizon),
-        store.dataset("val", config.horizon),
-    )
     stop = config.steps if stop_after is None else min(config.steps, stop_after)
     if stop <= step:
         print("Training already complete.", flush=True)
@@ -219,7 +295,7 @@ def train(config, *, stop_after=None):
     loader_options = {"num_workers": config.num_workers, "pin_memory": cuda}
     train_loader = DataLoader(
         train_data,
-        batch_sampler=StepBatches(len(train_data), config.batch_size, step, stop, config.seed),
+        batch_sampler=StepBatches(sample_weights, config.batch_size, step, stop, config.seed),
         generator=torch.Generator().manual_seed(config.seed),
         **loader_options,
     )
@@ -236,11 +312,13 @@ def train(config, *, stop_after=None):
         flush=True,
     )
     started, logged_step = time.monotonic(), step
-    train_total, train_count = 0.0, 0
+    train_total, train_count, aux_total, aux_count = 0.0, 0, 0.0, 0
     with log_path.open("a", newline="") as log:
         writer = csv.writer(log)
         if log.tell() == 0:
-            writer.writerow(["step", "train_loss", "val_loss", "lr", "it/s"])
+            writer.writerow(
+                ["step", "train_loss", "val_loss", "train_aux_loss", "val_aux_loss", "lr", "it/s"]
+            )
             log.flush()
         model.train()
         for batch in train_loader:
@@ -251,7 +329,9 @@ def train(config, *, stop_after=None):
                 group["lr"] = base_lr * factor
             optimizer.zero_grad(set_to_none=True)
             valid_count = (~batch["pad_mask"]).sum().item() * 10
+            labeled_count = batch["aux_mask"].sum().item() if config.aux_weight > 0 else 0
             batch_loss = 0.0
+            batch_aux = 0.0
             # Only microbatch_size * 3 images occupy backbone activation RAM.
             # Weight by valid elements to preserve the logical batch-64 mean.
             for start in range(0, len(batch["rgb"]), config.microbatch_size):
@@ -259,12 +339,20 @@ def train(config, *, stop_after=None):
                     {k: v[start : start + config.microbatch_size] for k, v in batch.items()}, device
                 )
                 with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
-                    prediction = model(micro["rgb"], micro["proprio"])
-                    loss = masked_l1(prediction.float(), micro["target"], micro["pad_mask"])
+                    prediction, aux = model(micro["rgb"], micro["proprio"], return_aux=True)
+                    action_loss = masked_l1(prediction.float(), micro["target"], micro["pad_mask"])
                     fraction = (~micro["pad_mask"]).sum().item() * 10 / valid_count
-                    loss = loss * fraction
+                    action_loss = action_loss * fraction
+                    aux_loss = action_loss.new_zeros(())
+                    if aux is not None and labeled_count:
+                        aux_loss = auxiliary_loss(
+                            aux.float(), micro["aux_target"], micro["aux_mask"]
+                        )
+                        aux_loss = aux_loss * micro["aux_mask"].sum() / labeled_count
+                    loss = action_loss + config.aux_weight * aux_loss
                 scaler.scale(loss).backward()
-                batch_loss += float(loss.detach())
+                batch_loss += float(action_loss.detach())
+                batch_aux += float(aux_loss.detach())
             scaler.unscale_(optimizer)
             norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             if not cuda and not torch.isfinite(norm):
@@ -277,31 +365,43 @@ def train(config, *, stop_after=None):
             step += 1
             train_total += batch_loss
             train_count += 1
+            aux_total += batch_aux * labeled_count
+            aux_count += labeled_count
             check = step % config.save_every == 0 or step == stop
             evaluate = step % config.val_every == 0 or check
             if evaluate:
-                last_val = validate(ema, val_loader, device, cuda)
+                last_val, last_val_aux = validate(ema, val_loader, device, cuda)
             if step % config.log_every == 0 or evaluate:
                 if cuda:
                     torch.cuda.synchronize(device)
                 elapsed = time.monotonic() - started
                 throughput = (step - logged_step) / max(elapsed, 1e-9)
                 train_loss = train_total / train_count
+                train_aux = aux_total / aux_count if aux_count else 0.0
                 writer.writerow(
-                    [step, train_loss, last_val, optimizer.param_groups[1]["lr"], throughput]
+                    [
+                        step,
+                        train_loss,
+                        last_val,
+                        train_aux,
+                        last_val_aux,
+                        optimizer.param_groups[1]["lr"],
+                        throughput,
+                    ]
                 )
                 log.flush()
                 print(
                     f"step={step} train={train_loss:.5f} val={last_val:.5f} "
+                    f"aux={train_aux:.5f} val_aux={last_val_aux:.5f} "
                     f"lr={optimizer.param_groups[1]['lr']:.3g} it/s={throughput:.2f}",
                     flush=True,
                 )
-                train_total, train_count = 0.0, 0
+                train_total, train_count, aux_total, aux_count = 0.0, 0, 0.0, 0
                 started, logged_step = time.monotonic(), step
             if check:
                 atomic_save(
                     {
-                        "version": 1,
+                        "version": 2,
                         "config": asdict(config),
                         "model": model.state_dict(),
                         "ema": ema.state_dict(),
@@ -314,6 +414,8 @@ def train(config, *, stop_after=None):
                         "train_episodes": [store.files[i] for i in store.train_ids],
                         "val_episodes": [store.files[i] for i in store.val_ids],
                         "val_loss": last_val,
+                        "val_aux_loss": last_val_aux,
+                        "init_from": init_source,
                     },
                     checkpoint_path,
                 )
@@ -353,11 +455,16 @@ def read_config(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
+    parser.add_argument(
+        "--init-from", type=Path, help="EMA weights only; requires a fresh run directory"
+    )
     for field in fields(Config):
         name = "--" + field.name.replace("_", "-")
         options = {"default": argparse.SUPPRESS}
-        if field.name == "data_dirs":
+        if field.name in ("data_dirs", "data_weights", "proprio_dims"):
             options["nargs"] = "+"
+            if field.name != "data_dirs":
+                options["type"] = int if field.name == "proprio_dims" else float
         elif field.type is bool:
             options["action"] = argparse.BooleanOptionalAction
         else:
@@ -365,13 +472,15 @@ def main():
         parser.add_argument(name, **options)
     args = vars(parser.parse_args())
     config_path = args.pop("config")
+    init_from = args.pop("init_from")
     values = read_config(config_path) if config_path else {}
     values.update(args)
-    if "data_dirs" in values:
-        if not isinstance(values["data_dirs"], (list, tuple)):
-            parser.error("data_dirs must be an inline list or --data-dirs DIR [DIR ...]")
-        values["data_dirs"] = tuple(values["data_dirs"])
-    train(Config(**values))
+    for key in ("data_dirs", "data_weights", "proprio_dims"):
+        if key in values:
+            if not isinstance(values[key], (list, tuple)):
+                parser.error(f"{key} must be an inline list or CLI list")
+            values[key] = tuple(values[key])
+    train(Config(**values), init_from=init_from)
 
 
 if __name__ == "__main__":
