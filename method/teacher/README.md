@@ -1,4 +1,4 @@
-# Privileged demo-transfer teacher: v1 / v2
+# Privileged demo-transfer teacher: v1-based ablations
 
 This generates training demonstrations. It is **not an evaluated student policy**:
 the teacher reads live simulator plate poses, target sites, contacts and robot
@@ -30,7 +30,7 @@ desired_pelvis_xy(t) = demo_pelvis_xy(t) + shift(t)
 The nominal destination-rack origin is `[0.55, -0.24]`, from pinned MovePlateG1.
 `shift(t)` holds g through `grasp_step + 30`, blends linearly to h through
 `release_step - 40`, then holds h. Arms, grippers, height and yaw follow a single
-demo clock except during the explicitly described v2 corrections/recovery.
+demo clock except during the selected interventions or legacy v2 corrections/recovery.
 
 `--mode v1` preserves the original action controller: recorded base velocity plus
 2/s pelvis feedback in the observed body frame, a 1 cm pelvis gate before closing
@@ -38,7 +38,76 @@ and opening, each with a 100-step wait limit. After replay it holds the last dem
 action with open grippers. There is no object feedback, wrist correction or
 retreat guard in v1. Diagnostics are now collected in both modes.
 
-## V2 (default)
+## Ablation (v3)
+
+Default: **v1 with all flags off**. Every flag supports `--no-<flag>` overrides;
+resolved booleans appear in `teacher_config`, top-level JSONL fields and `run_id`.
+All other phases retain v1 demo base feed-forward + pelvis P tracking.
+
+| Flag | Change to v1 |
+| --- | --- |
+| `--align-then-lower` | Align plate xy while paused above the rack; then freeze vx/vy through lowering, release and subsequent replay. |
+| `--tilt-correct` | V2's bounded wrist correction at release, at most 60 steps. |
+| `--guarded-retreat` | V2's opening/settling and retreat monitoring/recovery. |
+| `--deadzone-min-speed` | Zero the P correction within pelvis tolerance; outside it, floor its speed at 0.06 m/s. Keep demo feed-forward while advancing. |
+| `--grasp-feedback-only` | Remove feed-forward during approach through closing; restore it for carry and later phases. |
+
+Alignment holds the gate frame's arm/gripper targets, uses zero base feed-forward
+and deadzone-aware P feedback (always at least 0.06 m/s outside tolerance), and
+waits for plate xy within **1 cm** of the nearest target site's xy, at most **150
+physical steps**. Convergence or timeout freezes the base; the release pelvis
+gate is then skipped. The wait, completion pose and timeout are logged. DART is
+masked from the actual release transition onward **in every mode**, and its
+planar component is additionally masked after alignment freezes the base.
+
+Compatibility: bare `--mode v1` preserves v1; bare `--mode v2` preserves the
+**legacy continuous placement feedback**, original 1.5 cm pelvis tolerance and
+wrist/retreat routines, with all preset booleans true and `legacy_v2=true`.
+This preserves old v2 results apart from the requested DART fix. Any explicit
+boolean override selects the independent ablation path with the other preset
+values retained. Use default/v1 for one-change experiments; all five flags on v1
+use the new align/freeze sequence and differ from legacy v2.
+
+**Gate audit:** the low-dimensional archive has no plate/hand trajectory channels.
+`audit_alignment.py` replays recorded actions/seeds with CPU physics and cameras
+omitted, reading hand positions and collision-mesh bounds without pose injection
+or controller/rule changes. In **all 59 usable demos**, at `release_step - 40` the
+plate bottom is **3.4–6.8 cm below** the rack top. Gates therefore move to the last
+frame within **1 cm of peak carry hand z** after grasp+30, with no target contact
+and at least 5 mm vertical clearance. They are **88–189 frames earlier**, with
+**8.2–19.0 cm** measured clearance and stored-state deviation at most **0.0318**.
+Shift blending ends at these gates. `alignment_audit.json` records the evidence
+and data hashes; new alignment rejects unaudited datasets/timing settings. The
+audit is also hashed into `run_id`. Reproduce with the environment exports below:
+`MUJOCO_GL=disable uv run --locked --no-sync python -m method.teacher.audit_alignment`.
+This is dataset inspection, not a v3 success measurement.
+
+With the CPU/environment exports below, run one configuration on an exclusive-end
+seed range using two CPU workers with alternating seeds, then compare paired logs:
+
+```bash
+method/teacher/ablate.sh method/teacher/runs/abl_v1.jsonl 2000000 2000030
+method/teacher/ablate.sh method/teacher/runs/abl_align.jsonl 2000000 2000030 --align-then-lower
+uv run --locked --no-sync python -m method.teacher.compare \
+  method/teacher/runs/abl_v1.jsonl method/teacher/runs/abl_align.jsonl
+```
+
+Use a separate named JSONL for each other flag. Worker logs/resume parts remain in
+`<OUTPUT>.parts/`; rerun the identical command to resume. Changed code, options or
+seed ranges require a fresh name. Existing generation processes retain old code.
+The comparison requires identical seeds/source slots, rejects duplicate/incomplete
+records and mixed run IDs, and prints successes, discordant pairs, exact two-sided
+McNemar p-value, per-slot results and failure categories. Old JSONLs are supported.
+
+**Verified:** Ruff check/format, shell syntax and 29 CPU contracts, including v1
+replay, legacy v2, flag isolation/logging/run identity, alignment exit/timeout,
+frozen lowering/release/retreat, DART guards, paired statistics and mocked worker
+split/merge/resume. Exact check commands appear under implementation verification
+below; additionally run `bash -n method/teacher/ablate.sh`.
+**Unverified:** v3 success rate, live alignment convergence under shifted geometry
+and real two-worker rollout throughput. No new 30-seed or student-policy result.
+
+## Legacy v2 preset
 
 V2 closes the placement loop on the plate instead of assuming the plate follows
 the pelvis. Its phases are:
@@ -188,8 +257,9 @@ masking/clipping, with lag-one correlation 0.85:
 | 2–3, 11–19: height, yaw, right arm, grippers | 0 |
 
 The applied noise is zero from 15 physical steps before through 15 steps after
-either gripper's open/close transition (inclusive), and throughout v2 opening,
-settling and retreat/recovery. Upcoming demo transitions are protected using the
+either gripper's open/close transition (inclusive), and from the actual release transition onward **in every mode**. With
+`--align-then-lower`, planar noise is also masked once alignment finishes, so
+DART cannot undo the frozen base during lowering. Upcoming demo transitions are protected using the
 pre-action demo clock, conservatively extending the window when a gate pauses;
 post-transition windows use the actual command's physical step. The OU process
 continues evolving during protected steps, but its output is masked to zero.
@@ -286,7 +356,7 @@ No terminal post-action observation is saved in these arrays. Resuming does not
 backfill successful demos if saving was originally disabled. Use disjoint seeds,
 logs and directories if manually running multiple processes.
 
-## Implementation verification
+## Previous implementation verification
 
 The worktree has no `.venv`; the existing neighboring environment's `pyproject.toml`
 and `uv.lock` were compared byte-for-byte with this worktree. Exact CPU check

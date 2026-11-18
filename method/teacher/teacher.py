@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -13,10 +14,17 @@ METHOD_DIR = Path(__file__).resolve().parents[1]
 REPO_DIR = METHOD_DIR.parent
 # Fixed MovePlateG1 nominal rack origin, from the pinned move_plates.py.
 TARGET_RACK_XY = np.array([0.55, -0.24])
+FLAGS = (
+    "align_then_lower",
+    "tilt_correct",
+    "guarded_retreat",
+    "deadzone_min_speed",
+    "grasp_feedback_only",
+)
 
 
 class Teacher:
-    """Privileged demo transfer: v1 pelvis replay, v2 object placement feedback.
+    """Privileged demo transfer: v1-based ablations and the legacy v2 preset.
 
     Only actions affect physics. reset/observe read live privileged geometry.
     Call reset(env), then act(ts) for each step; observe() also samples the final
@@ -28,7 +36,12 @@ class Teacher:
         demos_path: str | Path = METHOD_DIR / "data/demos_lowdim.npz",
         meta_path: str | Path = METHOD_DIR / "data/demo_meta.json",
         *,
-        mode: str = "v2",
+        mode: str = "v1",
+        align_then_lower: bool | None = None,
+        tilt_correct: bool | None = None,
+        guarded_retreat: bool | None = None,
+        deadzone_min_speed: bool | None = None,
+        grasp_feedback_only: bool | None = None,
         kp: float = 2.0,
         tolerance: float | None = None,
         max_wait: int = 100,
@@ -55,26 +68,48 @@ class Teacher:
             "lift_steps": lift_steps,
             "pre_release_steps": pre_release_steps,
         }
-        if mode == "v2":
-            self.config.update(
-                object_tolerance=0.01,
-                object_gate_tolerance=0.015,
-                object_max_wait=150,
-                min_planar_speed=0.06,
-                tilt_limit_deg=14.0,
-                tilt_max_wait=60,
-                wrist_step_rad=0.01,
-                wrist_limit_rad=0.18,
-                release_settle_steps=25,
-                held_check_steps=50,
-                retreat_distance=0.015,
-                retreat_tilt_deg=5.0,
-                recovery_hold_steps=50,
-                recovery_lift_steps=50,
-                recovery_lift_m=0.06,
-                recovery_joint_limit_rad=0.35,
-                recovery_rejoin_steps=50,
+        overrides = dict(
+            zip(
+                FLAGS,
+                (
+                    align_then_lower,
+                    tilt_correct,
+                    guarded_retreat,
+                    deadzone_min_speed,
+                    grasp_feedback_only,
+                ),
+                strict=True,
             )
+        )
+        if any(value is not None and type(value) is not bool for value in overrides.values()):
+            raise ValueError("Controller flags must be booleans or None")
+        self.config.update(
+            {name: mode == "v2" if value is None else value for name, value in overrides.items()}
+        )
+        # The unmodified v2 preset retains the old continuous placement loop.
+        # Any explicit flag selects the independent v1-based ablation path.
+        self.config["legacy_v2"] = mode == "v2" and all(
+            value is None for value in overrides.values()
+        )
+        self.config.update(
+            object_tolerance=0.01,
+            object_gate_tolerance=0.015,
+            object_max_wait=150,
+            min_planar_speed=0.06,
+            tilt_limit_deg=14.0,
+            tilt_max_wait=60,
+            wrist_step_rad=0.01,
+            wrist_limit_rad=0.18,
+            release_settle_steps=25,
+            held_check_steps=50,
+            retreat_distance=0.015,
+            retreat_tilt_deg=5.0,
+            recovery_hold_steps=50,
+            recovery_lift_steps=50,
+            recovery_lift_m=0.06,
+            recovery_joint_limit_rad=0.35,
+            recovery_rejoin_steps=50,
+        )
         metadata = json.loads(Path(meta_path).read_text())
         self.meta = {int(row["demo"]): row for row in metadata}
         if len(self.meta) != len(metadata):
@@ -107,6 +142,21 @@ class Teacher:
                 if not np.allclose(s[0, 18:22], row["pelvis_start"], atol=1e-6):
                     raise ValueError(f"Mismatched initial pelvis metadata: {k}")
                 self.actions[k], self.states[k] = a, s
+        self.alignment_gate_steps = {
+            int(k): self.meta[k]["release_step"] - pre_release_steps for k in self.demo_ids
+        }
+        if self.config["align_then_lower"] and not self.config["legacy_v2"]:
+            audit = json.loads(Path(__file__).with_name("alignment_audit.json").read_text())
+            if (
+                audit["demos_sha256"] != hashlib.sha256(Path(demos_path).read_bytes()).hexdigest()
+                or audit["meta_sha256"] != hashlib.sha256(Path(meta_path).read_bytes()).hexdigest()
+                or lift_steps != audit["lift_steps"]
+                or pre_release_steps != audit["pre_release_steps"]
+            ):
+                raise ValueError("Alignment gates require the audited demos and timing settings")
+            self.alignment_gate_steps = {
+                int(k): audit["demos"][str(k)]["gate"]["step"] for k in self.demo_ids
+            }
         self.relative_plate_xy = np.array(
             [
                 np.asarray(self.meta[k]["plate_pose_after_warmup"])[:2] - self.states[k][0, 18:20]
@@ -176,8 +226,11 @@ class Teacher:
         self.place_shift = np.zeros(2)
         self.demo_step = 0
         self.wait_steps = {"grasp": 0, "release": 0}
-        if self.config["mode"] == "v2":
+        if self.config["align_then_lower"]:
             self.wait_steps["pre_release"] = 0
+        self.alignment_done = False
+        self.alignment_snapshot = None
+        self.alignment_timed_out = False
         self.max_tracking_error = 0.0
         self.tracking_error = 0.0
         self.object_tracking_error = None
@@ -187,7 +240,11 @@ class Teacher:
         """World xy translation at a demonstration-clock index."""
         row = self.meta[self.chosen_demo]
         start = row["grasp_step"] + self.config["lift_steps"]
-        end = row["release_step"] - self.config["pre_release_steps"]
+        end = (
+            self.alignment_gate_steps[self.chosen_demo]
+            if (self.config["align_then_lower"] and not self.config["legacy_v2"])
+            else row["release_step"] - self.config["pre_release_steps"]
+        )
         weight = np.clip((demo_step - start) / (end - start), 0.0, 1.0)
         return (1.0 - weight) * self.grasp_shift + weight * self.place_shift
 
@@ -213,8 +270,10 @@ class Teacher:
         error_world = desired_xy - state[18:20]
         self.tracking_error = float(np.linalg.norm(error_world))
         self.max_tracking_error = max(self.max_tracking_error, self.tracking_error)
-        if self.config["mode"] == "v2":
+        if self.config["legacy_v2"]:
             return self._act_v2(state, error_world)
+        if any(self.config[name] for name in FLAGS):
+            return self._act_ablation(state, error_world)
         if t >= len(actions):
             # Exact final-action hold; no continuing base corrections after replay.
             action = actions[-1].copy()
@@ -290,6 +349,15 @@ class Teacher:
         release = self.release_snapshot
         return {
             "mode": self.config["mode"],
+            **{name: self.config[name] for name in FLAGS},
+            "alignment": {
+                "gate_demo_step": None
+                if self.chosen_demo is None
+                else self.alignment_gate_steps[self.chosen_demo],
+                "done": self.alignment_done,
+                "timed_out": self.alignment_timed_out,
+                "snapshot": self.alignment_snapshot,
+            },
             "grasp_physical_step": self.grasp_physical_step,
             "release_physical_step": self.release_physical_step,
             "plate_at_grasp_plus_60": self.lifted_snapshot,
@@ -366,6 +434,93 @@ class Teacher:
     def _add_wrist_offset(self, action):
         action[8:10] += 2 * self.wrist_offset / (self.high[8:10] - self.low[8:10])
         return np.clip(action, -1, 1).astype(np.float32)
+
+    def _pelvis_velocity(self, state, error, feed_forward, *, feedback_only=False):
+        """V1 feed-forward + P, with independently selected deadzone handling."""
+        distance = float(np.linalg.norm(error))
+        velocity = self.config["kp"] * error
+        if self.config["deadzone_min_speed"]:
+            if distance <= self.config["tolerance"]:
+                velocity = np.zeros(2)
+            elif np.linalg.norm(velocity) < self.config["min_planar_speed"]:
+                velocity = self.config["min_planar_speed"] * error / distance
+        c, s = np.cos(state[21]), np.sin(state[21])
+        body = np.array([c * velocity[0] + s * velocity[1], -s * velocity[0] + c * velocity[1]])
+        return self._normalize_xy(body + (0 if feedback_only else feed_forward))
+
+    def _act_ablation(self, state, pelvis_error):
+        """Independent interventions on the unchanged v1 replay controller."""
+        cfg, t, k = self.config, self.demo_step, self.chosen_demo
+        actions, row = self.actions[k], self.meta[k]
+        zero = self._normalize_xy(np.zeros(2))
+        if cfg["guarded_retreat"] and self.release_snapshot is not None:
+            return self._retreat_action()
+        if t >= len(actions):
+            action = self._add_wrist_offset(actions[-1].copy())
+            action[18:20] = -1
+            if self.alignment_done:
+                action[:2] = zero
+            return action
+        if (
+            cfg["align_then_lower"]
+            and t == self.alignment_gate_steps[k]
+            and not self.alignment_done
+        ):
+            snap = self.current_snapshot
+            error = np.asarray(snap["site_xyz"])[:2] - np.asarray(snap["pose"])[:2]
+            self.object_tracking_error = float(np.linalg.norm(error))
+            if (
+                self.object_tracking_error > cfg["object_tolerance"]
+                and self.wait_steps["pre_release"] < cfg["object_max_wait"]
+            ):
+                self.wait_steps["pre_release"] += 1
+                action = self._add_wrist_offset(actions[t].copy())
+                # Always beat the walking deadzone at this above-rack gate.
+                action[:2] = self._base_feedback(error, state[21], cfg["object_tolerance"])
+                return action
+            self.alignment_done = True
+            self.alignment_timed_out = self.object_tracking_error > cfg["object_tolerance"]
+            self.alignment_snapshot = snap
+        paused = False
+        for event in ("grasp", "release"):
+            # After alignment, release never restarts pelvis locomotion or waits
+            # for a pelvis path which the frozen base can no longer track.
+            if event == "release" and self.alignment_done:
+                continue
+            if (
+                t == row[f"{event}_step"]
+                and self.tracking_error >= cfg["tolerance"]
+                and self.wait_steps[event] < cfg["max_wait"]
+            ):
+                self.wait_steps[event] += 1
+                paused = True
+                break
+        if (
+            cfg["tilt_correct"]
+            and t == row["release_step"]
+            and self.current_snapshot["tilt_deg"] > cfg["tilt_limit_deg"]
+            and self.tilt_correction_steps < cfg["tilt_max_wait"]
+        ):
+            self._correct_tilt()
+            paused = True
+        action = self._add_wrist_offset(actions[t - 1 if paused else t].copy())
+        feed_forward = self.low[:2] + (actions[t, :2] + 1.0) * (self.high[:2] - self.low[:2]) / 2.0
+        # The grasp intervention ends once the demo has issued its close action;
+        # carry/lowering retain v1 feed-forward unless alignment froze the base.
+        feedback_only = paused or (cfg["grasp_feedback_only"] and t <= row["grasp_step"])
+        action[:2] = (
+            zero
+            if self.alignment_done
+            else self._pelvis_velocity(
+                state, pelvis_error, feed_forward, feedback_only=feedback_only
+            )
+        )
+        if not paused:
+            if t == row["release_step"] and cfg["guarded_retreat"]:
+                action[:2] = zero
+                action[18:20] = -1
+            self.demo_step += 1
+        return action
 
     def _act_v2(self, state, pelvis_error) -> np.ndarray:
         k, t, cfg = self.chosen_demo, self.demo_step, self.config

@@ -62,7 +62,7 @@ class DartNoise:
         after_transition = (
             self.last_transition is not None and self.step - self.last_transition <= GUARD_STEPS
         )
-        retreat = teacher.config["mode"] == "v2" and teacher.release_physical_step is not None
+        retreat = teacher.release_physical_step is not None
         self.step += 1
         if self.scale == 0:
             return clean.copy()
@@ -71,4 +71,7 @@ class DartNoise:
         )
         if before_transition or after_transition or retreat:
             return clean.copy()
-        return np.clip(clean + self.value, -1, 1).astype(np.float32)
+        drift = self.value.copy()
+        if getattr(teacher, "alignment_done", False):
+            drift[:2] = 0  # Preserve the frozen base throughout lowering.
+        return np.clip(clean + drift, -1, 1).astype(np.float32)

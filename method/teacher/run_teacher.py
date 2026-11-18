@@ -22,7 +22,7 @@ if __package__ in (None, ""):
 
 from method.teacher.dart import DartNoise, validate_scale
 from method.teacher.labels import PrivilegedLabels, save_npz_atomic
-from method.teacher.teacher import METHOD_DIR, REPO_DIR, Teacher
+from method.teacher.teacher import FLAGS, METHOD_DIR, REPO_DIR, Teacher
 
 RGB_STRIDE = 2
 
@@ -168,7 +168,7 @@ def run(args) -> int:
     teacher = Teacher(
         args.demos,
         args.meta,
-        mode=args.mode,
+        **controller_options(args),
         kp=args.kp,
         tolerance=args.tolerance,
         max_wait=args.max_wait,
@@ -178,6 +178,7 @@ def run(args) -> int:
     for path in (
         Path(__file__),
         Path(__file__).with_name("teacher.py"),
+        Path(__file__).with_name("alignment_audit.json"),
         Path(__file__).with_name("diagnostics.py"),
         Path(__file__).with_name("dart.py"),
         Path(__file__).with_name("labels.py"),
@@ -236,8 +237,24 @@ def run(args) -> int:
     return 0
 
 
+def controller_options(args):
+    return {"mode": args.mode, **{name: getattr(args, name, None) for name in FLAGS}}
+
+
 def add_controller_arguments(parser):
-    parser.add_argument("--mode", choices=("v1", "v2"), default="v2")
+    parser.add_argument(
+        "--mode",
+        choices=("v1", "v2"),
+        default="v1",
+        help="Compatibility preset (default: v1; v2 retains legacy placement)",
+    )
+    for name in FLAGS:
+        parser.add_argument(
+            "--" + name.replace("_", "-"),
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help="Independent v1 intervention; --no-* overrides a preset",
+        )
     parser.add_argument("--demos", type=Path, default=METHOD_DIR / "data/demos_lowdim.npz")
     parser.add_argument("--meta", type=Path, default=METHOD_DIR / "data/demo_meta.json")
     parser.add_argument("--kp", type=float, default=2.0, help="Base position gain in 1/s")

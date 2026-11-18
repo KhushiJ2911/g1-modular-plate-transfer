@@ -11,7 +11,12 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from method.teacher.run_teacher import add_controller_arguments, parse_seeds, run_episode
+from method.teacher.run_teacher import (
+    add_controller_arguments,
+    controller_options,
+    parse_seeds,
+    run_episode,
+)
 from method.teacher.teacher import REPO_DIR, Teacher
 
 
@@ -42,7 +47,7 @@ def main():
         teacher = Teacher(
             args.demos,
             args.meta,
-            mode=args.mode,
+            **controller_options(args),
             kp=args.kp,
             tolerance=args.tolerance,
             max_wait=args.max_wait,

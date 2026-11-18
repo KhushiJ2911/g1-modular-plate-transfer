@@ -1,0 +1,1367 @@
+{
+  "demos_sha256": "6bcd64061e7a000b7484d48c16cf649806de7f843e22fb6bb6db65c2e13eb216",
+  "meta_sha256": "039f81bf76c529c5882574a07add142e1ae09a1e0f053ceb5ff82d77f6a0e2a1",
+  "pre_release_steps": 40,
+  "lift_steps": 30,
+  "carry_band_m": 0.01,
+  "min_clearance_m": 0.005,
+  "demos": {
+    "0": {
+      "nominal": {
+        "step": 494,
+        "hand_z": 0.871735204785366,
+        "plate_z": 0.8574929421642509,
+        "plate_bottom_z": 0.7443935120545696,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.040606970960108346,
+        "target_contact": false,
+        "state_max_deviation": 0.007210067473351955
+      },
+      "gate": {
+        "step": 363,
+        "hand_z": 1.001677947370354,
+        "plate_z": 1.0195790530482869,
+        "plate_bottom_z": 0.9041675946822947,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.11916711166761673,
+        "target_contact": false,
+        "state_max_deviation": 0.007061216048896313
+      },
+      "carry_hand_peak_z": 1.0105273808802904
+    },
+    "1": {
+      "nominal": {
+        "step": 590,
+        "hand_z": 0.8551618524486718,
+        "plate_z": 0.8433039130273698,
+        "plate_bottom_z": 0.7296913346935242,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.055309148321153745,
+        "target_contact": false,
+        "state_max_deviation": 0.005097208544611931
+      },
+      "gate": {
+        "step": 452,
+        "hand_z": 1.026402675788918,
+        "plate_z": 1.0477824494706736,
+        "plate_bottom_z": 0.9331089510975015,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14810846808282352,
+        "target_contact": false,
+        "state_max_deviation": 0.011478424072265625
+      },
+      "carry_hand_peak_z": 1.0310770478581528
+    },
+    "2": {
+      "nominal": {
+        "step": 512,
+        "hand_z": 0.8469869466372026,
+        "plate_z": 0.8466368981037354,
+        "plate_bottom_z": 0.7324170350832275,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05258344793145042,
+        "target_contact": true,
+        "state_max_deviation": 0.021216722205281258
+      },
+      "gate": {
+        "step": 394,
+        "hand_z": 1.0152928784313227,
+        "plate_z": 1.0436804092987177,
+        "plate_bottom_z": 0.9285377767879605,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1435372937732825,
+        "target_contact": false,
+        "state_max_deviation": 0.009442295879125595
+      },
+      "carry_hand_peak_z": 1.0246800913218381
+    },
+    "3": {
+      "nominal": {
+        "step": 651,
+        "hand_z": 0.8759093445144639,
+        "plate_z": 0.8535313801578601,
+        "plate_bottom_z": 0.7394612853348409,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04553919767983705,
+        "target_contact": false,
+        "state_max_deviation": 0.003477439284324646
+      },
+      "gate": {
+        "step": 497,
+        "hand_z": 1.0356570431713152,
+        "plate_z": 1.0503121923032925,
+        "plate_bottom_z": 0.9382976132509434,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.15329713023626546,
+        "target_contact": false,
+        "state_max_deviation": 0.009604066610336304
+      },
+      "carry_hand_peak_z": 1.0456481743791826
+    },
+    "4": {
+      "nominal": {
+        "step": 523,
+        "hand_z": 0.8797459315652003,
+        "plate_z": 0.8652819129025079,
+        "plate_bottom_z": 0.7508653652068389,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.034135117807839066,
+        "target_contact": false,
+        "state_max_deviation": 0.0043119448237121105
+      },
+      "gate": {
+        "step": 412,
+        "hand_z": 1.0107274160555724,
+        "plate_z": 1.0306064003272777,
+        "plate_bottom_z": 0.9154504643022022,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13044998128752427,
+        "target_contact": false,
+        "state_max_deviation": 0.01520971953868866
+      },
+      "carry_hand_peak_z": 1.0199910767940092
+    },
+    "5": {
+      "nominal": {
+        "step": 579,
+        "hand_z": 0.8550940138041252,
+        "plate_z": 0.8430470892893531,
+        "plate_bottom_z": 0.7284870217364834,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.056513461278194566,
+        "target_contact": true,
+        "state_max_deviation": 0.01251544151455164
+      },
+      "gate": {
+        "step": 420,
+        "hand_z": 1.0313036411303285,
+        "plate_z": 1.062065238707734,
+        "plate_bottom_z": 0.9496573930181296,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.16465691000345162,
+        "target_contact": false,
+        "state_max_deviation": 0.004763364791870117
+      },
+      "carry_hand_peak_z": 1.036937706010433
+    },
+    "6": {
+      "nominal": {
+        "step": 640,
+        "hand_z": 0.8781668929265709,
+        "plate_z": 0.8586638301566966,
+        "plate_bottom_z": 0.7448270618269364,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04017342118774159,
+        "target_contact": false,
+        "state_max_deviation": 0.004632793366909027
+      },
+      "gate": {
+        "step": 467,
+        "hand_z": 1.0447099525758659,
+        "plate_z": 1.0695872870972558,
+        "plate_bottom_z": 0.9573946459210236,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.17239416290634568,
+        "target_contact": false,
+        "state_max_deviation": 0.01401781290769577
+      },
+      "carry_hand_peak_z": 1.0536732115577
+    },
+    "7": {
+      "nominal": {
+        "step": 636,
+        "hand_z": 0.8604531161504264,
+        "plate_z": 0.844918841774349,
+        "plate_bottom_z": 0.7318448003794633,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05315568263521464,
+        "target_contact": false,
+        "state_max_deviation": 0.010329212993383408
+      },
+      "gate": {
+        "step": 473,
+        "hand_z": 1.0422540198336996,
+        "plate_z": 1.0577179610950003,
+        "plate_bottom_z": 0.9438236541651878,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1588231711505098,
+        "target_contact": false,
+        "state_max_deviation": 0.019251540303230286
+      },
+      "carry_hand_peak_z": 1.0498801483115388
+    },
+    "8": {
+      "nominal": {
+        "step": 564,
+        "hand_z": 0.8394347799923357,
+        "plate_z": 0.835811550219733,
+        "plate_bottom_z": 0.7220178468847942,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06298263612988375,
+        "target_contact": false,
+        "state_max_deviation": 0.004572629928588867
+      },
+      "gate": {
+        "step": 448,
+        "hand_z": 1.0193714900942477,
+        "plate_z": 1.0533105218851824,
+        "plate_bottom_z": 0.9381214839491733,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.15312100093449532,
+        "target_contact": false,
+        "state_max_deviation": 0.0044860392808914185
+      },
+      "carry_hand_peak_z": 1.0268491631895396
+    },
+    "9": {
+      "nominal": {
+        "step": 538,
+        "hand_z": 0.8548205328264099,
+        "plate_z": 0.8316577561133316,
+        "plate_bottom_z": 0.7175080571096868,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06749242590499116,
+        "target_contact": false,
+        "state_max_deviation": 0.0044234804809093475
+      },
+      "gate": {
+        "step": 403,
+        "hand_z": 1.0051421058705816,
+        "plate_z": 1.0223848156188686,
+        "plate_bottom_z": 0.9069215082777864,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12192102526310844,
+        "target_contact": false,
+        "state_max_deviation": 0.004422459751367569
+      },
+      "carry_hand_peak_z": 1.0111927913931287
+    },
+    "10": {
+      "nominal": {
+        "step": 534,
+        "hand_z": 0.8696049343831757,
+        "plate_z": 0.8502658214753327,
+        "plate_bottom_z": 0.7361995546615732,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04880092835310479,
+        "target_contact": false,
+        "state_max_deviation": 0.00986880250275135
+      },
+      "gate": {
+        "step": 418,
+        "hand_z": 1.0077495250884732,
+        "plate_z": 1.023258056832854,
+        "plate_bottom_z": 0.9080524652073787,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12305198219270075,
+        "target_contact": false,
+        "state_max_deviation": 0.018641263246536255
+      },
+      "carry_hand_peak_z": 1.017027425945962
+    },
+    "11": {
+      "nominal": {
+        "step": 626,
+        "hand_z": 0.8714833064579333,
+        "plate_z": 0.8370506529443842,
+        "plate_bottom_z": 0.7240262040137556,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06097427900092234,
+        "target_contact": true,
+        "state_max_deviation": 0.004821497015655041
+      },
+      "gate": {
+        "step": 477,
+        "hand_z": 1.046463995339345,
+        "plate_z": 1.0419471178145476,
+        "plate_bottom_z": 0.927095217724134,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.142094734709456,
+        "target_contact": false,
+        "state_max_deviation": 0.00591394305229187
+      },
+      "carry_hand_peak_z": 1.0539207740962035
+    },
+    "12": {
+      "nominal": {
+        "step": 596,
+        "hand_z": 0.8538371105973611,
+        "plate_z": 0.8330991993807684,
+        "plate_bottom_z": 0.7187033438802725,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06629713913440549,
+        "target_contact": false,
+        "state_max_deviation": 0.003048934042453766
+      },
+      "gate": {
+        "step": 448,
+        "hand_z": 1.01760882601201,
+        "plate_z": 1.0333886951118574,
+        "plate_bottom_z": 0.9180970909315029,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13309660791682498,
+        "target_contact": false,
+        "state_max_deviation": 0.005149815231561661
+      },
+      "carry_hand_peak_z": 1.026101035508169
+    },
+    "13": {
+      "nominal": {
+        "step": 504,
+        "hand_z": 0.88225113147652,
+        "plate_z": 0.8558436521834768,
+        "plate_bottom_z": 0.7417078977230241,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04329258529165381,
+        "target_contact": false,
+        "state_max_deviation": 0.007160775363445282
+      },
+      "gate": {
+        "step": 382,
+        "hand_z": 0.9981324520544314,
+        "plate_z": 1.0056677173601514,
+        "plate_bottom_z": 0.89117426162464,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.10617377860996202,
+        "target_contact": false,
+        "state_max_deviation": 0.011321797966957092
+      },
+      "carry_hand_peak_z": 1.0079400357597113
+    },
+    "14": {
+      "nominal": {
+        "step": 609,
+        "hand_z": 0.8547859953231076,
+        "plate_z": 0.8402934917132202,
+        "plate_bottom_z": 0.7263355255372667,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.058664957477411295,
+        "target_contact": false,
+        "state_max_deviation": 0.018940091133117676
+      },
+      "gate": {
+        "step": 463,
+        "hand_z": 1.0183818759741865,
+        "plate_z": 1.0387984458203907,
+        "plate_bottom_z": 0.9235939909180336,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13859350790335567,
+        "target_contact": false,
+        "state_max_deviation": 0.009815387427806854
+      },
+      "carry_hand_peak_z": 1.0252450324975189
+    },
+    "15": {
+      "nominal": {
+        "step": 555,
+        "hand_z": 0.8479665811377792,
+        "plate_z": 0.8376618551050693,
+        "plate_bottom_z": 0.7234505353923746,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06154994762230337,
+        "target_contact": false,
+        "state_max_deviation": 0.012724269181489944
+      },
+      "gate": {
+        "step": 399,
+        "hand_z": 1.0029159272822552,
+        "plate_z": 1.0294827484892666,
+        "plate_bottom_z": 0.9147065441146635,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1297060610999855,
+        "target_contact": false,
+        "state_max_deviation": 0.014987669885158539
+      },
+      "carry_hand_peak_z": 1.010050951329104
+    },
+    "16": {
+      "nominal": {
+        "step": 522,
+        "hand_z": 0.8497115291248838,
+        "plate_z": 0.8354508919151653,
+        "plate_bottom_z": 0.7218008812601582,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06319960175451977,
+        "target_contact": false,
+        "state_max_deviation": 0.006554035469889641
+      },
+      "gate": {
+        "step": 374,
+        "hand_z": 0.9671120852851122,
+        "plate_z": 0.9819978090914693,
+        "plate_bottom_z": 0.8668555543360198,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.08185507132134184,
+        "target_contact": false,
+        "state_max_deviation": 0.002837635576725006
+      },
+      "carry_hand_peak_z": 0.9745874657279964
+    },
+    "17": {
+      "nominal": {
+        "step": 556,
+        "hand_z": 0.8588233718242236,
+        "plate_z": 0.8436388138979,
+        "plate_bottom_z": 0.7297019874397016,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05529849557497635,
+        "target_contact": false,
+        "state_max_deviation": 0.0033851414918899536
+      },
+      "gate": {
+        "step": 420,
+        "hand_z": 1.0298603477893828,
+        "plate_z": 1.0501123903818397,
+        "plate_bottom_z": 0.9349045603197598,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14990407730508182,
+        "target_contact": false,
+        "state_max_deviation": 0.007970854640007019
+      },
+      "carry_hand_peak_z": 1.0383462330227
+    },
+    "18": {
+      "nominal": {
+        "step": 530,
+        "hand_z": 0.8505208367047998,
+        "plate_z": 0.8388264012387217,
+        "plate_bottom_z": 0.7255223940551964,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05947808895948159,
+        "target_contact": false,
+        "state_max_deviation": 0.0038650003261864185
+      },
+      "gate": {
+        "step": 400,
+        "hand_z": 1.0125594507635953,
+        "plate_z": 1.0335168250515645,
+        "plate_bottom_z": 0.9183409555882046,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13334047257352666,
+        "target_contact": false,
+        "state_max_deviation": 0.0070323944091796875
+      },
+      "carry_hand_peak_z": 1.019708461446565
+    },
+    "19": {
+      "nominal": {
+        "step": 543,
+        "hand_z": 0.8496348113282993,
+        "plate_z": 0.8365916223348417,
+        "plate_bottom_z": 0.7225580703746696,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06244241264000838,
+        "target_contact": false,
+        "state_max_deviation": 0.00930055696517229
+      },
+      "gate": {
+        "step": 393,
+        "hand_z": 1.0208634336084146,
+        "plate_z": 1.0416065090687676,
+        "plate_bottom_z": 0.9263800321214816,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14137954910680361,
+        "target_contact": false,
+        "state_max_deviation": 0.004979394376277924
+      },
+      "carry_hand_peak_z": 1.0267569471645015
+    },
+    "20": {
+      "nominal": {
+        "step": 539,
+        "hand_z": 0.8477134695307406,
+        "plate_z": 0.8382900755393212,
+        "plate_bottom_z": 0.7244716763006879,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06052880671399008,
+        "target_contact": false,
+        "state_max_deviation": 0.0056038498878479
+      },
+      "gate": {
+        "step": 414,
+        "hand_z": 1.0039728848487843,
+        "plate_z": 1.0257515417120089,
+        "plate_bottom_z": 0.910338319368046,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12533783635336804,
+        "target_contact": false,
+        "state_max_deviation": 0.005555916577577591
+      },
+      "carry_hand_peak_z": 1.0125439822980753
+    },
+    "21": {
+      "nominal": {
+        "step": 533,
+        "hand_z": 0.8484601607078861,
+        "plate_z": 0.8349417379372887,
+        "plate_bottom_z": 0.721902356270941,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06309812674373694,
+        "target_contact": false,
+        "state_max_deviation": 0.015030860900878906
+      },
+      "gate": {
+        "step": 414,
+        "hand_z": 1.0049881112755774,
+        "plate_z": 1.02661690728082,
+        "plate_bottom_z": 0.9112092312828589,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12620874826818096,
+        "target_contact": false,
+        "state_max_deviation": 0.007514702156186104
+      },
+      "carry_hand_peak_z": 1.0118549250613036
+    },
+    "22": {
+      "nominal": {
+        "step": 558,
+        "hand_z": 0.8627726889072377,
+        "plate_z": 0.8564396475526127,
+        "plate_bottom_z": 0.7442756262401382,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04072485677453974,
+        "target_contact": true,
+        "state_max_deviation": 0.009200219064950943
+      },
+      "gate": {
+        "step": 427,
+        "hand_z": 1.0081736696543304,
+        "plate_z": 1.026288715431858,
+        "plate_bottom_z": 0.9111327729657234,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12613228995104542,
+        "target_contact": false,
+        "state_max_deviation": 0.010069452226161957
+      },
+      "carry_hand_peak_z": 1.016322681183469
+    },
+    "23": {
+      "nominal": {
+        "step": 530,
+        "hand_z": 0.8401262021036032,
+        "plate_z": 0.8395046539219048,
+        "plate_bottom_z": 0.7260803185819487,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.058920164432729294,
+        "target_contact": false,
+        "state_max_deviation": 0.0225543100386858
+      },
+      "gate": {
+        "step": 389,
+        "hand_z": 1.008141800997493,
+        "plate_z": 1.037235604117004,
+        "plate_bottom_z": 0.9218080630384758,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1368075800237979,
+        "target_contact": false,
+        "state_max_deviation": 0.013049229979515076
+      },
+      "carry_hand_peak_z": 1.0140140174587413
+    },
+    "24": {
+      "nominal": {
+        "step": 581,
+        "hand_z": 0.860868895845021,
+        "plate_z": 0.839846471014723,
+        "plate_bottom_z": 0.7257593315335022,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.0592411514811757,
+        "target_contact": true,
+        "state_max_deviation": 0.017071068286895752
+      },
+      "gate": {
+        "step": 458,
+        "hand_z": 1.030222730708087,
+        "plate_z": 1.0408011815685643,
+        "plate_bottom_z": 0.9261428435659886,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14114236055131069,
+        "target_contact": false,
+        "state_max_deviation": 0.006397247314453125
+      },
+      "carry_hand_peak_z": 1.0387551834869269
+    },
+    "25": {
+      "nominal": {
+        "step": 583,
+        "hand_z": 0.8510233579285305,
+        "plate_z": 0.8335497408529444,
+        "plate_bottom_z": 0.7188115587996932,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06618892421498479,
+        "target_contact": false,
+        "state_max_deviation": 0.007307756692171097
+      },
+      "gate": {
+        "step": 394,
+        "hand_z": 0.9922095282802867,
+        "plate_z": 1.015944952707819,
+        "plate_bottom_z": 0.9005908069510955,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.11559032393641755,
+        "target_contact": false,
+        "state_max_deviation": 0.019510425627231598
+      },
+      "carry_hand_peak_z": 0.9982712329714237
+    },
+    "26": {
+      "nominal": {
+        "step": 593,
+        "hand_z": 0.8593366667003727,
+        "plate_z": 0.8352366866880727,
+        "plate_bottom_z": 0.7215141646013802,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06348631841329777,
+        "target_contact": true,
+        "state_max_deviation": 0.009424776770174503
+      },
+      "gate": {
+        "step": 464,
+        "hand_z": 1.026798945650591,
+        "plate_z": 1.036708916257064,
+        "plate_bottom_z": 0.9212977759329478,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13629729291826986,
+        "target_contact": false,
+        "state_max_deviation": 0.006412748247385025
+      },
+      "carry_hand_peak_z": 1.0346095746482402
+    },
+    "27": {
+      "nominal": {
+        "step": 517,
+        "hand_z": 0.8402518283562324,
+        "plate_z": 0.8394639119993562,
+        "plate_bottom_z": 0.7273395972068838,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05766088580779416,
+        "target_contact": true,
+        "state_max_deviation": 0.007263544946908951
+      },
+      "gate": {
+        "step": 385,
+        "hand_z": 0.9911995606099809,
+        "plate_z": 1.021762922890443,
+        "plate_bottom_z": 0.9064171236878088,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12141664067313085,
+        "target_contact": false,
+        "state_max_deviation": 0.007632464170455933
+      },
+      "carry_hand_peak_z": 1.0007022915490429
+    },
+    "28": {
+      "nominal": {
+        "step": 529,
+        "hand_z": 0.8423921568423958,
+        "plate_z": 0.847614724404404,
+        "plate_bottom_z": 0.7341484121135547,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.0508520709011232,
+        "target_contact": true,
+        "state_max_deviation": 0.008943289518356323
+      },
+      "gate": {
+        "step": 421,
+        "hand_z": 1.006834637685938,
+        "plate_z": 1.0373006187097291,
+        "plate_bottom_z": 0.9221138794450899,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13711339643041198,
+        "target_contact": false,
+        "state_max_deviation": 0.012828253209590912
+      },
+      "carry_hand_peak_z": 1.0133937249988747
+    },
+    "29": {
+      "nominal": {
+        "step": 498,
+        "hand_z": 0.8519971959752479,
+        "plate_z": 0.857374670511417,
+        "plate_bottom_z": 0.743332152383908,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04166833063076991,
+        "target_contact": false,
+        "state_max_deviation": 0.0101938396692276
+      },
+      "gate": {
+        "step": 400,
+        "hand_z": 0.9760978429937281,
+        "plate_z": 1.0051462718558695,
+        "plate_bottom_z": 0.8901004935415381,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.10510001052686013,
+        "target_contact": false,
+        "state_max_deviation": 0.019678324460983276
+      },
+      "carry_hand_peak_z": 0.9845536821867235
+    },
+    "30": {
+      "nominal": {
+        "step": 518,
+        "hand_z": 0.8447569722910745,
+        "plate_z": 0.8307463077008216,
+        "plate_bottom_z": 0.7168115435365618,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.0681889394781161,
+        "target_contact": true,
+        "state_max_deviation": 0.00722222775220871
+      },
+      "gate": {
+        "step": 367,
+        "hand_z": 1.0024008721011601,
+        "plate_z": 1.0239719606386946,
+        "plate_bottom_z": 0.9087308352191737,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1237303522044958,
+        "target_contact": false,
+        "state_max_deviation": 0.008665859699249268
+      },
+      "carry_hand_peak_z": 1.0109965899837563
+    },
+    "31": {
+      "nominal": {
+        "step": 561,
+        "hand_z": 0.8537479333091039,
+        "plate_z": 0.8369527210942722,
+        "plate_bottom_z": 0.7223263638618458,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06267411915283216,
+        "target_contact": true,
+        "state_max_deviation": 0.0039037764072418213
+      },
+      "gate": {
+        "step": 396,
+        "hand_z": 1.050678653937487,
+        "plate_z": 1.0658454089964715,
+        "plate_bottom_z": 0.950809044844901,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.16580856183022308,
+        "target_contact": false,
+        "state_max_deviation": 0.004510506987571716
+      },
+      "carry_hand_peak_z": 1.0584314176352423
+    },
+    "32": {
+      "nominal": {
+        "step": 492,
+        "hand_z": 0.8589512260911717,
+        "plate_z": 0.8625705747901963,
+        "plate_bottom_z": 0.7490155592856245,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.035984923729053486,
+        "target_contact": false,
+        "state_max_deviation": 0.0027553681284189224
+      },
+      "gate": {
+        "step": 378,
+        "hand_z": 0.9809003884268381,
+        "plate_z": 1.007385345386497,
+        "plate_bottom_z": 0.8924323255010398,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.10743184248636184,
+        "target_contact": false,
+        "state_max_deviation": 0.011221460998058319
+      },
+      "carry_hand_peak_z": 0.9903872493648473
+    },
+    "33": {
+      "nominal": {
+        "step": 542,
+        "hand_z": 0.8369665989756186,
+        "plate_z": 0.8495245444858903,
+        "plate_bottom_z": 0.7359635824900357,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04903690052464227,
+        "target_contact": true,
+        "state_max_deviation": 0.005761593580245972
+      },
+      "gate": {
+        "step": 414,
+        "hand_z": 0.9687346448243817,
+        "plate_z": 1.0047682405744052,
+        "plate_bottom_z": 0.8895504610687719,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.10454997805409394,
+        "target_contact": false,
+        "state_max_deviation": 0.005844473838806152
+      },
+      "carry_hand_peak_z": 0.9776502771678506
+    },
+    "34": {
+      "nominal": {
+        "step": 602,
+        "hand_z": 0.8697248224710538,
+        "plate_z": 0.8472103507934365,
+        "plate_bottom_z": 0.7334440128290232,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05155647018565479,
+        "target_contact": false,
+        "state_max_deviation": 0.007026927545666695
+      },
+      "gate": {
+        "step": 446,
+        "hand_z": 1.0365364424475463,
+        "plate_z": 1.0518163026385783,
+        "plate_bottom_z": 0.936428213943514,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1514277309288361,
+        "target_contact": false,
+        "state_max_deviation": 0.0030823945999145508
+      },
+      "carry_hand_peak_z": 1.0439590052589103
+    },
+    "35": {
+      "nominal": {
+        "step": 497,
+        "hand_z": 0.8499216365127717,
+        "plate_z": 0.8431844335742792,
+        "plate_bottom_z": 0.7295219496796229,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.055478533335055036,
+        "target_contact": true,
+        "state_max_deviation": 0.011169619858264923
+      },
+      "gate": {
+        "step": 378,
+        "hand_z": 1.0124955642187228,
+        "plate_z": 1.035660292313674,
+        "plate_bottom_z": 0.9202593993350873,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13525891632040932,
+        "target_contact": false,
+        "state_max_deviation": 0.0039062052965164185
+      },
+      "carry_hand_peak_z": 1.0219939593626313
+    },
+    "36": {
+      "nominal": {
+        "step": 496,
+        "hand_z": 0.852918604855874,
+        "plate_z": 0.8495651518198591,
+        "plate_bottom_z": 0.7357762137022977,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04922426931238022,
+        "target_contact": false,
+        "state_max_deviation": 0.013283222913742065
+      },
+      "gate": {
+        "step": 377,
+        "hand_z": 0.9898325957021635,
+        "plate_z": 1.011387112965941,
+        "plate_bottom_z": 0.8963959044144154,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.11139542139973746,
+        "target_contact": false,
+        "state_max_deviation": 0.0037355124950408936
+      },
+      "carry_hand_peak_z": 0.9996157392001939
+    },
+    "37": {
+      "nominal": {
+        "step": 467,
+        "hand_z": 0.8447393903779382,
+        "plate_z": 0.8391048754751032,
+        "plate_bottom_z": 0.7250533430908989,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05994713992377909,
+        "target_contact": true,
+        "state_max_deviation": 0.020666901022195816
+      },
+      "gate": {
+        "step": 379,
+        "hand_z": 0.99051671202348,
+        "plate_z": 1.0119097465982265,
+        "plate_bottom_z": 0.8966810845495732,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.11168060153489523,
+        "target_contact": false,
+        "state_max_deviation": 0.024370059370994568
+      },
+      "carry_hand_peak_z": 0.9990419948936204
+    },
+    "38": {
+      "nominal": {
+        "step": 648,
+        "hand_z": 0.8591903287599647,
+        "plate_z": 0.8401957220215253,
+        "plate_bottom_z": 0.7262527469592251,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.058747736055452804,
+        "target_contact": true,
+        "state_max_deviation": 0.00376032292842865
+      },
+      "gate": {
+        "step": 513,
+        "hand_z": 1.0719092788241185,
+        "plate_z": 1.0883737991271902,
+        "plate_bottom_z": 0.9748385205282953,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.18983803751361739,
+        "target_contact": false,
+        "state_max_deviation": 0.009322643280029297
+      },
+      "carry_hand_peak_z": 1.079438685045956
+    },
+    "39": {
+      "nominal": {
+        "step": 477,
+        "hand_z": 0.8518592734924162,
+        "plate_z": 0.8488949320500985,
+        "plate_bottom_z": 0.7348574076898052,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05014307532487272,
+        "target_contact": true,
+        "state_max_deviation": 0.008556520566344261
+      },
+      "gate": {
+        "step": 377,
+        "hand_z": 0.9906082502820006,
+        "plate_z": 1.0133378745228294,
+        "plate_bottom_z": 0.8981596922685344,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.11315920925385647,
+        "target_contact": false,
+        "state_max_deviation": 0.02438889816403389
+      },
+      "carry_hand_peak_z": 0.9971999314730211
+    },
+    "40": {
+      "nominal": {
+        "step": 511,
+        "hand_z": 0.8364053394043868,
+        "plate_z": 0.8444995683330242,
+        "plate_bottom_z": 0.7304784206891545,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05452206232552348,
+        "target_contact": false,
+        "state_max_deviation": 0.004211828112602234
+      },
+      "gate": {
+        "step": 382,
+        "hand_z": 1.011064302914305,
+        "plate_z": 1.050124496679348,
+        "plate_bottom_z": 0.9356640680902925,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1506635850756145,
+        "target_contact": false,
+        "state_max_deviation": 0.0073847100138664246
+      },
+      "carry_hand_peak_z": 1.0165893122937733
+    },
+    "41": {
+      "nominal": {
+        "step": 538,
+        "hand_z": 0.8500746455313192,
+        "plate_z": 0.8351566830797046,
+        "plate_bottom_z": 0.7217084792346843,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.06329200377999367,
+        "target_contact": true,
+        "state_max_deviation": 0.0027647456154227257
+      },
+      "gate": {
+        "step": 421,
+        "hand_z": 1.042677309845661,
+        "plate_z": 1.06605171093566,
+        "plate_bottom_z": 0.9515078992675667,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.16650741625288878,
+        "target_contact": false,
+        "state_max_deviation": 0.006996452808380127
+      },
+      "carry_hand_peak_z": 1.0521980888766997
+    },
+    "42": {
+      "nominal": {
+        "step": 579,
+        "hand_z": 0.8519087682800659,
+        "plate_z": 0.8426216812503866,
+        "plate_bottom_z": 0.7277096441128839,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.057290838901794094,
+        "target_contact": false,
+        "state_max_deviation": 0.0117692481726408
+      },
+      "gate": {
+        "step": 422,
+        "hand_z": 1.035892674369074,
+        "plate_z": 1.0598217936353995,
+        "plate_bottom_z": 0.945902086911673,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.16090160389699504,
+        "target_contact": false,
+        "state_max_deviation": 0.018108218908309937
+      },
+      "carry_hand_peak_z": 1.0443029376192061
+    },
+    "43": {
+      "nominal": {
+        "step": 561,
+        "hand_z": 0.8585041552696302,
+        "plate_z": 0.8406525618252483,
+        "plate_bottom_z": 0.72599963065848,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.0590008523561979,
+        "target_contact": true,
+        "state_max_deviation": 0.030967220664024353
+      },
+      "gate": {
+        "step": 437,
+        "hand_z": 1.059424677444915,
+        "plate_z": 1.0818433150783702,
+        "plate_bottom_z": 0.9680461551307356,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1830456721160576,
+        "target_contact": false,
+        "state_max_deviation": 0.016702473163604736
+      },
+      "carry_hand_peak_z": 1.0689687412485789
+    },
+    "44": {
+      "nominal": {
+        "step": 512,
+        "hand_z": 0.8598104529322976,
+        "plate_z": 0.8526023943362334,
+        "plate_bottom_z": 0.7382490202737162,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04675146274096176,
+        "target_contact": false,
+        "state_max_deviation": 0.00430997833609581
+      },
+      "gate": {
+        "step": 389,
+        "hand_z": 1.0174639398744292,
+        "plate_z": 1.0423793443727267,
+        "plate_bottom_z": 0.9269683355734419,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14196785255876399,
+        "target_contact": false,
+        "state_max_deviation": 0.005568087100982666
+      },
+      "carry_hand_peak_z": 1.027127352302152
+    },
+    "46": {
+      "nominal": {
+        "step": 512,
+        "hand_z": 0.8346273147234758,
+        "plate_z": 0.8402048807900312,
+        "plate_bottom_z": 0.7258074446382551,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05919303837642287,
+        "target_contact": true,
+        "state_max_deviation": 0.005143744871020317
+      },
+      "gate": {
+        "step": 378,
+        "hand_z": 0.9965757697396013,
+        "plate_z": 1.030557908711477,
+        "plate_bottom_z": 0.9157098934353425,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13070941042066453,
+        "target_contact": false,
+        "state_max_deviation": 0.005597293376922607
+      },
+      "carry_hand_peak_z": 1.0057939091232904
+    },
+    "47": {
+      "nominal": {
+        "step": 469,
+        "hand_z": 0.8422483268990294,
+        "plate_z": 0.8497631821165708,
+        "plate_bottom_z": 0.7353681491008706,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04963233391380739,
+        "target_contact": true,
+        "state_max_deviation": 0.021256305277347565
+      },
+      "gate": {
+        "step": 357,
+        "hand_z": 1.00105849201311,
+        "plate_z": 1.039222863017662,
+        "plate_bottom_z": 0.9239098084437437,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13890932542906576,
+        "target_contact": false,
+        "state_max_deviation": 0.031750716269016266
+      },
+      "carry_hand_peak_z": 1.007827692889255
+    },
+    "48": {
+      "nominal": {
+        "step": 474,
+        "hand_z": 0.843567522643746,
+        "plate_z": 0.8533447236165829,
+        "plate_bottom_z": 0.7388023692857617,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.046198113728916246,
+        "target_contact": true,
+        "state_max_deviation": 0.01828935742378235
+      },
+      "gate": {
+        "step": 362,
+        "hand_z": 0.9980280671586793,
+        "plate_z": 1.0338624724454952,
+        "plate_bottom_z": 0.9189882173962075,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13398773438152956,
+        "target_contact": false,
+        "state_max_deviation": 0.005879312753677368
+      },
+      "carry_hand_peak_z": 1.0071847349319827
+    },
+    "49": {
+      "nominal": {
+        "step": 505,
+        "hand_z": 0.8534421926859972,
+        "plate_z": 0.8557679686422138,
+        "plate_bottom_z": 0.7412401807437445,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.043760302270933416,
+        "target_contact": false,
+        "state_max_deviation": 0.006984531879425049
+      },
+      "gate": {
+        "step": 390,
+        "hand_z": 1.0148425555328906,
+        "plate_z": 1.0456407986674712,
+        "plate_bottom_z": 0.9304777853747266,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14547730236004863,
+        "target_contact": false,
+        "state_max_deviation": 0.012079961597919464
+      },
+      "carry_hand_peak_z": 1.0218032690391794
+    },
+    "50": {
+      "nominal": {
+        "step": 487,
+        "hand_z": 0.8484346829803887,
+        "plate_z": 0.8511412150739461,
+        "plate_bottom_z": 0.7365817560638501,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04841872695082783,
+        "target_contact": false,
+        "state_max_deviation": 0.004924405366182327
+      },
+      "gate": {
+        "step": 358,
+        "hand_z": 0.9995312349013865,
+        "plate_z": 1.0339807657214521,
+        "plate_bottom_z": 0.9187251849962541,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.13372470198157616,
+        "target_contact": false,
+        "state_max_deviation": 0.007953241467475891
+      },
+      "carry_hand_peak_z": 1.0092976429704552
+    },
+    "51": {
+      "nominal": {
+        "step": 478,
+        "hand_z": 0.8516319753583725,
+        "plate_z": 0.8413185380746319,
+        "plate_bottom_z": 0.7263815927185089,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05861889029616907,
+        "target_contact": false,
+        "state_max_deviation": 0.004788890480995178
+      },
+      "gate": {
+        "step": 369,
+        "hand_z": 1.022850864663181,
+        "plate_z": 1.0469529627434828,
+        "plate_bottom_z": 0.9320877822532192,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.14708729923854125,
+        "target_contact": false,
+        "state_max_deviation": 0.005005881190299988
+      },
+      "carry_hand_peak_z": 1.0291532895933322
+    },
+    "52": {
+      "nominal": {
+        "step": 487,
+        "hand_z": 0.8575323213382584,
+        "plate_z": 0.8472391000907015,
+        "plate_bottom_z": 0.73322608046682,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.05177440254785792,
+        "target_contact": true,
+        "state_max_deviation": 0.012987963855266571
+      },
+      "gate": {
+        "step": 392,
+        "hand_z": 1.029270858333539,
+        "plate_z": 1.0526303079300103,
+        "plate_bottom_z": 0.9371942743634932,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.15219379134881528,
+        "target_contact": false,
+        "state_max_deviation": 0.004257082939147949
+      },
+      "carry_hand_peak_z": 1.0360690732435849
+    },
+    "53": {
+      "nominal": {
+        "step": 513,
+        "hand_z": 0.8590643859517536,
+        "plate_z": 0.8625384017743234,
+        "plate_bottom_z": 0.7479767053746808,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.0370237776399972,
+        "target_contact": false,
+        "state_max_deviation": 0.014549493789672852
+      },
+      "gate": {
+        "step": 376,
+        "hand_z": 1.023878457920927,
+        "plate_z": 1.0505154763177702,
+        "plate_bottom_z": 0.9352884324906284,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.15028794947595048,
+        "target_contact": false,
+        "state_max_deviation": 0.005677148699760437
+      },
+      "carry_hand_peak_z": 1.0306028650866832
+    },
+    "54": {
+      "nominal": {
+        "step": 486,
+        "hand_z": 0.848636685842155,
+        "plate_z": 0.8473843201884372,
+        "plate_bottom_z": 0.7335670872286096,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.051433395786068314,
+        "target_contact": true,
+        "state_max_deviation": 0.006274256855249405
+      },
+      "gate": {
+        "step": 377,
+        "hand_z": 0.9996905720742157,
+        "plate_z": 1.030216931810777,
+        "plate_bottom_z": 0.9151911633801069,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1301906803654289,
+        "target_contact": false,
+        "state_max_deviation": 0.007128633558750153
+      },
+      "carry_hand_peak_z": 1.0085211263639917
+    },
+    "55": {
+      "nominal": {
+        "step": 518,
+        "hand_z": 0.8387985820117407,
+        "plate_z": 0.8422092573589588,
+        "plate_bottom_z": 0.7286084411295886,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.056392041885089395,
+        "target_contact": true,
+        "state_max_deviation": 0.007392760366201401
+      },
+      "gate": {
+        "step": 390,
+        "hand_z": 1.024677709336759,
+        "plate_z": 1.0625597659417696,
+        "plate_bottom_z": 0.9473175683604684,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.16231708534579048,
+        "target_contact": false,
+        "state_max_deviation": 0.009482651948928833
+      },
+      "carry_hand_peak_z": 1.0341114510337415
+    },
+    "56": {
+      "nominal": {
+        "step": 512,
+        "hand_z": 0.863416512088387,
+        "plate_z": 0.8501465755406418,
+        "plate_bottom_z": 0.7355842423378647,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04941624067681327,
+        "target_contact": false,
+        "state_max_deviation": 0.009329557418823242
+      },
+      "gate": {
+        "step": 392,
+        "hand_z": 1.0415747229197438,
+        "plate_z": 1.060387918371719,
+        "plate_bottom_z": 0.9450706995328126,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1600702165181347,
+        "target_contact": false,
+        "state_max_deviation": 0.004073619842529297
+      },
+      "carry_hand_peak_z": 1.0495327678433397
+    },
+    "57": {
+      "nominal": {
+        "step": 448,
+        "hand_z": 0.8453294602136388,
+        "plate_z": 0.8568035437058192,
+        "plate_bottom_z": 0.7437762733262838,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.04122420968839413,
+        "target_contact": true,
+        "state_max_deviation": 0.0063718631863594055
+      },
+      "gate": {
+        "step": 342,
+        "hand_z": 0.9879560547009039,
+        "plate_z": 1.0212025469641415,
+        "plate_bottom_z": 0.9059666155183194,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.12096613250364141,
+        "target_contact": false,
+        "state_max_deviation": 0.004118889570236206
+      },
+      "carry_hand_peak_z": 0.9942437571328346
+    },
+    "58": {
+      "nominal": {
+        "step": 439,
+        "hand_z": 0.8491318034100459,
+        "plate_z": 0.8513835516606534,
+        "plate_bottom_z": 0.7367148384579997,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.048285644556678275,
+        "target_contact": true,
+        "state_max_deviation": 0.01236138865351677
+      },
+      "gate": {
+        "step": 324,
+        "hand_z": 0.9932471048681822,
+        "plate_z": 1.0166154836957149,
+        "plate_bottom_z": 0.9016782872731361,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.1166778042584582,
+        "target_contact": false,
+        "state_max_deviation": 0.017273664474487305
+      },
+      "carry_hand_peak_z": 1.00248913893548
+    },
+    "59": {
+      "nominal": {
+        "step": 542,
+        "hand_z": 0.8596728703688019,
+        "plate_z": 0.8603689355045812,
+        "plate_bottom_z": 0.7458940454867947,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": -0.03910643752788323,
+        "target_contact": false,
+        "state_max_deviation": 0.004668138921260834
+      },
+      "gate": {
+        "step": 402,
+        "hand_z": 1.0275226878518915,
+        "plate_z": 1.0591605186314537,
+        "plate_bottom_z": 0.9443502188908681,
+        "rack_top_z": 0.785000483014678,
+        "clearance_m": 0.15934973587619017,
+        "target_contact": false,
+        "state_max_deviation": 0.00444745272397995
+      },
+      "carry_hand_peak_z": 1.0371944198950045
+    }
+  }
+}

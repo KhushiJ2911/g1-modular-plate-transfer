@@ -271,7 +271,7 @@ class TeacherChecks(unittest.TestCase):
 
 class V2Checks(unittest.TestCase):
     def setUp(self):
-        self.teacher = Teacher()
+        self.teacher = Teacher(mode="v2")
         self.env = reset_geometry(self.teacher)
         self.plate = self.env.inner_env.plates[0]
         self.teacher.reset(self.env)
