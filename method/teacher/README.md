@@ -120,18 +120,30 @@ export ORT_DISABLE_TELEMETRY=1 CUDA_VISIBLE_DEVICES='' NVIDIA_VISIBLE_DEVICES=vo
 export MUJOCO_GL=egl LIBGL_ALWAYS_SOFTWARE=1 LP_NUM_THREADS=1 OMP_NUM_THREADS=1
 export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
 export EGL_PLATFORM=surfaceless PYTHONDONTWRITEBYTECODE=1
+export UV_PROJECT_ENVIRONMENT=/home/keyu/advaitic/robot-learning-assignment/.venv
+export UV_CACHE_DIR=/tmp/teacher-uv-cache RUFF_CACHE_DIR=/tmp/teacher-ruff-cache
 
-uv run --locked python -m method.teacher.run_teacher --mode v2 \
-  --seeds 2000000:2000030 --out method/teacher/runs/v2.jsonl \
-  --save-demos method/teacher/generated/v2
+uv run --locked --no-sync python -m method.teacher.run_teacher --mode v2 \
+  --seeds 2000000:2000030 --out method/teacher/runs/v2_labels.jsonl \
+  --save-demos method/teacher/generated/v2_labels
+
+# DART: separate log and directory for each scale/configuration.
+uv run --locked --no-sync python -m method.teacher.run_teacher --mode v2 --dart-noise 1 \
+  --seeds 2000100:2000130 --out method/teacher/runs/v2_dart1.jsonl \
+  --save-demos method/teacher/generated/v2_dart1
+
+# Replay all 60 human demonstrations; explicitly exclude/flag demo 45.
+# Repeat this command to skip already published sidecars and resume.
+uv run --locked --no-sync python -m method.teacher.label_human \
+  --demos-dir /home/keyu/advaitic/data/human60 --indices 0:60
 
 # Same seeds, separate ablation log and demonstration directory.
-uv run --locked python -m method.teacher.run_teacher --mode v1 \
-  --seeds 2000000:2000030 --out method/teacher/runs/v1_ablation.jsonl \
-  --save-demos method/teacher/generated/v1_ablation
+uv run --locked --no-sync python -m method.teacher.run_teacher --mode v1 \
+  --seeds 2000000:2000030 --out method/teacher/runs/v1_labels.jsonl \
+  --save-demos method/teacher/generated/v1_labels
 
 # Compact per-25-physical-step trace, plus terminal sample and JSON diagnostics.
-uv run --locked python -m method.teacher.diag_trace --mode v2 \
+uv run --locked --no-sync python -m method.teacher.diag_trace --mode v2 \
   --seeds 2000000 2000007 2000024
 ```
 
@@ -148,16 +160,79 @@ next demo clock, plate xyz, nearest site's 3D and xy distances (meters), tilt
 its final JSON contains the same episode diagnostics as the runner.
 
 Repeat the identical runner command to resume; completed failures are also skipped.
-The `run_id` hashes the runner, teacher, diagnostic helper, input demos/metadata,
-fixed action layout and all controller settings, **including mode**. Changed code
+The `run_id` hashes the runner, teacher, diagnostic/DART/label helpers, input demos/metadata,
+fixed action layout and all controller settings, **including mode and DART scale**. Changed code
 or settings require a fresh JSONL, including for the newly instrumented v1.
 `--kp` sets both pelvis and object feedback gains. `--tolerance` and `--max-wait`
 configure pelvis gates; in v2 the object gates remain fixed at 1.5 cm/150 steps. Defaults are 1 cm for v1 pelvis gates and 1.5 cm
 for v2. The v1 open-loop ablation is `--mode v1 --kp 0 --max-wait 0`.
 
+## DART action noise
+
+DART perturbs the actions sent to the environment while keeping the teacher's
+clean actions as training labels. This exposes the student to drifted states
+paired with the teacher's corrective responses.
+
+`--dart-noise SCALE` defaults to 0 (off) and accepts finite nonnegative values.
+Each episode starts a separate `np.random.default_rng(seed + 10_000_019)` and
+a zero OU state; neither the environment's RNG nor the teacher's state is changed.
+The recurrence per physical step is
+`noise = 0.85 * noise + std * sqrt(0.15 * 1.85) * normal(0,1)`;
+the stated standard deviations are the **stationary marginal** values, before
+masking/clipping, with lag-one correlation 0.85:
+
+| Normalized action dimensions | Standard deviation |
+| --- | --- |
+| 0–1: base vx/vy | `0.10 * SCALE` |
+| 4–10: left arm | `0.02 * SCALE` |
+| 2–3, 11–19: height, yaw, right arm, grippers | 0 |
+
+The applied noise is zero from 15 physical steps before through 15 steps after
+either gripper's open/close transition (inclusive), and throughout v2 opening,
+settling and retreat/recovery. Upcoming demo transitions are protected using the
+pre-action demo clock, conservatively extending the window when a gate pauses;
+post-transition windows use the actual command's physical step. The OU process
+continues evolving during protected steps, but its output is masked to zero.
+Execution uses `clip(clean + noise, -1, 1)`; every following teacher call receives
+the real resulting observation. With scale 0, executed and clean actions match exactly.
+
+## Privileged labels and human sidecars
+
+Both generators read live geometry before each action; all per-step labels align
+with the `T = len(action)` pre-action `state` rows, including steps without RGB.
+Positions are in meters and tilt is in degrees. The pelvis transform subtracts
+observed `state[18:21]`, then rotates xy by `-state[21]`; it includes pelvis z.
+Nearest destination site means minimum **3D world distance** to the current plate
+among all six sites, recomputed each step, with the first site breaking ties.
+
+| Key | Shape / dtype |
+| --- | --- |
+| `priv_plate_pos` | `(T,3)` float32, world xyz |
+| `priv_plate_rel` | `(T,3)` float32, pelvis-frame plate xyz |
+| `priv_target_site_rel` | `(T,3)` float32, pelvis-frame nearest target-site xyz |
+| `priv_plate_tilt_deg` | `(T,)` float32, angle of plate local +z to world −y |
+| `priv_held` | `(T,)` bool, either-gripper task contact predicate |
+| `priv_start_rack_offset`, `priv_target_rack_offset` | `(2,)` float32 each, world xy offsets from nominal `[0.55, 0.24]` / `[0.55, -0.24]` |
+
+`label_human.py` replays each source NPZ's own `seed` and `action` in the unchanged
+evaluator environment. At **every** pre-action step it asserts maximum absolute
+deviation between replayed `low_dim_obs` and stored `state` is at most 0.05,
+reports the episode maximum, and saves it as `max_state_deviation` in the sidecar.
+It atomically publishes `ep_<idx>.priv.npz` beside the human source only after all
+actions reproduce an aligned, terminal success without a fall. Sidecars contain
+the same seven `priv_*` keys plus `seed`, `success` and `max_state_deviation`;
+the human archives are unchanged. Demo 45 is always flagged/excluded, and any
+misalignment, early termination, unsuccessful replay or input error is flagged
+without publishing a sidecar. Other demos continue; unexpected flags give exit
+status 1. Existing sidecars are skipped without opening the simulator.
+
+Use `--out-dir DIR` for an alternate sidecar destination, and `--indices 0,1,2`
+for a subset; the default is all indices `0:60`, excluding 45. These labels are
+privileged **training-only** auxiliary targets, never student observations.
+
 ## Records and saved demonstrations
 
-Each completed JSONL record retains seed, source slot, chosen demo, shifts,
+Each completed JSONL record retains seed, DART scale, source slot, chosen demo, shifts,
 `success`, termination, robot fall flag, physical steps, maximum pelvis tracking
 error, gate waits, demo clock, saved path, config/hash and wall time. It adds:
 
@@ -199,7 +274,10 @@ resume. With `--save-demos DIR`, only successful episodes atomically publish
 
 | Key | Contents |
 | --- | --- |
-| `state`, `action` | `(T,50)` / `(T,20)` float32, paired **pre-action** observations/actions |
+| `state`, `action` | `(T,50)` / `(T,20)` float32, paired **pre-action** observations / **clean teacher labels** |
+| `action_executed` | `(T,20)` float32, clipped noisy actions actually sent to the environment |
+| `dart_noise` | scalar float32, configured scale (also recorded in JSONL and hashed into `run_id`) |
+| `priv_*` | All seven labels in the table above, at every state/action step |
 | `rgb` | `(ceil(T/2),3,3,84,84)` uint8, pre-action frames 0,2,4,... |
 | `rgb_stride` | scalar 2; `rgb[j]` pairs with `state[2*j]` |
 | `seed`, `slot`, `success` | integer seed/slot; boolean true |
@@ -224,14 +302,50 @@ ORT_DISABLE_TELEMETRY=1 CUDA_VISIBLE_DEVICES='' MUJOCO_GL=disable \
   python -m unittest discover -s method/teacher -p 'test_*.py' -v
 uv run --locked --no-sync python -m method.teacher.run_teacher --help
 uv run --locked --no-sync python -m method.teacher.diag_trace --help
+uv run --locked --no-sync python -m method.teacher.label_human --help
 ```
 
-Twelve CPU contract checks cover all 59 usable demos' exact v1 replay, selection,
+Nineteen CPU contract checks cover all 59 usable demos' exact v1 replay, selection,
 blend/body-frame feedback, bounded gates, interrupted logs, atomic demonstration
 alignment/resume, cross-mode run-ID rejection, object versus pelvis feedback,
 deadzone behavior, wrist sign/bounds/timeout, guarded retreat/lift, held-at-50,
-physical diagnostic timing, failure categories and named joint lookup with legs first. They use fake environments,
+physical diagnostic timing, failure categories and named joint lookup with legs first.
+They also cover OU spread/correlation, independent seeded noise, protected
+dimensions and transition windows with pauses, clipping/off behavior, v2 retreat
+masking, clean/executed action storage and scale-dependent run-ID rejection,
+pelvis transforms/nearest-site labels, human per-step alignment rejection,
+successful-only sidecars and resumability/demo-45 exclusion. They use fake environments,
 never injected simulator fixture poses, and are **not task-solving rollouts**.
+
+For brief #4, all 60 human archives were inspected: each has `(T,50)` states
+and `(T,20)` actions, totaling 37,645 steps. A real CPU-rendered smoke check
+executed the first three human-demo-0 actions (seed 18): maximum absolute state
+deviations were 0.0178529, 0.0191959 and 0.0203576, all below 0.05. After another
+ordinary reset it executed three v2 teacher actions with DART scale 1; the largest
+action perturbations were 0.0298790, 0.0386184 and 0.0264261, with protected
+dimensions unchanged. All seven label shapes/dtypes were checked on live reads.
+These are **six early control steps, not completed task-solving episodes**.
+With the CPU/environment exports above, the exact smoke command was:
+
+```bash
+PYTHONPATH=src:. timeout --signal=INT --kill-after=10s 90s \
+  uv run --locked --no-sync python /tmp/teacher_brief4_live_smoke.py
+```
+
+A full human-demo-0 sidecar attempt was bounded to 180 seconds and interrupted
+before completion, leaving no sidecar. Its alternate output directory was used
+because the human-data directory is outside this session's writable roots:
+
+```bash
+PYTHONPATH=src timeout --signal=INT 180s \
+  uv run --locked --no-sync python -m method.teacher.label_human \
+  --indices 0 --out-dir /tmp/teacher-brief4-human-smoke
+```
+
+**DART/label verification limits:** no complete noisy teacher episode or full
+human replay was verified, and the full human sidecar collection was not produced.
+The per-step 0.05 checks and successful-terminal gate remain mandatory during
+generation. No DART success rate or student-policy performance is established.
 
 The corrected adapter was also checked on a real, unmodified seed-2000000 reset:
 8/9 resolved to left wrist roll/pitch, 4/7 to left shoulder pitch/elbow, world

@@ -8,7 +8,6 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -21,6 +20,8 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from method.teacher.dart import DartNoise, validate_scale
+from method.teacher.labels import PrivilegedLabels, save_npz_atomic
 from method.teacher.teacher import METHOD_DIR, REPO_DIR, Teacher
 
 RGB_STRIDE = 2
@@ -78,38 +79,30 @@ def append_record(stream, record: dict):
     os.fsync(stream.fileno())
 
 
-def save_demo(directory: Path, seed: int, slot: int, rgb, states, actions) -> Path:
+def save_demo(
+    directory: Path, seed: int, slot: int, rgb, states, actions, executed, dart_noise, labels
+) -> Path:
     """Atomically publish successful pre-action observations and their actions."""
-    destination = directory / f"ep_{seed}.npz"
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb", dir=directory, prefix=f".ep_{seed}_", suffix=".npz", delete=False
-        ) as stream:
-            temporary = Path(stream.name)
-            np.savez_compressed(
-                stream,
-                rgb=np.asarray(rgb, dtype=np.uint8),
-                state=np.asarray(states, dtype=np.float32),
-                action=np.asarray(actions, dtype=np.float32),
-                seed=np.int64(seed),
-                slot=np.int64(slot),
-                success=np.bool_(True),
-                rgb_stride=np.int64(RGB_STRIDE),
-            )
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, destination)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-    return destination
+    return save_npz_atomic(
+        directory / f"ep_{seed}.npz",
+        rgb=np.asarray(rgb, dtype=np.uint8),
+        state=np.asarray(states, dtype=np.float32),
+        action=np.asarray(actions, dtype=np.float32),
+        action_executed=np.asarray(executed, dtype=np.float32),
+        dart_noise=np.float32(dart_noise),
+        seed=np.int64(seed),
+        slot=np.int64(slot),
+        success=np.bool_(True),
+        rgb_stride=np.int64(RGB_STRIDE),
+        **labels.arrays(),
+    )
 
 
 def run_episode(
-    env, teacher: Teacher, seed: int, save_directory: Path | None, *, trace=None
+    env, teacher: Teacher, seed: int, save_directory: Path | None, *, trace=None, dart_noise=0.0
 ) -> dict:
     started = time.monotonic()
+    noise = DartNoise(seed, dart_noise)
     ts = env.reset(seed=seed)
     from advaitic_eval.environment import observed_source_slot
 
@@ -117,18 +110,24 @@ def run_episode(
     teacher.reset(env)
     if trace is not None:
         trace(0, teacher, teacher.current_snapshot, False)
-    rgb, states, actions = [], [], []
+    labels = PrivilegedLabels(env) if save_directory is not None else None
+    rgb, states, actions, executed = [], [], [], []
     steps = 0
     while not ts.last():
+        if labels is not None:
+            labels.append(ts.low_dim_obs, teacher.current_snapshot)
+        demo_step = teacher.demo_step
         action = teacher.act(ts)
         if action.shape != (20,) or not np.isfinite(action).all() or np.any(np.abs(action) > 1):
             raise ValueError("Teacher returned an invalid normalized action")
+        action_executed = noise.execute(action, teacher, demo_step)
         if save_directory is not None:
             states.append(np.asarray(ts.low_dim_obs, dtype=np.float32).copy())
             actions.append(action.copy())
+            executed.append(action_executed.copy())
             if steps % RGB_STRIDE == 0:
                 rgb.append(np.asarray(ts.rgb_obs, dtype=np.uint8).copy())
-        ts = env.step(action)
+        ts = env.step(action_executed)
         steps += 1
         snapshot = teacher.observe()
         if trace is not None:
@@ -137,6 +136,7 @@ def run_episode(
     success = bool(env.episode_succeeded() and not fell)
     record = {
         "seed": seed,
+        "dart_noise": noise.scale,
         "slot": slot,
         "chosen_demo": teacher.chosen_demo,
         "grasp_shift": teacher.grasp_shift.tolist(),
@@ -153,12 +153,17 @@ def run_episode(
     }
     record.update(teacher.diagnostics(success=success, fell=fell))
     if success and save_directory is not None:
-        record["demo_file"] = str(save_demo(save_directory, seed, slot, rgb, states, actions))
+        record["demo_file"] = str(
+            save_demo(
+                save_directory, seed, slot, rgb, states, actions, executed, noise.scale, labels
+            )
+        )
     record["wall_time"] = time.monotonic() - started
     return record
 
 
 def run(args) -> int:
+    dart_noise = validate_scale(args.dart_noise)
     seeds = parse_seeds(args.seeds)
     teacher = Teacher(
         args.demos,
@@ -174,12 +179,15 @@ def run(args) -> int:
         Path(__file__),
         Path(__file__).with_name("teacher.py"),
         Path(__file__).with_name("diagnostics.py"),
+        Path(__file__).with_name("dart.py"),
+        Path(__file__).with_name("labels.py"),
         args.demos,
         args.meta,
     ):
         digest.update(path.read_bytes())
     digest.update((REPO_DIR / "src/advaitic_eval/action_layout.json").read_bytes())
     digest.update(json.dumps(teacher.config, sort_keys=True).encode())
+    digest.update(json.dumps({"dart_noise": dart_noise}, sort_keys=True).encode())
     run_id = digest.hexdigest()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if args.save_demos is not None:
@@ -205,7 +213,7 @@ def run(args) -> int:
             env = make_environment()
             try:
                 for seed in pending:
-                    record = run_episode(env, teacher, seed, args.save_demos)
+                    record = run_episode(env, teacher, seed, args.save_demos, dart_noise=dart_noise)
                     record.update(run_id=run_id, teacher_config=teacher.config)
                     append_record(stream, record)
                     records[seed] = record
@@ -251,6 +259,12 @@ def main() -> int:
     )
     parser.add_argument("--out", type=Path, required=True, help="Append-only episode JSONL")
     parser.add_argument("--save-demos", type=Path, help="Save successful episodes atomically here")
+    parser.add_argument(
+        "--dart-noise",
+        type=float,
+        default=0.0,
+        help="OU action noise scale (finite, nonnegative; default: 0 = off)",
+    )
     add_controller_arguments(parser)
     args = parser.parse_args()
     try:

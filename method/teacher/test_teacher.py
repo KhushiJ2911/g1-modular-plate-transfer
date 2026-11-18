@@ -37,6 +37,11 @@ def reset_geometry(teacher, demo=0, grasp_shift=None, place_shift=None):
     return SimpleNamespace(
         inner_env=SimpleNamespace(
             plates=[prop],
+            rack_start=SimpleNamespace(
+                get_position=lambda: np.r_[
+                    np.array([0.55, 0.24]) + np.asarray(row["start_rack_offset"])[:2], 0.70
+                ]
+            ),
             rack_target=target_rack,
             data=SimpleNamespace(bind=lambda site: SimpleNamespace(xpos=site)),
             robot=robot,
@@ -66,11 +71,13 @@ class FakeEpisode:
 
     def reset(self, *, seed):
         self.index = 0
+        self.executed = []
         return self.timestep()
 
     def step(self, action):
         if self.interrupt and self.index == 1:
             raise KeyboardInterrupt
+        self.executed.append(action.copy())
         self.index += 1
         return self.timestep()
 
@@ -202,6 +209,7 @@ class TeacherChecks(unittest.TestCase):
                 kp=2.0,
                 tolerance=0.01,
                 max_wait=100,
+                dart_noise=0.0,
             )
             fake = FakeEpisode(self.teacher)
             with patch.object(advaitic_eval.environment, "make_environment", return_value=fake):
@@ -219,12 +227,20 @@ class TeacherChecks(unittest.TestCase):
                 np.testing.assert_array_equal(data["rgb"][:, 0, 0, 0, 0], [0, 2, 4])
                 self.assertEqual(int(data["rgb_stride"]), 2)
                 self.assertTrue(data["success"])
+                np.testing.assert_array_equal(data["action"], data["action_executed"])
+                self.assertEqual(float(data["dart_noise"]), 0.0)
+                self.assertEqual(data["priv_plate_pos"].shape, (5, 3))
+                self.assertEqual(data["priv_held"].shape, (5,))
             before = args.out.read_bytes()
             with patch.object(advaitic_eval.environment, "make_environment") as factory:
                 with contextlib.redirect_stdout(io.StringIO()):
                     run(args)
                 factory.assert_not_called()
             self.assertEqual(args.out.read_bytes(), before)
+            args.dart_noise = 1.0
+            with self.assertRaisesRegex(ValueError, "configuration changed"):
+                run(args)
+            args.dart_noise = 0.0
             args.mode = "v2"
             with self.assertRaisesRegex(ValueError, "configuration changed"):
                 run(args)
