@@ -119,12 +119,12 @@ class BCModel(nn.Module):
         return actions
 
 
-def masked_l1(prediction, target, pad_mask):
-    """True means padding; padding contributes neither loss nor denominator."""
-    valid = (~pad_mask).unsqueeze(-1)
-    return ((prediction - target).abs() * valid).sum() / (
-        valid.sum().clamp_min(1) * prediction.shape[-1]
-    )
+def masked_l1(prediction, target, pad_mask, label_mask=None):
+    """Mean over supervised, nonpadding elements; an empty mask has zero loss."""
+    valid = (~pad_mask).unsqueeze(-1).expand_as(prediction)
+    if label_mask is not None:
+        valid = valid & label_mask
+    return ((prediction - target).abs() * valid).sum() / valid.sum().clamp_min(1)
 
 
 def auxiliary_loss(prediction, target, mask):

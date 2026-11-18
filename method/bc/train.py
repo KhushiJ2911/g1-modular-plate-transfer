@@ -162,7 +162,9 @@ def validate(model, loader, device, cuda):
         batch = to_device(batch, device)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
             prediction, aux = model(batch["rgb"], batch["proprio"], return_aux=True)
-            loss = masked_l1(prediction.float(), batch["target"], batch["pad_mask"])
+            loss = masked_l1(
+                prediction.float(), batch["target"], batch["pad_mask"], batch["label_mask"]
+            )
             if aux is not None:
                 labeled = int(batch["aux_mask"].sum())
                 aux_total += (
@@ -170,10 +172,10 @@ def validate(model, loader, device, cuda):
                     * labeled
                 )
                 aux_count += labeled
-        valid = int((~batch["pad_mask"]).sum()) * prediction.shape[-1]
+        valid = int((batch["label_mask"] & ~batch["pad_mask"].unsqueeze(-1)).sum())
         total += float(loss) * valid
         count += valid
-    return total / count, aux_total / aux_count if aux_count else 0.0
+    return total / max(count, 1), aux_total / aux_count if aux_count else 0.0
 
 
 @torch.no_grad()
@@ -328,7 +330,7 @@ def train(config, *, stop_after=None, init_from=None):
             ):
                 group["lr"] = base_lr * factor
             optimizer.zero_grad(set_to_none=True)
-            valid_count = (~batch["pad_mask"]).sum().item() * 10
+            valid_count = (batch["label_mask"] & ~batch["pad_mask"].unsqueeze(-1)).sum().item()
             labeled_count = batch["aux_mask"].sum().item() if config.aux_weight > 0 else 0
             batch_loss = 0.0
             batch_aux = 0.0
@@ -340,8 +342,13 @@ def train(config, *, stop_after=None, init_from=None):
                 )
                 with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=cuda):
                     prediction, aux = model(micro["rgb"], micro["proprio"], return_aux=True)
-                    action_loss = masked_l1(prediction.float(), micro["target"], micro["pad_mask"])
-                    fraction = (~micro["pad_mask"]).sum().item() * 10 / valid_count
+                    action_loss = masked_l1(
+                        prediction.float(), micro["target"], micro["pad_mask"], micro["label_mask"]
+                    )
+                    micro_count = (
+                        (micro["label_mask"] & ~micro["pad_mask"].unsqueeze(-1)).sum().item()
+                    )
+                    fraction = micro_count / max(valid_count, 1)
                     action_loss = action_loss * fraction
                     aux_loss = action_loss.new_zeros(())
                     if aux is not None and labeled_count:
@@ -353,15 +360,18 @@ def train(config, *, stop_after=None, init_from=None):
                 scaler.scale(loss).backward()
                 batch_loss += float(action_loss.detach())
                 batch_aux += float(aux_loss.detach())
-            scaler.unscale_(optimizer)
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            if not cuda and not torch.isfinite(norm):
-                raise FloatingPointError("Nonfinite CPU gradient")
-            old_scale = scaler.get_scale()
-            scaler.step(optimizer)
-            scaler.update()
-            if scaler.get_scale() >= old_scale:
-                update_ema(ema, model, config.ema_decay)
+            # A gripper-only batch can contain no oracle-defined states. Do not
+            # apply weight decay or Adam momentum without any supervision.
+            if valid_count or labeled_count:
+                scaler.unscale_(optimizer)
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                if not cuda and not torch.isfinite(norm):
+                    raise FloatingPointError("Nonfinite CPU gradient")
+                old_scale = scaler.get_scale()
+                scaler.step(optimizer)
+                scaler.update()
+                if scaler.get_scale() >= old_scale:
+                    update_ema(ema, model, config.ema_decay)
             step += 1
             train_total += batch_loss
             train_count += 1

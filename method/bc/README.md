@@ -7,7 +7,9 @@ implementation is in `method/bc/` and `submission/`.
 Measured human-only baseline: validation L1 0.019 and closed-loop dev score
 **0/30**, all timeouts with no gripper closure. Offline held-out gripper timing
 was within about 20 steps. These observations motivate teacher data and auxiliary
-supervision; student v1 has no measured task-success result yet.
+supervision. Student v1a (human60 + 73 teacher episodes, 8k steps) also measured
+**0/30** on dev: 18 no-grasp, 10 placed but never released, and 2 reached the
+target then failed. See the DAgger section for the next training experiment.
 
 ## Data and export
 
@@ -28,6 +30,18 @@ Camera order is head/right wrist/left wrist. Frame `j` corresponds to control
 step `2*j`; actions are supervised at every control step, without a transition
 shift. The terminal observation at `T` is omitted. `action_executed` is ignored:
 controller corrections must not replace clean teacher targets.
+
+Optional `label_mask` is boolean `(T,20)`, with True for each trusted action
+element. Missing masks default to all True, preserving existing human/teacher
+supervision. Chunk targets select the per-step masks at `t:t+H`, intersect them
+with `ACTIVE_DIMS`, and exclude end-padding. `masked_l1` divides by the number
+of supervised action elements, with zero loss/gradients for an empty mask.
+Validation aggregation and microbatch accumulation use that same element count.
+Inactive-action defaults use training labels only (zero if a dimension has no
+labels), so untrusted student arm actions cannot change those defaults. Proprio
+statistics still include all training observations. Cache schema 3 stores masks
+and invalidates older cache identities; use `--init-from` in a new run directory
+to migrate older training runs. Old checkpoints remain valid for inference.
 
 Optional labels can be embedded in the episode or stored in
 `ep_<index>.priv.npz`. Embedded values take precedence **per key**. Sidecars are
@@ -53,7 +67,7 @@ mean 0/std 1. An auxiliary dimension absent throughout training uses mean 0/std 
 Masked normalized targets are zero. Stats are stored in the checkpoint.
 
 The cache streams one compressed episode at a time into one uint8 `<hash>.u8`
-image file and a small `<hash>.npz` state/action/privileged-label/offset index.
+image file and a small `<hash>.npz` state/action/mask/privileged-label/offset index.
 Splits/workers share a read-only memmap; they do not hold the full RGB dataset
 in RAM. The versioned key includes resolved episode and sidecar paths, sizes,
 and modification times, including sidecar additions/removals. Sidecars arriving
@@ -201,6 +215,156 @@ UV_CACHE_DIR=/tmp/advaitic-uv-cache uv run --locked --no-sync \
   /home/keyu/.cache/uv/archive-v0/ZcJum6eSe-tIuzaS/ruff-0.17.4.data/scripts/ruff \
   format --check method/bc submission
 ```
+
+## DAgger gripper relabelling
+
+The student visits arm/vision states absent from demonstration data. In the
+measured v1a run, ten plates reached the rack but the student stayed closed in a
+settled pose for over 1,000 steps. Flipping state dimensions 7, 8, 44 and 45 did
+not change its gripper prediction. Following the DAgger idea (Ross et al., 2011),
+we label observations from student rollouts and train on the union. The teacher
+cannot provide reliable arbitrary-state arm targets, so these new episodes
+supervise **only gripper action dimension 18**. This experiment does not supply
+new grasp-approach or arm corrections.
+
+`method/dagger/collect.py` runs in the sim environment, calls the unchanged
+`advaitic_eval.environment.make_environment()`, and uses the evaluator's
+`PolicyProcess`/worker with `submission.policy:make_policy` in the model env.
+That factory constructs the exact `BCPolicy` with the requested checkpoint.
+Only RGB/state cross the worker boundary. Returned chunks, reset behavior,
+thresholding and temporal ensembling use the evaluation path unchanged. Oracle
+checks happen at **every pre-action control step**, including inside chunks;
+labels belong to that observation, not the resulting next state. Sensors are a
+local read-only copy of the teacher diagnostics; no cross-worktree imports,
+controller overrides or pose injection are used.
+
+Training-only oracle constants live in `method/dagger/diagnostics.py`:
+
+| Label | Conditions at the observation being labelled |
+| --- | --- |
+| Open, `-1` | Touching the target rack, nearest of its six sites at distance ≤ 0.05 m, tilt ≤ 20° |
+| Closed, `+1` | Held by a gripper, plate height ≥ reset height + 0.03 m, no target-rack contact |
+| Undefined | Everything else; no action supervision |
+
+Tilt uses the fixed task convention: angle of the rotated plate local +z to
+world -y. Open takes priority. These three open predicates are exactly the
+oracle; there are no extra table/floor exclusions. Undefined labels leave the
+student action in the array but its mask is False. `label_mask` is bool `(T,20)`;
+all dimensions other than 18 are always False. Each summary logs counts and
+fractions of open/closed/undefined steps, plus initial/final geometry, maximum
+lift, held-step count, first held/placed step, slot and termination.
+
+Every rollout, including failure and early cutoff, is saved as
+`DIR/ep_<seed>.npz`, with the teacher-compatible RGB/stride/state/action/seed/
+slot/success keys and the new mask. `action` is the executed student action with
+only defined dim-18 labels replaced. `action_executed` records what actually
+entered the environment. Default execution is pure student; `--relabel-execute`
+instead executes defined gripper labels, letting collection see post-release
+states while continuing the student's arm chunks. The boolean mode is saved
+in both NPZ and JSONL. Keep modes in separate output directories.
+
+`--max-steps` defaults to 1,700. `--stop-after-placed N` defaults to 150 and
+stops after N additional actions from the first state meeting the open condition.
+Both must be positive. Natural environment termination takes precedence. A
+cutoff is recorded as a training rollout cutoff; it cannot count as scored
+success. Outcome precedence is `success`, `fell` (robot fall or plate touching
+floor), `no_grasp` (maximum lift < 3 cm), `placed_not_released` (final open
+geometry and still held), `reached_target_then_failed` (open geometry visited
+earlier), then `other`. These are broad replay-style diagnostic categories;
+raw geometry is retained to make them auditable. A cutoff shortly after
+placement can be categorized as reached-target failure even after release.
+
+NPZ publication is atomic and precedes the shared `summary.jsonl` append.
+Completed files embed their summary so resume repairs an interrupted log append.
+Per-seed locks prevent duplicate collection and a short JSONL lock serializes
+appends across OS processes. Rerunning the same command skips completed files;
+an interrupted episode restarts from reset. Checkpoint/source hashes and rollout
+settings in `collector_config.json` prevent mixing configurations. Incompatible
+files or missing previously logged episodes fail explicitly. The seed parser
+uses Python's stop-exclusive `A:B` convention, refuses all seeds below
+2,000,000, and conservatively limits collection to `[2000000,3000000)` so dev
+and reviewer/public evaluation blocks cannot be collected accidentally.
+
+Exact two-process command for **2400000 through 2400060 inclusive (61 seeds)**,
+from the repository root, with CPU software rendering and CPU inference:
+
+```bash
+mkdir -p /home/keyu/advaitic/data/dagger
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 MUJOCO_GL=egl \
+LIBGL_ALWAYS_SOFTWARE=1 EGL_PLATFORM=surfaceless OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+/home/keyu/advaitic/robot-learning-assignment/.venv/bin/python -m method.dagger.collect \
+  --checkpoint /home/keyu/advaitic/ckpts/student_v1a.pt \
+  --policy-python /home/keyu/advaitic/mlenv/bin/python \
+  --seeds 2400000:2400030 --out /home/keyu/advaitic/data/dagger \
+  --max-steps 1700 --stop-after-placed 150 \
+  > /home/keyu/advaitic/data/dagger/process_a.log 2>&1 &
+dagger_pid_a=$!
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 MUJOCO_GL=egl \
+LIBGL_ALWAYS_SOFTWARE=1 EGL_PLATFORM=surfaceless OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+/home/keyu/advaitic/robot-learning-assignment/.venv/bin/python -m method.dagger.collect \
+  --checkpoint /home/keyu/advaitic/ckpts/student_v1a.pt \
+  --policy-python /home/keyu/advaitic/mlenv/bin/python \
+  --seeds 2400030:2400061 --out /home/keyu/advaitic/data/dagger \
+  --max-steps 1700 --stop-after-placed 150 \
+  > /home/keyu/advaitic/data/dagger/process_b.log 2>&1 &
+dagger_pid_b=$!
+wait "$dagger_pid_a"
+wait "$dagger_pid_b"
+```
+
+For 60 episodes with exclusive endpoint 2400060, change only the second stop to
+`2400060`. To collect post-release interventions instead, add
+`--relabel-execute` to **both** commands and choose a fresh output directory;
+set the training config's DAgger directory to that directory.
+
+After both collectors finish successfully, fine-tune the union with:
+
+```bash
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 \
+/home/keyu/advaitic/mlenv/bin/python -m method.bc.train \
+  --config method/dagger/student_v1a_dagger.yaml \
+  --num-workers 0 \
+  --init-from /home/keyu/advaitic/ckpts/student_v1a.pt
+```
+
+The config retains v1a's human60/teacher_v1 directories and adds `data/dagger`.
+Equal `[1,1,1]` source sampling preserves the original human:teacher ratio while
+giving student states one third of draws. Loss still averages **labelled
+elements**, so sampling mass is not identical to gripper loss mass. It uses
+8k fresh steps, H=20/exec=10, aux weight 0 (as v1a), CPU and a fresh run directory.
+Six validation episodes are held out **per directory**, including DAgger.
+Entirely undefined batches have zero action loss and skip optimizer/EMA updates
+when auxiliary labels are also absent, avoiding unsupervised Adam/decay changes.
+The command uses zero data-loader workers because this implementation sandbox
+blocks the local sockets needed by PyTorch's two-worker loader. The config
+retains two workers for an unrestricted host; omit the override there.
+To resume training, omit `--init-from`. No new privileged input enters inference.
+
+Smoke checks (no task-solving claim):
+
+```bash
+ORT_DISABLE_TELEMETRY=1 /home/keyu/advaitic/robot-learning-assignment/.venv/bin/python \
+  -m method.dagger.smoke_test
+CUDA_VISIBLE_DEVICES='' ORT_DISABLE_TELEMETRY=1 /home/keyu/advaitic/mlenv/bin/python \
+  -m method.bc.smoke_test
+```
+
+The collector smoke uses fake observations/sensors to verify threshold
+boundaries, masks, action modes, chunk cadence, pre-action frame alignment,
+cutoffs, atomic saves and interrupted JSONL recovery. The BC smoke includes a
+fake episode with per-step partial masks, zero gradients outside its labels,
+inactive-dimension exclusion, padding, empty-mask loss, microbatch equivalence,
+masked action defaults and an entirely unlabelled training batch.
+
+Implementation verification passed Ruff check/format, both synthetic smokes,
+and real sim/model-worker collection with student_v1a on CPU software EGL:
+one 2-step default-mode rollout and two concurrent 12-step intervention-mode
+rollouts into one directory. Resume skipped both saved files without duplicate
+summaries; their NPZ shapes/modes and BC dataset loading were checked. These
+short real rollouts had only undefined oracle labels. Physical release behavior,
+full 61-episode collection, union retraining and subsequent dev performance are
+unverified. The two-worker BC smoke was interrupted after sandbox socket
+`PermissionError`; the full zero-worker smoke, including exact resume, passed.
 
 ## Inference and dev evaluation
 

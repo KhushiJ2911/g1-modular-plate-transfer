@@ -85,7 +85,7 @@ def build_cache(files, cache_dir):
         for p in (episode, sidecar_path(episode))
         if p.exists()
     ]
-    digest = hashlib.sha256(json.dumps([2, signature]).encode()).hexdigest()[:24]
+    digest = hashlib.sha256(json.dumps([3, signature]).encode()).hexdigest()[:24]
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     image_path = cache_dir / f"{digest}.u8"
@@ -97,7 +97,7 @@ def build_cache(files, cache_dir):
                 expected = int(index["frame_offsets"][-1]) * FRAME_BYTES
             if image_path.stat().st_size == expected:
                 return image_path, index_path, digest
-        states, actions, lengths, frame_counts = [], [], [], []
+        states, actions, label_masks, lengths, frame_counts = [], [], [], [], []
         privileged = {key: [] for key in PRIV_LABELS}
         available = {key: [] for key in PRIV_LABELS}
         with tempfile.NamedTemporaryFile(dir=cache_dir, delete=False) as stream:
@@ -115,6 +115,13 @@ def build_cache(files, cache_dir):
                             raise ValueError(f"{path}: expected rgb_stride=2")
                         if length < 1 or action.shape != (length, 20):
                             raise ValueError(f"{path}: invalid action shape")
+                        label_mask = (
+                            episode["label_mask"]
+                            if "label_mask" in episode
+                            else np.ones((length, 20), dtype=bool)
+                        )
+                        if label_mask.shape != (length, 20) or label_mask.dtype != np.bool_:
+                            raise ValueError(f"{path}: label_mask must be bool (T,20)")
                         if state.shape != (length, 50):
                             raise ValueError(f"{path}: state must have exactly T rows")
                         if rgb.dtype != np.uint8 or rgb.shape != ((length + 1) // 2, *FRAME_SHAPE):
@@ -130,6 +137,7 @@ def build_cache(files, cache_dir):
                         rgb.tofile(stream)
                         states.append(state)
                         actions.append(action)
+                        label_masks.append(label_mask)
                         lengths.append(length)
                         frame_counts.append(len(rgb))
                 stream.flush()
@@ -144,6 +152,7 @@ def build_cache(files, cache_dir):
                     stream,
                     state=np.concatenate(states),
                     action=np.concatenate(actions),
+                    label_mask=np.concatenate(label_masks),
                     step_offsets=np.r_[0, np.cumsum(lengths)],
                     frame_offsets=np.r_[0, np.cumsum(frame_counts)],
                     files=np.asarray([str(p) for p in files]),
@@ -184,6 +193,7 @@ class EpisodeStore:
         with np.load(index_path, allow_pickle=False) as index:
             self.state = index["state"]
             self.action = index["action"]
+            self.label_mask = index["label_mask"]
             self.steps = index["step_offsets"]
             self.frames = index["frame_offsets"]
             self.priv = {key: index[key] for key in PRIV_LABELS}
@@ -212,10 +222,16 @@ class EpisodeStore:
             if len(rows):
                 values = self.aux_target[rows, dim].astype(np.float64)
                 aux_mean[dim], aux_std[dim] = values.mean(), max(values.std(), 1e-3)
+        # Inactive policy defaults must not learn from untrusted student actions.
+        action_mask = self.label_mask[train_rows]
+        action_mean = (
+            (self.action[train_rows].astype(np.float64) * action_mask).sum(0)
+            / np.maximum(action_mask.sum(0), 1)
+        ).astype(np.float32)
         self.stats = {
             "proprio_mean": proprio.mean(0).astype(np.float32),
             "proprio_std": np.maximum(proprio.std(0), 1e-3).astype(np.float32),
-            "action_mean": self.action[train_rows].mean(0, dtype=np.float64).astype(np.float32),
+            "action_mean": action_mean,
             "aux_mean": aux_mean,
             "aux_std": aux_std,
         }
@@ -275,13 +291,16 @@ class ChunkDataset(Dataset):
         start, end = self.store.steps[episode : episode + 2]
         steps = t + np.arange(self.horizon)
         pad_mask = steps >= end - start
-        target = self.store.action[start + np.minimum(steps, end - start - 1)][:, ACTIVE_DIMS]
+        rows = start + np.minimum(steps, end - start - 1)
+        target = self.store.action[rows][:, ACTIVE_DIMS]
+        label_mask = self.store.label_mask[rows][:, ACTIVE_DIMS] & ~pad_mask[:, None]
         proprio = self.store.state[start + t, list(self.store.proprio_dims)]
         proprio = (proprio - self.store.stats["proprio_mean"]) / self.store.stats["proprio_std"]
         return {
             "rgb": self.images[self.store.frames[episode] + frame].copy(),
             "proprio": proprio.astype(np.float32),
             "target": target.copy(),
+            "label_mask": label_mask.copy(),
             "pad_mask": pad_mask,
             "aux_target": self.store.aux_target[start + t].copy(),
             "aux_mask": self.store.aux_mask[start + t].copy(),

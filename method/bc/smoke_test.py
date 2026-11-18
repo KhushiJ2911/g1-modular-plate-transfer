@@ -47,6 +47,13 @@ def fake_data(root):
             if (group, index) == (1, 2):
                 labels = {"priv_held": labels["priv_held"]}
             path = directory / f"ep_{index}.npz"
+            action_labels = {}
+            if group == 2 and index in (1, 2):
+                label_mask = np.zeros((length, 20), dtype=bool)
+                if index == 1:
+                    label_mask[[1, 4], 18] = True
+                    label_mask[:, 19] = True  # Inactive dimensions must still be excluded.
+                action_labels["label_mask"] = label_mask
             np.savez_compressed(
                 path,
                 rgb=rgb,
@@ -54,6 +61,7 @@ def fake_data(root):
                 state=state,
                 action=action,
                 action_executed=np.full_like(action, 0.99),
+                **action_labels,
                 **(labels if group else {}),
             )
             if not group and labels:
@@ -83,6 +91,43 @@ def check_dataset(root, directories, episodes):
     assert not dataset[5]["aux_mask"].any() and not dataset[5]["aux_target"].any()
     # Partial episodes retain supervision on their available held label only.
     assert dataset[11]["aux_mask"].tolist() == [False] * 8 + [True]
+    # Default full supervision, and per-step partial labels through chunking/padding.
+    assert last["label_mask"].tolist() == [[True] * 10] + [[False] * 10] * 19
+    partial = dataset[15]  # teacher_v2 ep_1, t=0, length 7.
+    expected_mask = np.zeros((20, len(ACTIVE_DIMS)), dtype=bool)
+    expected_mask[[1, 4], ACTIVE_DIMS.index(18)] = True
+    np.testing.assert_array_equal(partial["label_mask"], expected_mask)
+    later = dataset[16]  # Same episode at t=2; the odd-step label is now behind us.
+    assert np.flatnonzero(later["label_mask"][:, ACTIVE_DIMS.index(18)]).tolist() == [2]
+    assert not dataset[19]["label_mask"].any()  # An entirely unlabeled episode.
+    prediction = torch.full((1, 20, 10), 0.25, requires_grad=True)
+    target = torch.from_numpy(partial["target"])[None]
+    pad_mask = torch.from_numpy(partial["pad_mask"])[None]
+    mask = torch.from_numpy(partial["label_mask"])[None]
+    loss = masked_l1(prediction, target, pad_mask, mask)
+    torch.testing.assert_close(loss, (prediction - target).abs()[mask].mean())
+    loss.backward()
+    assert (prediction.grad[~mask] == 0).all() and (prediction.grad[mask] != 0).all()
+    # Microbatch normalization is by labeled elements, including empty microbatches.
+    predictions = torch.cat((prediction.detach(), prediction.detach()))
+    targets = torch.cat((target, target))
+    pads = torch.cat((pad_mask, pad_mask))
+    masks = torch.cat((mask, torch.zeros_like(mask)))
+    accumulated = sum(
+        masked_l1(predictions[i : i + 1], targets[i : i + 1], pads[i : i + 1], masks[i : i + 1])
+        * masks[i].sum()
+        / masks.sum()
+        for i in range(2)
+    )
+    torch.testing.assert_close(accumulated, masked_l1(predictions, targets, pads, masks))
+    assert masked_l1(prediction, target, pad_mask, torch.zeros_like(mask)) == 0
+    action_rows = np.concatenate(
+        [np.arange(store.steps[i], store.steps[i + 1]) for i in store.train_ids]
+    )
+    expected_mean = (
+        store.action[action_rows].astype(np.float64) * store.label_mask[action_rows]
+    ).sum(0) / store.label_mask[action_rows].sum(0)
+    np.testing.assert_allclose(store.stats["action_mean"], expected_mean, rtol=1e-6, atol=1e-7)
     states = np.concatenate([episodes[g, i][1] for g in range(3) for i in (1, 2)])
     np.testing.assert_allclose(
         store.stats["proprio_mean"], states[:, PROPRIO_DIMS].mean(0), rtol=1e-6
@@ -318,6 +363,34 @@ def main():
         assert reduced.proprio_dims == (44, 0, 18) and reduced(obs).shape == (10, 20)
         saved = torch.load(reduced_path, map_location="cpu", weights_only=False)
         assert "aux_head.weight" not in saved["ema"] and saved["val_aux_loss"] == 0
+        # Entirely unlabeled batches must not trigger Adam momentum/weight decay.
+        empty_dir = root / "unlabeled"
+        empty_dir.mkdir()
+        for index in range(2):
+            np.savez_compressed(
+                empty_dir / f"ep_{index}.npz",
+                rgb=np.zeros((1, 3, 3, 84, 84), np.uint8),
+                rgb_stride=2,
+                state=np.zeros((1, 50), np.float32),
+                action=np.ones((1, 20), np.float32),
+                label_mask=np.zeros((1, 20), bool),
+            )
+        empty_path = train(
+            replace(
+                config,
+                data_dirs=(str(empty_dir),),
+                data_weights=(),
+                run_dir=str(root / "empty-run"),
+                steps=1,
+                num_workers=0,
+                aux_weight=0,
+            )
+        )
+        empty = torch.load(empty_path, map_location="cpu", weights_only=False)
+        assert not empty["optimizer"]["state"] and empty["val_loss"] == 0
+        assert not empty["stats"]["action_mean"].any()
+        for key in empty["model"]:
+            torch.testing.assert_close(empty["model"][key], empty["ema"][key], rtol=0, atol=0)
         print(
             f"CPU smoke passed: mixed/partial labels, weighted sources, 20-step exact resume with {workers}/0 workers, init-from, old/new policies and custom proprio. Wiring only; no task-success evidence."
         )
