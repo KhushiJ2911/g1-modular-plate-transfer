@@ -77,7 +77,7 @@ def read_priv(path, episode, length):
     return labels, available
 
 
-def build_cache(files, cache_dir):
+def build_cache(files, cache_dir, *, read_only=False):
     """Stream one compressed episode at a time; publish index last as commit marker."""
     signature = [
         (str(p), p.stat().st_size, p.stat().st_mtime_ns)
@@ -87,9 +87,19 @@ def build_cache(files, cache_dir):
     ]
     digest = hashlib.sha256(json.dumps([3, signature]).encode()).hexdigest()[:24]
     cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
     image_path = cache_dir / f"{digest}.u8"
     index_path = cache_dir / f"{digest}.npz"
+    if read_only:
+        if image_path.is_file() and index_path.is_file():
+            with np.load(index_path, allow_pickle=False) as index:
+                expected = int(index["frame_offsets"][-1]) * FRAME_BYTES
+            if image_path.stat().st_size == expected:
+                return image_path, index_path, digest
+        raise FileNotFoundError(
+            f"Read-only BC cache missing/incomplete: {image_path}, {index_path}. "
+            "Point cache_dir at an existing schema-3 BC cache; no cache was written."
+        )
+    cache_dir.mkdir(parents=True, exist_ok=True)
     with (cache_dir / f"{digest}.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if image_path.exists() and index_path.exists():
@@ -171,7 +181,9 @@ def build_cache(files, cache_dir):
 
 
 class EpisodeStore:
-    def __init__(self, directories, cache_dir, val_episodes=6, proprio_dims=PROPRIO_DIMS):
+    def __init__(
+        self, directories, cache_dir, val_episodes=6, proprio_dims=PROPRIO_DIMS, *, read_only=False
+    ):
         files = episode_files(directories)
         self.proprio_dims = validate_proprio_dims(proprio_dims)
         self.directory_ids = np.asarray(
@@ -189,7 +201,9 @@ class EpisodeStore:
                 )
             self.val_ids.extend(ids[np.linspace(0, len(ids) - 1, val_episodes, dtype=int)].tolist())
         self.train_ids = [i for i in range(len(files)) if i not in self.val_ids]
-        self.image_path, index_path, self.digest = build_cache(files, cache_dir)
+        self.image_path, index_path, self.digest = build_cache(
+            files, cache_dir, read_only=read_only
+        )
         with np.load(index_path, allow_pickle=False) as index:
             self.state = index["state"]
             self.action = index["action"]

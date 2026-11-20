@@ -1,0 +1,6 @@
+# Use the existing model environment; keep root pyproject.toml / uv.lock unchanged.
+torch==2.5.1
+numpy>=1.26,<3
+Pillow>=10
+# Optional local-only SigLIP phase (--distill); no automatic downloads.
+transformers>=4.49,<5
