@@ -87,4 +87,4 @@ Same checkpoint `student_v1b_bce1.pt` (7535cac0), 30 episodes, paired seeds, run
 | 0.5 | 18/30 (60%) | 42–75% | 3,5,4,3,3,0 |
 | 0.4 | 17/30 (57%) | 39–73% | 2,5,5,3,2,0 |
 
-Paired vs 0.5: gained 2, lost 3, McNemar exact p = 1.0. **The dev gain (14→20) did not replicate**; it was mostly seed noise plus selection on dev. Decision: keep the checkpoint default 0.5, no threshold tuning. Combined estimate for bce1 @0.5 across 60 episodes (dev + fresh): 32/60 = 53%. Slot 5 is the weakest (2/10 across both blocks at 0.5 → 0/5 here).
+Paired vs 0.5: gained 2, lost 3, McNemar exact p = 1.0. **The dev gain (14→20) did not replicate**; it was mostly seed noise plus selection on dev. Decision: keep the checkpoint default 0.5, no threshold tuning. Combined estimate for bce1 @0.5 across 60 episodes (dev + fresh): 32/60 = 53%. Slot 5 is the weakest: 1/10 across both blocks at 0.5 (dev 1/5, fresh 0/5).
