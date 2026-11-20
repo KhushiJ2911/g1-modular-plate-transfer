@@ -78,3 +78,13 @@ Route decision (03:10): **C** (privileged teacher → vision student), with **B*
 | 16:55 | Replay diagnosis of v1b-BCE1's 16 dev failures | | dev 1000000 | **never released 5** (plate in slot, good pose, gripper still closed; ep 20 opened for 4 steps then re-closed), **released but bad 6** (too far 5.0–5.2 cm ×2, tilt 24–33° ×2, toppled/fell ×2), **carried elsewhere 3**, **missed grab 2** (both slot 5). By slot: 0→4, 5→4, 3→3, 2→2, 4→2, 1→1 | Release still the largest single cause; placement precision next. Grasping is mostly solved |
 | Fri 18:35 | Gripper-threshold sweep on dev for v1b-BCE1: 0.4 and 0.3 (vs 0.5 = 14/30). Dev tuning; final score only on the 7310000 block | bc@5233dc7 | dev 1000000 | running | Targets the 5 never-released failures; paired comparison also shows premature drops |
 | Fri 18:57 | **Threshold sweep result** (v1b-BCE1, dev) | bc@5233dc7 | dev 1000000 | 0.5: 14/30 · **0.4: 20/30 (67%, Wilson 49–81%)**, gained 8 / lost 2 vs 0.5, McNemar p = 0.11 · 0.3: 18/30, gained 6 / lost 2, p = 0.29. Slot 0 at 0.4: 4/5 (was 1/5) | Promising but **not significant** on 30 paired episodes. 0.4 chosen on dev, so it must be confirmed on unseen seeds |
+
+### Threshold 0.4 confirmation on fresh seeds (block 2600000, never used before)
+Same checkpoint `student_v1b_bce1.pt` (7535cac0), 30 episodes, paired seeds, run sequentially.
+
+| threshold | successes | Wilson 95% | per slot 0..5 |
+|---|---|---|---|
+| 0.5 | 18/30 (60%) | 42–75% | 3,5,4,3,3,0 |
+| 0.4 | 17/30 (57%) | 39–73% | 2,5,5,3,2,0 |
+
+Paired vs 0.5: gained 2, lost 3, McNemar exact p = 1.0. **The dev gain (14→20) did not replicate**; it was mostly seed noise plus selection on dev. Decision: keep the checkpoint default 0.5, no threshold tuning. Combined estimate for bce1 @0.5 across 60 episodes (dev + fresh): 32/60 = 53%. Slot 5 is the weakest (2/10 across both blocks at 0.5 → 0/5 here).
