@@ -88,3 +88,45 @@ Same checkpoint `student_v1b_bce1.pt` (7535cac0), 30 episodes, paired seeds, run
 | 0.4 | 17/30 (57%) | 39–73% | 2,5,5,3,2,0 |
 
 Paired vs 0.5: gained 2, lost 3, McNemar exact p = 1.0. **The dev gain (14→20) did not replicate**; it was mostly seed noise plus selection on dev. Decision: keep the checkpoint default 0.5, no threshold tuning. Combined estimate for bce1 @0.5 across 60 episodes (dev + fresh): 32/60 = 53%. Slot 5 is the weakest: 1/10 across both blocks at 0.5 (dev 1/5, fresh 0/5).
+| 11-21 06:35 | **microVLA v1 (SigLIP distill 3k + flow 10k) dev eval** | vla@9eb7939, ckpt sha 107dcefe | dev 1000000 (30, balanced) | **11/30 (37%, Wilson 95% CI 22–54%)**; per slot 0–5: 2,0,3,3,1,2 of 5; all 19 failures are timeouts, 0 falls. Paired vs student-v1b-bce1 thr0.4 (20/30): 4 only-microVLA vs 13 only-baseline, exact McNemar p=0.049. Paired vs the adopted baseline bce1 @0.5 (14/30): 5 only-microVLA vs 8 only-baseline, exact McNemar p=0.58 (not significant). Final val flow loss 0.0109. |
+
+**microVLA v1 dev failure replay (06:50).** Camera-free replay of the saved action logs reproduces 30/30 eval outcomes. Categories (heuristic: held = privileged grasp contact, lifted > 5 cm, reached = within 5 cm of rack in xy while lifted):
+
+| Category | microVLA v1 | bce1 @0.5 |
+|---|---|---|
+| Success | 11 | 14 |
+| A never grasped | 1 | 1 |
+| B grasped, slipped before lifting (held 4–49 steps; closest hand–plate 10–14 cm vs ~8 cm in successes) | 7 | 1 |
+| C lifted, stopped 5–7 cm short of rack | 3 | 3 |
+| D on rack, not settled | 1 | 10 |
+| E carried to rack (within 3 cm), ended on table at ~80–90° tilt | 7 | 1 |
+
+The two models fail in different places: microVLA loses the plate at pickup (B) and at release (E), the BC student gets it onto the rack but doesn't settle it (D). Slot 1 (0/5): 3 E, 1 B, 1 D.
+
+**microVLA v1 release-timing check (07:15).** Hypothesis: the E failures open the gripper too early or too high. Replayed the 7 E failures and 11 successes and logged the plate at the first open command after carrying. **Rejected**: height above the slot at opening is the same in both groups (about 1–3 cm below the site, already lowered), and tilt is similar (under 10° in all but one). What separates them is **horizontal offset from the slot at opening: successes 1.3–5.4 cm (9 of 11 under 4 cm), failures 4.2–8.8 cm**. In the failures the plate passed within 0.3–3.3 cm of the slot during the carry, then drifted away before release; once opened it slid off the rack onto the table (tilt 45–90° within 100 steps). Two failures (ep 13, 14) also show gripper chatter (10 and 7 open/close switches vs 2 in most successes). Pickup slips (B) are the same kind of error: the hand stops 10–14 cm from the plate vs ~8 cm. Working diagnosis: cm-level end-effector positioning in the final approach, not gripper timing. Policy executes 10 of each 20-step chunk open-loop (exec_steps=10).
+| 11-21 07:13 | **microVLA v1 exec_steps 5 (vs 10) dev eval** | vla@825f841, ckpt sha 107dcefe, ADV_EXEC_STEPS=5 | dev 1000000 (30, balanced) | **12/30 (40%, Wilson 95% CI 25–58%)**; per slot 0–5: 1,0,3,4,2,2. Paired vs exec 10 (11/30): 6 only-exec5 vs 5 only-exec10, exact McNemar p=1.0, **no effect**. vs bce1 @0.5: 6 vs 8, p=0.79. 17 timeouts, 1 env termination (ep 2, step 1467, no fall, no policy error), 0 falls. Policy time 15.1 s/episode (2.2x). Hypothesis that open-loop drift causes the release offset is not supported; keep exec_steps 10. |
+
+## microVLA track: setup and training history (backfilled 11-21 07:40 from session transcripts)
+
+- **Source:** the user's own microVLA (github.com/KhushiJ2911/microVLA, MIT; blog khushiijaiswal.com/posts/microvla). Vendored `train.py` unmodified (vla@774d54d); adapter by Codex brief #10 (vla@9eb7939): 11.2M params, 3 cameras upsampled 84→96 px so 16-px patches tile, masked flow loss (skips dims without trusted labels), resumable trainer, `submission/policy_vla.py`. Horizon 20, exec_steps 10.
+- **Data mix:** same 372 episodes as the BC student: human60 (60) + teacher_v1 + teacher_v1_dart0 (202) + DAgger (rest).
+- **Env:** `transformers` 4.57 in mlenv (repo pins 5.22, which needs torch ≥ 2.6; mlenv has 2.5.1). SigLIP base-patch16-224 weights already on disk.
+- **11-20 ~20:40, run `microvla_v1` WITHOUT SigLIP distillation: stopped and deleted, not evaluated.** The 40-step smoke test measured 0.75 s/step at batch 64, 1.3 GB GPU. The user pointed out that the blog shows the model does not work without distillation (round 1 = 3k distill steps), so the run was relaunched with it. *Lesson for the blog: I had initially disabled the one ingredient the original write-up identifies as essential.*
+- **11-20 21:01, run `microvla_v1_distill` launched:** `ADV_THROTTLE=1 python -m method.vla.train --distill --distill-steps 3000 --siglip-path google/siglip-base-patch16-224 --microbatch-size 16 --val-every 1000 --sample-every 1000 --run-dir runs/microvla_v1_distill`.
+- **11-20 21:38, laptop powered off** (clean user-initiated systemd poweroff, not thermal; the journal shows thermald "terminating on user request") at distill step ~2050. Last checkpoint was 21:21 (distill step 2000).
+- **11-20 22:28, resumed** with `--resume` (same args); ~50 distill steps redone. Pre-reboot log kept at `runs/microvla_v1_distill.pre_reboot.log`.
+- **Thermal incident:** the watchdog (`ops/watchdog.sh`) does not auto-start after a reboot, so the first hour after resume ran unthrottled: GPU 88 °C, CPU package 91 °C, ACPI zone 93 °C (critical trip 100 °C). Watchdog restarted 23:25; 407 pauses until the run ended. The heat is mostly CPU (one core at boost); the trainer itself uses ~1–1.4 cores. The user chose to keep the conservative thresholds (pause CPU ≥ 85 / GPU ≥ 82 °C) over speed.
+- **Throughput:** flow phase ~0.96 s/step unthrottled-but-thermally-limited, ~2.9–3.5 s/step wall time with watchdog duty cycling (vs 0.75 s/step in the cool smoke test). Wall time for the 10k flow steps: ~22:35 → 03:11.
+- **Final:** distill loss 0.79 → ~0.78 at 3k (plateaued slowly); flow val loss 0.548 @1k, 0.093 @2k, 0.033 @3k, 0.0178 @4k, 0.0127 @6k, 0.0115 @8k, **0.0109 @10k** (train 0.0076); peak CUDA allocated 1.28 GB. Checkpoint copied to `ckpts/microvla_v1_distill.pt` (sha256 prefix 107dcefe).
+- **Low val loss did not predict task success** (11/30 dev, below bce1 14/30).
+
+Analysis artifacts: `analysis/replay_eval.py` → `results/dev_microvla_v1_distill.replay.jsonl`; `analysis/release_timing.py` → `results/dev_microvla_v1_distill.release.jsonl`.
+
+## bce1 failure re-read (11-21 07:40)
+
+Re-reading `results/dev_student_v1b_bce1.replay.jsonl`: of the 10 "D on rack, not settled" failures, **5 (ep 5, 11, 14, 20, 22) are really "never released"**: plate on the rack 2.5–3.9 cm from the slot, tilt 2.6–17°, but the gripper holds it for 1,406–1,474 steps until timeout. The category heuristic above did not distinguish these. The 0.4 threshold targeted exactly these and did not replicate on fresh seeds, so the open decision itself is the weak point. Next: log per-step gripper-open probability on these seeds.
+
+## Ops: Modal (11-21)
+
+- Modal CLI 1.6.4 installed as an isolated uv tool; auth via `modal setup` browser flow, workspace jaiswalkhushi2911 (token in `~/.modal.toml`).
+- 07:35 smoke job `ops/modal_hello.py`: T4 GPU, 15 GB, driver 620.70.06; ran and stopped cleanly.
