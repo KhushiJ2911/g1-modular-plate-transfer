@@ -205,3 +205,31 @@ Common args (= bce1 except the added dir): `--config method/bc/student_v1b_bce.y
 The val split differs (6 held-out episodes drawn from the new mix, now including DAgger3 stuck states), so offline val numbers are not comparable with bce1's. Closed-loop eval decides.
 
 Eval protocol from here (because of run-to-run nondeterminism): 3 repeated runs per model on the 30 dev seeds (1000000), all models under identical Modal conditions (T4 NVIDIA EGL rendering, **policy on CPU**), bce1 included as the reference. Launched 09:55: 9 parallel runs, `ops/modal_sim.py::evals`.
+
+## bce2 eval result: DAgger3 made it WORSE (11-21 ~10:15)
+
+3 repeated runs each on dev 1000000 (30 balanced), Modal T4, policy on CPU, all qualifying, 0 policy errors (`results/modal/evals/`). Evaluator exit 1 = "below 27/30", not a crash.
+
+| Model | r1 | r2 | r3 | total | rate |
+|---|---|---|---|---|---|
+| bce1 (reference) | 19 | 17 | 21 | 57/90 | 63% |
+| bce2b (bce1 + 3k fine-tune with dagger3) | 13 | 12 | 17 | 42/90 | 47% |
+| bce2a (bce1 recipe from v1b + dagger3) | 10 | 7 | 7 | 24/90 | 27% |
+
+Run-to-run spread for bce1 is ±2 even with the policy on CPU, so nondeterminism is not only GPU numerics (rendering or controller threads may also vary; not investigated).
+
+Replay categories (r1 of each; replay reproduces 30/30 for all three):
+
+| Category | bce1 | bce2b | bce2a |
+|---|---|---|---|
+| success | 19 | 13 | 10 |
+| A never grasped | 3 | 2 | 1 |
+| B grasped, never lifted | 0 | 3 | 0 |
+| C lifted, never reached rack | 2 | 1 | 3 |
+| D1 on rack, never released (held > 1300 steps) | 1 | 2 | 3 |
+| D2 on rack, released but not settled | 4 | 7 | **10** |
+| E reached rack, then dropped | 1 | 2 | 3 |
+
+**Diagnosis:** bce2a releases at marginal placements: end distance 3.9–6.5 cm, tilt 12–33°, often touching the table. The DAgger oracle labels "open" whenever the plate touches the rack within 5 cm and 20°, the same limits as the success check, so every borderline placement becomes an "open now" label. Demos release at near-perfect placements. **The labels taught early release at the edge of tolerance**, and borderline releases settle out of tolerance. The never-released problem was not fixed either (D1 1 → 2–3). *Lesson for the blog: the DAgger oracle's label definition is a design choice, and making it equal to the success boundary was wrong.*
+
+Proposed fix: relabel DAgger3 offline with a stricter open rule (e.g. ≤ 2 cm, ≤ 10°), using deterministic replay of the saved executed actions to recover privileged plate state; no new rollouts.
