@@ -333,3 +333,22 @@ User request: train a larger model from scratch on L4 with well-tuned Muon, and 
 - **Full runs:** SmolVLA batch 32 × 5000 steps on A100 (2.9 it/s, ~30 min). pi0.5 at batch 32 measured **3.8 s/step on A100**; the 2,500-step run (2.6 h, ~$5.5) was stopped after ~6 min and relaunched as **1,000 steps** (~1 h) to fit the budget. These are small budgets (SmolVLA ~0.9 epoch, pi0.5 ~0.18 epoch), so results measure "what a few dollars of post-training buys", not the models' ceiling.
 
 **From-scratch track (Codex brief #11, muon@28a180d):** hybrid Muon (Newton–Schulz quintic, 5 steps, Nesterov 0.95, Moonlight update-RMS matching `0.2·sqrt(max(m,n))` so Muon shares the AdamW lr/wd schedule, fused QKV orthogonalised per projection; AdamW for embeddings, heads, norms, biases, adaRMSNorm modulation). Large config: **35.33M params** (vision 4.9M, prefix 16.9M, expert 11.3M; v1 11.2M), 96 px, 482 tokens/sample. 9 unit tests pass (re-run by me). Cache for the 3-dir set: digest b0f86835…. **LR sweep on L4**, large model, 3,000 flow steps, no distill, same seed/data: Muon {3e-4, 6e-4, 9e-4} vs AdamW {1.5e-4, 3e-4, 6e-4} (0.55 / 0.44 s/step). Final run will include the 3k-step SigLIP distillation (the user's blog shows the recipe fails without it; Codex's suggested command omitted it).
+
+**Muon vs AdamW LR sweep: result (11-21 ~16:30).** Large model (35.33M), L4, 3,000 flow steps, no distill, human60/teacher_v1/dart0 weights 1/0.68/0.32, seed 42, `--lr` shared by Muon and the AdamW fallback (RMS matching). Held-out val flow loss at step 3000 (train flow loss in brackets):
+
+| optimizer | lr | val@2000 | val@3000 | train@3000 | s/step |
+|---|---|---|---|---|---|
+| AdamW | 1.5e-4 | 0.0366 | 0.0280 | 0.0095 | 0.44 |
+| AdamW | 3e-4 | 0.0306 | 0.0234 | 0.0084 | 0.44 |
+| **AdamW** | **6e-4** | **0.0256** | **0.0202** | 0.0081 | 0.44 |
+| Muon | 3e-4 | 0.0490 | 0.0345 | 0.0064 | 0.55 |
+| Muon | 6e-4 | 0.0380 | 0.0267 | 0.0062 | 0.55 |
+| Muon | 9e-4 | 0.0362 | 0.0255 | 0.0061 | 0.55 |
+
+- **Muon fits the training data faster (lower train loss at every lr) but generalises worse on held-out episodes (val 26–70% higher than AdamW at the same lr) and is 25% slower per step.** The gain from 6e-4 → 9e-4 for Muon is small (0.0267 → 0.0255), so a higher Muon lr is unlikely to close the gap to AdamW 6e-4 (0.0202). (val@2000 column: last val before 3000; val runs every 1000 steps.)
+- Caveat: val flow loss is a proxy, not success rate; one seed; 3k steps only.
+- **Decision: final from-scratch run uses AdamW 6e-4** (the config default). Muon result reported as a negative result.
+
+**Final from-scratch run `mvla_large_final` (launched 11-21 16:50 IST, A100-40GB, muon@28a180d code).** Large config, `--distill --distill-steps 3000` (SigLIP), 20,000 flow steps, AdamW 6e-4, data = exactly the v2b mix (human60, teacher_v1, dart0, dagger, dagger2, dagger3; weights 1 0.68 0.32 0.5 0.5 0.5) so the comparison to mvla_v2b (11.2M, 10k steps, 49% dev) isolates model size + steps. Moved from L4 to A100: ~2.3× faster at about the same cost per run. Distill runs at ~0.036 s/step on A100. Chained automatically: `ops/chain_large_final.sh` promotes `last.pt` to the ckpts volume and launches 3 dev evals as soon as training ends.
+
+**Ops failure: idle gap (11-21).** SmolVLA (5k steps, exit 0, 29 min, final loss 0.065) and pi0.5 (1k steps, exit 0, 68 min, final loss 0.130) finished at 13:29 and 14:17 IST, but evals were not queued until 16:47: **~2.5 h of no work on the critical path** (no GPU cost, but lost time). Fix: every job is now launched with a completion watcher that triggers the next step. Second ops failure: the first eval launch used `modal run --detach` from a `setsid nohup` background process; the local process exited after ~60 s and I assumed the app had died, then launched again attached. Both apps were actually alive (one container each). Stopping the duplicate also ended the attached run's map with `RemoteError` ("user stopped from CLI"), so both were lost (~15 min of 2 L4s, ≈$0.4). Relaunched once, attached, at ~17:05.
