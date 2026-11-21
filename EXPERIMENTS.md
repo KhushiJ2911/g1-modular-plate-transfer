@@ -233,3 +233,38 @@ Replay categories (r1 of each; replay reproduces 30/30 for all three):
 **Diagnosis:** bce2a releases at marginal placements: end distance 3.9–6.5 cm, tilt 12–33°, often touching the table. The DAgger oracle labels "open" whenever the plate touches the rack within 5 cm and 20°, the same limits as the success check, so every borderline placement becomes an "open now" label. Demos release at near-perfect placements. **The labels taught early release at the edge of tolerance**, and borderline releases settle out of tolerance. The never-released problem was not fixed either (D1 1 → 2–3). *Lesson for the blog: the DAgger oracle's label definition is a design choice, and making it equal to the success boundary was wrong.*
 
 Proposed fix: relabel DAgger3 offline with a stricter open rule (e.g. ≤ 2 cm, ≤ 10°), using deterministic replay of the saved executed actions to recover privileged plate state; no new rollouts.
+
+## microVLA v2 training (11-21, Modal A100-40GB, code wt-vla@825f841)
+
+Both = v1 recipe (`--distill --distill-steps 3000`, 10k flow steps, batch 64, microbatch 64, 4 workers), one change each:
+- **mvla_v2a: `--model-overrides '{"image_size": 128}'`** (16×16 patches/camera instead of 12×12; the user's LIBERO recipe used 128 px). Correction to an earlier note: the cameras are 84 px native, so 128 px adds no information, but it does give the ViT finer patch tokens. 1429 s, peak 7.5 GB, final val flow 0.0142 (same split as v1: 0.0109), train 0.0079. ckpt sha 6149b38f.
+- **mvla_v2b: + dagger3 (loose labels), weights 1 0.68 0.32 0.5 0.5 0.5.** Needed a new prebuilt cache (the vla trainer refuses to build one; built on a CPU container, digest 1339f472…). 1075 s, peak 4.3 GB, val 0.0191 (different split, not comparable), train 0.0112. ckpt sha 425b4edd.
+- Failed launches first (no GPU cost): v2a JSON override lost its quotes through the shell; v2b missing cache.
+- Evals launched: v1, v2a, v2b × 3 runs on dev 1000000, Modal T4, policy on CPU.
+
+## DAgger relabel: choosing the open rule from data (11-21 ~10:50)
+
+Replayed all 270 Modal dev episodes (bce1/bce2a/bce2b × 3; `analysis/release_timing.py` → `results/modal/evals/*.release.jsonl`), plate state at the first open command after lifting vs outcome. 225 episodes released after lifting; the 45 that never released all failed.
+
+| distance to site at opening | n | success |
+|---|---|---|
+| 0–2 cm | 23 | 0.65 |
+| 2–3 cm | 49 | **0.82** |
+| 3–4 cm | 67 | **0.79** |
+| 4–5 cm | 39 | **0.33** |
+| 5–7 cm | 26 | 0.08 |
+| > 7 cm | 21 | 0.00 |
+
+| tilt at opening (d < 5 cm) | n | success |
+|---|---|---|
+| 0–5° | 84 | 0.80 |
+| 5–10° | 77 | 0.64 |
+| 10–15° | 6 | 0.67 |
+| 15–20° | 7 | 0.14 |
+| > 20° | 4 | 0.00 |
+
+Rack contact at opening barely matters (touching 56/81, not touching 65/97). Median distance at opening, success vs fail: bce1 3.3 vs 4.4 cm, bce2a 2.7 vs 5.1 cm, bce2b 2.4 vs 3.7 cm.
+
+**My prior guess (2 cm) was wrong**: 2–4 cm releases succeed ~80%. Chosen rule: **open = touching rack AND distance ≤ 4 cm AND tilt ≤ 10°** (was ≤ 5 cm, ≤ 20°). Closed rule unchanged. States leaving the open set become **unlabelled** (masked), not "closed": a closed label there would teach holding at a spot the arm (never relabelled) may not correct, i.e. the original never-release failure. Rack contact kept (one change at a time). Caveat: observational and confounded by policy; good enough to pick a boundary, not proof.
+
+Relabel tool `analysis/relabel_dagger.py`: replays `action_executed` from the seed (camera-free env), recomputes the pre-action privileged snapshot exactly as the collector does, and **for every episode first checks the original rule reproduces the stored gripper labels and masks bit-for-bit, refusing to write otherwise**; also checks non-gripper `action` dims equal executed and no non-gripper labels exist. Only `action[:,18]` and `label_mask[:,18]` change; same file names, so the val split is unchanged. A verify-only pass reproduced 29/29 episodes exactly before it was stopped (redundant with the per-episode check). Output: `data/dagger3s` (source `data/dagger3` untouched).
