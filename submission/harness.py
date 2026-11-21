@@ -25,6 +25,8 @@ DEFAULT_CONFIG = {
     "reopen_steps": 10,
     "settle_steps": 75,
     "temporal_ensemble": False,
+    # Ablation control: False = return bce1 actions unchanged (same exec cadence, no supervisor).
+    "supervise": True,
     "ensemble_decay": 0.01,
 }
 
@@ -52,7 +54,7 @@ def validate_config(config):
         default = DEFAULT_CONFIG[key]
         if type(value) is not type(default) or not math.isfinite(value):
             raise ValueError(f"Invalid harness {key} type/value")
-        if key != "temporal_ensemble" and value < 0:
+        if key not in ("temporal_ensemble", "supervise") and value < 0:
             raise ValueError(f"Harness {key} must be nonnegative")
         if type(default) is int and value < 1:
             raise ValueError(f"Harness {key} must be positive")

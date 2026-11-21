@@ -31,6 +31,8 @@ class HarnessPolicy:
         visible = {"rgb": obs["rgb"], "state": obs["state"]}
         estimate = self.estimator(visible)
         actions = self.bc(visible)
+        if not self.config["supervise"]:
+            return actions
         return self.supervisor.step(estimate, visible["state"], actions)
 
 
