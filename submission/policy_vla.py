@@ -29,7 +29,8 @@ class VLAPolicy:
             torch.set_num_threads(config.get("cpu_threads", 2))
         if checkpoint.get("tokenizer") != TOKENIZER:
             raise ValueError("Checkpoint instruction tokenizer does not match this policy")
-        self.exec_steps = config["exec_steps"]
+        # Dev ablations only: final submission value belongs in the checkpoint config.
+        self.exec_steps = int(os.environ.get("ADV_EXEC_STEPS", config["exec_steps"]))
         self.proprio_dims = validate_proprio_dims(config["proprio_dims"])
         self.model = MicroVLA(Config(**checkpoint["model_config"]))
         if not 1 <= self.exec_steps <= self.model.config.horizon <= 50:
