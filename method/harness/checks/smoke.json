@@ -1,0 +1,44 @@
+{
+  "smoke_only": true,
+  "train_rows_sampled": 8,
+  "val_rows_sampled": 16,
+  "updates": 2,
+  "pretrained": false,
+  "metrics": {
+    "all": {
+      "plate_error_cm": 16.60081684589386,
+      "site_error_cm": 18.552042603492737,
+      "distance_mae_cm": 14.37123292684555,
+      "tilt_mae_deg": 1.874660164117813,
+      "held_accuracy": 0.5625,
+      "count": 16
+    },
+    "release_6cm": {
+      "plate_error_cm": 11.489333152770996,
+      "site_error_cm": 15.383707682291666,
+      "distance_mae_cm": 22.050710678100586,
+      "tilt_mae_deg": 2.642301559448242,
+      "held_accuracy": 0.6666666666666666,
+      "count": 6
+    }
+  },
+  "offline_prefix": {
+    "episode": "/home/keyu/advaitic/data/teacher_v1_dart0/ep_2200000.npz",
+    "observed_prefix_steps": 6,
+    "proposal_source": "recorded_action_executed",
+    "harness_would_release": null,
+    "estimate_at_release": null,
+    "data_releases": [],
+    "timing_delta_first_steps": null,
+    "counterfactual_only": true
+  },
+  "checks": [
+    "train-only normalization",
+    "episode split",
+    "odd/even RGB t//2",
+    "checkpoint reload",
+    "real bce1 wrapper and reset",
+    "optional temporal ensemble",
+    "offline replay prefix"
+  ]
+}

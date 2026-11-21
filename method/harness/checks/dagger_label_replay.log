@@ -1,0 +1,3 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"episode": "ep_2500000.npz", "steps": 1700, "state_equal": true, "existing_labels_equal": []}
+{"source": "/home/keyu/advaitic/data/dagger3", "episodes": 1, "shard": "0/1", "state_check": "bit-for-bit every pre-action state", "labels": ["priv_plate_rel", "priv_target_site_rel", "priv_plate_tilt_deg", "priv_held"], "training_only_privileged": true}
