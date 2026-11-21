@@ -145,3 +145,16 @@ microVLA flow phase, 300 steps, batch 64, microbatch 64, 4 loader workers, no di
 | **A100 40 GB** | **0.090** | **0.25 h** | 2.10 | **$0.52** |
 
 My prior (L4 best per dollar because the model is tiny) was wrong: the A100 is 2.3x faster than L4 for ~the same cost per run. T4 is slower than the laptop, likely because it has no native bf16 and the trainer autocasts to bf16. Decision: A100-40GB for training. CPU/memory charges come on top (8 vCPU, 32 GB per job).
+
+## Finding: evaluation is not run-to-run deterministic (11-21 ~08:20)
+
+Re-ran **the same bce1 checkpoint on the same 30 dev seeds** (through a probe wrapper that returns the policy's actions unchanged, `analysis/probe/probe_policy.py`, run from a folder whose `submission` links to wt-bc@5233dc7): **18/30 vs 14/30 originally**. 4 seeds flipped, all fail→success (1000006, 1000007, 1000011, 1000030); exact sign test on 4/4 flips p = 0.125, consistent with chance. Only 12/30 episodes are bit-identical. In the others the first difference appears at step 100–490, in all 9 arm dims at once, with magnitude < 1e-5, growing to ~1e-3 within 10 steps and eventually flipping a thresholded gripper decision. Interpretation (not yet proven): GPU numeric nondeterminism in the policy forward pass (no cudnn.deterministic / fixed algorithm selection), amplified by closed-loop physics. Saved-action replays are deterministic (30/30), so the simulator itself is not the source.
+
+Consequences:
+- A single 30-episode dev run of the same model can move by ±4 successes. Earlier "paired" McNemar comparisons treat each seed's outcome as fixed; they are not. The 0.4-threshold "gain" (14→20) that failed to replicate is consistent with this.
+- Updated bce1 @0.5 estimate: dev 14 + dev rerun 18 + confirm 18 = 50/90 = 56%.
+- Method change: compare candidates with repeated runs / more seeds (cheap on Modal), and report run-to-run spread alongside Wilson intervals.
+
+Side note: the evaluator rewrites PYTHONPATH to [package root, cwd] for the policy worker, and refuses scored runs < 30 episodes (multiples of 6).
+
+Also 08:10: Modal sim image (`ops/modal_sim.py`) passes `advaitic-check` (ok, 555 files, manifest 4fb10989…, identical to the laptop). bce1 checkpoint uploaded to volume `advaitic-ckpts`.
