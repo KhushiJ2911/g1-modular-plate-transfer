@@ -6,7 +6,7 @@ import json
 import math
 import random
 import time
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +40,7 @@ from method.vla.model import (
     token_counts,
     valid_mask,
 )
+from method.vla.muon import build_optimizer, print_optimizer_table
 
 
 @dataclass
@@ -63,6 +64,10 @@ class Config:
     log_every: int = 25
     flow_steps: int = 10
     lr: float = 3e-4
+    optimizer: str = "adamw"
+    muon_lr: float = None
+    muon_momentum: float = 0.95
+    muon_ns_steps: int = 5
     weight_decay: float = 0.01
     warmup_steps: int = 500
     ema_decay: float = 0.999
@@ -107,6 +112,18 @@ def validate_config(config):
         or config.weight_decay < 0
     ):
         raise ValueError("Invalid optimizer, EMA, warmup or worker settings")
+    if (
+        config.optimizer not in {"adamw", "muon"}
+        or not 0 <= config.muon_momentum < 1
+        or type(config.muon_ns_steps) is not int
+        or config.muon_ns_steps < 1
+        or (
+            config.muon_lr is not None
+            and (not math.isfinite(config.muon_lr) or config.muon_lr <= 0)
+        )
+        or (config.optimizer == "adamw" and config.muon_lr is not None)
+    ):
+        raise ValueError("Invalid optimizer or Muon settings")
     if tuple(config.proprio_dims) != PROPRIO_DIMS:
         raise ValueError("microvla v1 uses the BC student's exact 19 proprio dims")
     allowed = {
@@ -264,6 +281,35 @@ def distill_loss(model, head, teacher, images, device):
         )
 
 
+def validate_resume_config(config, previous):
+    if previous.get("version") != "microvla-1":
+        raise ValueError("Incompatible checkpoint")
+    saved = dict(previous["config"])
+    # Legacy checkpoints predate these fields and always used ordinary AdamW.
+    defaults = Config()
+    for key in ("optimizer", "muon_lr", "muon_momentum", "muon_ns_steps"):
+        saved.setdefault(key, getattr(defaults, key))
+    for key, value in asdict(config).items():
+        if key not in {"device", "run_dir", "cache_dir", "num_workers"}:
+            if value != saved[key]:
+                raise ValueError(f"Resume config changed: {key}")
+
+
+def schedule_optimizer(optimizer, config, phase, step):
+    if phase == "distill":
+        # Preserve flat-LR legacy AdamW distillation. Muon uses the same warmup
+        # and cosine rule in both phases, with the relevant phase's length.
+        factor = (
+            lr_factor(step, replace(config, steps=config.distill_steps))
+            if config.optimizer == "muon"
+            else 1.0
+        )
+    else:
+        factor = lr_factor(step, config)
+    for group in optimizer.param_groups:
+        group["lr"] = group.get("base_lr", config.lr) * factor
+
+
 def train(config, *, resume=False, stop_after=None):
     """stop_after limits total updates for interruption tests, keeping LR unchanged."""
     validate_config(config)
@@ -279,17 +325,13 @@ def train(config, *, resume=False, stop_after=None):
     if not resume and path.exists():
         raise FileExistsError(f"{path} exists; use --resume or a new run_dir")
     previous = torch.load(path, map_location="cpu", weights_only=False) if resume else None
+    if previous:
+        validate_resume_config(config, previous)
     store = EpisodeStore(
         config.data_dirs, config.cache_dir, config.val_episodes, config.proprio_dims, read_only=True
     )
     mc = model_config(config.horizon, **config.model_overrides)
     if previous:
-        if previous.get("version") != "microvla-1":
-            raise ValueError("Incompatible checkpoint")
-        for key, value in asdict(config).items():
-            if key not in {"device", "run_dir", "cache_dir", "num_workers"}:
-                if value != previous["config"][key]:
-                    raise ValueError(f"Resume config changed: {key}")
         if previous["data_digest"] != store.digest:
             raise ValueError("Resume dataset changed")
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -338,7 +380,17 @@ def train(config, *, resume=False, stop_after=None):
             first, total = step, config.steps
             if previous and previous["phase"] == "distill":
                 ema.load_state_dict(model.state_dict())
-        optimizer = torch.optim.AdamW(parameters, lr=config.lr, weight_decay=config.weight_decay)
+        optimizer = build_optimizer(
+            model,
+            optimizer=config.optimizer,
+            lr=config.lr,
+            weight_decay=config.weight_decay,
+            muon_lr=config.muon_lr,
+            momentum=config.muon_momentum,
+            ns_steps=config.muon_ns_steps,
+            distill_head=head,
+        )
+        print_optimizer_table(optimizer, phase)
         if previous:
             if previous["phase"] == phase:
                 if head is not None:
@@ -365,10 +417,7 @@ def train(config, *, resume=False, stop_after=None):
             model.train()
             denominator = int(valid_mask(batch).sum()) if phase == "train" else len(batch["rgb"])
             optimizer.zero_grad(set_to_none=True)
-            for group in optimizer.param_groups:
-                group["lr"] = config.lr * (
-                    lr_factor(phase_index - 1, config) if phase == "train" else 1.0
-                )
+            schedule_optimizer(optimizer, config, phase, phase_index - 1)
             batch_sum = 0.0
             for start in range(0, len(batch["rgb"]), config.microbatch_size):
                 micro = {k: v[start : start + config.microbatch_size] for k, v in batch.items()}

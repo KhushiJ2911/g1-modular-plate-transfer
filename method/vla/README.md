@@ -1,5 +1,75 @@
 # microVLA flow-matching student v1
 
+## Muon and the larger model
+
+`train.py` now accepts `optimizer: adamw|muon` (default `adamw`),
+`muon_momentum: 0.95`, `muon_ns_steps: 5`, and optional `muon_lr`.
+The implementation in `muon.py` credits
+[Keller Jordan's Muon](https://github.com/KellerJordan/Muon) and
+[Moonlight](https://arxiv.org/abs/2502.16982). It uses Nesterov momentum and the
+quintic Newton–Schulz coefficients `(3.4445, -4.7750, 2.0315)`, with five
+iterations by default, fp32 on CPU and bf16 on CUDA. Each matrix is transposed
+when needed so the iteration operates with rows <= columns.
+
+**Moonlight RMS matching** scales each orthogonalised update by
+`0.2 * sqrt(max(rows, cols))`. This makes `lr` a shared learning-rate setting
+for Muon and the AdamW fallback, rather than requiring an unscaled-Muon LR.
+It matches an approximate update-RMS convention, not every AdamW trajectory:
+the first bias-corrected AdamW update has entrywise RMS about 1, versus about
+0.2 for scaled Muon. Both use decoupled weight decay `p *= 1 - lr * wd`.
+`muon_lr`, when supplied, overrides only Muon matrices; both rates receive the
+same schedule multiplier. Weight decay remains the existing uniform 0.01,
+including fallback biases/norms, to preserve the AdamW recipe.
+
+Muon applies only to attention and MLP weights within ViT, prefix and action
+transformer blocks. ViT `in_proj_weight` is split into three row blocks; the
+vendor's grouped-query `qkv` is also split using its unequal Q/K/V sizes.
+Orthogonalisation and RMS scaling happen separately for each projection.
+Patch convolution, position/camera/token embeddings, time MLP, input/output
+projections, distillation head, all biases/norms and modulation use AdamW.
+Adaptive RMSNorm modulation stays on AdamW because its zero-initialised
+scale/shift/gate projections control conditioning rather than feature mixing.
+Training prints parameter counts for every optimizer group and both totals at
+the start of each phase. Distillation optimizes vision plus its head only.
+
+Muon uses the existing warmup/cosine rule for both groups in both phases
+(distillation uses `distill_steps` as its schedule length). Default AdamW
+retains its existing flat distillation LR and warmup/cosine flow LR, parameter
+order and optimizer checkpoint format. Legacy checkpoints without the new
+fields resume as AdamW. Muon checkpoints include momentum buffers; changing
+optimizer or training hyperparameters on resume is refused. A phase transition
+starts a fresh optimizer, as before.
+
+`microvla_large.yaml` keeps the v1 data mixture, 96 px images and 482 tokens per
+sample, with **35,330,058 parameters**: vision 4,924,032; prefix 16,914,432;
+expert 11,284,480; embeddings/heads 2,207,114. It sets Muon, shared LR 6e-4,
+20,000 flow steps, 3,000 optional distillation steps, and batch/microbatch 64.
+Distillation remains opt-in via `--distill`, requiring locally provisioned
+SigLIP weights. LR 6e-4 is a starting point for validation, supported only by
+the tiny synthetic check, not a real-data tuning result.
+
+```bash
+export VIRTUAL_ENV=/home/keyu/advaitic/mlenv
+export PYTHONDONTWRITEBYTECODE=1 ORT_DISABLE_TELEMETRY=1
+
+# Fast CPU tests: fake data held in RAM, temporary checkpoints, no image cache.
+CUDA_VISIBLE_DEVICES='' uv run --active --frozen --no-sync --offline --no-cache \
+  --no-python-downloads python -B -m unittest method.vla.test_muon -v
+
+# Large CPU smoke: counts, saved-activation accounting, forward/backward/update.
+CUDA_VISIBLE_DEVICES='' uv run --active --frozen --no-sync --offline --no-cache \
+  --no-python-downloads python -B -m method.vla.smoke_large
+
+# Later on the L4, with data and the exact read-only BC cache provisioned.
+uv run --active --frozen --no-sync --offline --no-cache --no-python-downloads \
+  python -B -m method.vla.train --config method/vla/microvla_large.yaml
+```
+
+The batch-64 bf16 flow memory estimate is roughly 9–14 GiB with efficient
+attention, potentially 15–22 GiB with dense attention fallback. These estimates
+are unmeasured on CUDA. See `11_muon.md` for parameter split tables, full loss
+curves, recommended sweeps, final-run commands and limitations.
+
 This is a second student architecture alongside the BC student; the existing
 BC policy remains available. The starting BC result supplied with the brief is
 32/60 (53%) on dev plus fresh seeds. Its observed release, placement and slot-5

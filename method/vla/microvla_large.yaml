@@ -1,0 +1,39 @@
+# Same sources, mixture mass, split, active actions and proprio as student_v1b_bce.
+data_dirs: ["/home/keyu/advaitic/data/human60", "/home/keyu/advaitic/data/teacher_v1", "/home/keyu/advaitic/data/teacher_v1_dart0", "/home/keyu/advaitic/data/dagger", "/home/keyu/advaitic/data/dagger2"]
+data_weights: [1, 0.68, 0.32, 0.5, 0.5]
+# Must already contain the exact schema-3 BC cache; always opened read-only.
+cache_dir: /home/keyu/advaitic/data/cache
+run_dir: method/vla/checkpoints/microvla_large
+proprio_dims: [0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 40, 41, 42, 43, 44, 45]
+horizon: 20
+exec_steps: 10
+steps: 20000
+batch_size: 64
+microbatch_size: 64
+val_episodes: 2
+val_every: 250
+# Full held-out flow loss; sampled diagnostics use two evenly spaced val batches.
+val_batches: 0
+sample_every: 500
+sample_batches: 2
+save_every: 250
+log_every: 25
+flow_steps: 10
+lr: 0.0006
+weight_decay: 0.01
+warmup_steps: 500
+ema_decay: 0.999
+num_workers: 0
+cpu_threads: 2
+seed: 42
+device: cuda
+color_jitter: true
+distill: false
+distill_steps: 3000
+siglip_path: google/siglip-base-patch16-224
+# Moonlight update-RMS matching: lr is shared by Muon and AdamW fallback.
+optimizer: muon
+muon_momentum: 0.95
+muon_ns_steps: 5
+# Keep all three cameras at 96 px; 128 px was worse in previous evaluations.
+model_overrides: {"image_size": 96, "vit_width": 256, "vit_depth": 6, "vit_heads": 4, "width": 384, "depth": 8, "heads": 6, "head_dim": 64, "mlp": 1536, "expert_width": 256, "expert_mlp": 1024}
