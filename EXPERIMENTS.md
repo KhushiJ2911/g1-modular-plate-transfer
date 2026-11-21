@@ -366,3 +366,24 @@ User request: train a larger model from scratch on L4 with well-tuned Muon, and 
 **`mvla_large_final` training done (17:42, exit 0, 3108 s on A100 ≈ 52 min):** val flow loss **0.0161 @20k** (v2b: 0.0191 @10k). Checkpoint sha256 b065543a…, promoted to ckpts volume. Dev evals (T4, CPU policy, ~32 min each): r1 **11/30**, r2 **9/30** (r3 pending). **The larger model has better held-out flow loss but a lower success rate than v2b (44/90).** Val loss is not a reliable predictor of closed-loop success here.
 - Spend at 18:16: metered $31.96 → benchmark $22.19 of $25.
 - r3 **10/30** → **mvla_large_final total 30/90 = 33%** vs mvla_v2b 44/90 = 49% (two-proportion z = 2.12, p ≈ 0.034): **3× params + 2× steps made the from-scratch microVLA significantly worse on success**, despite 16% lower val flow loss. Possible reasons (not tested): over-fitting the 262+DAgger episodes (35M params on ~200k frames), 96 px input distribution shift, no lr re-tuning with distill.
+
+**MolmoAct2 (ft_molmoact2) done.** Training 17:17–18:33 (exit 0, 1500 steps × batch 8, 2.92 s/step on A100, LoRA VLM + expert; 12k samples ≈ 0.07 epoch). Dev evals (L4, `--policy-timeout 600`, 44–47 min each; the map took 70 min incl. container wait): **1 + 2 + 1 = 4/90 = 4%**. r1: 27/30 timeouts at 1700 steps, 2 terminated, 1 fell, 1 success. Same picture as pi0.5: moves but never completes in the budget.
+
+**Spend:** metered $35.76 at 19:43 → benchmark total **$25.99, i.e. $0.99 over the $25 cap** (the MolmoAct2 eval map ran ~25 min longer than estimated waiting for L4 containers; I did not stop it). No jobs running.
+
+## Benchmark summary (dev seeds 1000000–1000029, 3 × 30 each)
+
+| model | type | params trained | train cost/time | dev success |
+|---|---|---|---|---|
+| bce1 | BC, ImageNet ResNet-18 (layer3) | 3.35M | laptop | **57/90 = 63%** |
+| SmolVLA | pretrained VLA, expert-only SFT, 5k × 32 | ~100M (expert) | ~30 min A100 | **44/90 = 49%** |
+| microVLA v2b | from scratch + SigLIP distill, 10k | 11.2M | ~18 min L4 | 44/90 = 49% |
+| microVLA large | from scratch + SigLIP distill, 20k, AdamW | 35.3M | 52 min A100 | 30/90 = 33% |
+| pi0.5 | pretrained VLA, expert-only SFT, 1k × 32 | expert | 68 min A100 | 4/90 = 4% |
+| MolmoAct2 | pretrained VLA, LoRA + expert, 1.5k × 8 | 737M learnable | 76 min A100 | 4/90 = 4% |
+
+Findings:
+1. **Scaling from scratch hurt** (49% → 33%, p ≈ 0.03) despite lower val loss. Muon did not beat AdamW. → no case for larger from-scratch pretraining with this data.
+2. **SmolVLA is the only pretrained VLA that is competitive at this budget:** it matches our best microVLA after ~30 min of expert-only SFT (≈0.9 epoch), with 10× cheaper steps than pi0.5/MolmoAct2 (0.35 vs 3.8 / 2.9 s/step).
+3. **pi0.5 and MolmoAct2 results are budget-limited, not ceilings** (0.18 / 0.07 epoch). Bringing them to SmolVLA's sample count would cost roughly $25–35 each in A100 time plus slow evals. pi0.5 also needs >120 s to load (fails the default evaluator timeout).
+4. **bce1 is still the best overall model.**
