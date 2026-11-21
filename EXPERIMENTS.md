@@ -188,3 +188,20 @@ Ops problems, in order:
 4. **T4 test: 48 s for a full 1700-step episode** (no_grasp, timeout), faster than the laptop (~90 s). Container has both `10_nvidia.json` and `50_mesa.json` EGL vendors; with the Mesa overrides unset, MuJoCo uses NVIDIA EGL.
 5. **Rendering check, seed 2500000, first observation (3×3×84×84):** Modal T4 vs laptop NVIDIA EGL: **100% identical pixels**. Laptop NVIDIA vs laptop Mesa software: 72.2% identical, mean |diff| 0.985, max 127. **Side finding:** teacher-data generation (teacher_v1, dart0) ran with Mesa software rendering, while the evaluator on the laptop renders with NVIDIA EGL, so part of the training images differ slightly from eval-time images. Not yet known whether this matters; candidate ablation.
 6. **09:25 launched DAgger3:** 120 episodes, seeds 2500000–2500119, 20 T4 shards × 6, `modal run ops/modal_sim.py::dagger --ckpt student_v1b_bce1.pt --name dagger3 --start 2500000 --count 120 --per-shard 6 --gpu`.
+7. **DAgger3 result (09:30, 251 s wall, 20 T4 shards, all exit 0):** 120 episodes from bce1 (collector config checkpoint sha 7535cac0… = local bce1), 47 success (39%), 0 falls in success set; categories: success 47, reached_target_then_failed 29, **placed_not_released 22**, no_grasp 14, other 6, fell 2. Labels: open 8,257 / closed 30,633 / undefined 63,340; the 22 placed_not_released episodes contribute **2,662 open labels from exactly the stuck states**. Merged to `data/dagger3` (1.2 GB; per-shard logs in `data/dagger3/logs`), uploaded to the Modal data volume.
+
+## bce2: bce1 recipe + DAgger3 (11-21 ~09:45)
+
+Code: exact `git archive 5233dc7` export (`export/bc_5233dc7`), because wt-bc has **uncommitted** Codex-brief-#9 cache changes made at 10:15–10:19 on 11-18, after bce1's config was written at 10:13; bce1 was therefore trained with committed 5233dc7. The uncommitted work is left untouched in wt-bc. Modal A100-40GB, `ops/modal_train.py::run` with `ADV_CODE=export/bc_5233dc7`.
+
+Common args (= bce1 except the added dir): `--config method/bc/student_v1b_bce.yaml --data-dirs human60 teacher_v1 teacher_v1_dart0 dagger dagger3 --data-weights 1 0.4 0.6 0.67 0.67 --val-episodes 6 --microbatch-size 64 --num-workers 2 --warmup-steps 200 --gripper-pos-weight 2`. (First launch failed: `--num-workers 4` rejected, trainer allows 0–2; relaunched with 2, same as bce1.)
+
+| Run | init | steps | wall (A100) | final train | val (gripper BCE / open acc) | ckpt sha |
+|---|---|---|---|---|---|---|
+| bce1 (reference, laptop) | v1b | 6000 | ~1 h+ | 0.077 | 0.105 / 0.961 | 7535cac0 |
+| **bce2a** = bce1 recipe + dagger3 | v1b | 6000 | 305 s (~49 it/s) | 0.084 | 0.195 / 0.906 | 6066cb33 |
+| **bce2b** = DAgger iteration: fine-tune bce1 | bce1 | 3000 | 217 s | 0.083 | 0.155 / 0.921 | 6c24751d |
+
+The val split differs (6 held-out episodes drawn from the new mix, now including DAgger3 stuck states), so offline val numbers are not comparable with bce1's. Closed-loop eval decides.
+
+Eval protocol from here (because of run-to-run nondeterminism): 3 repeated runs per model on the 30 dev seeds (1000000), all models under identical Modal conditions (T4 NVIDIA EGL rendering, **policy on CPU**), bce1 included as the reference. Launched 09:55: 9 parallel runs, `ops/modal_sim.py::evals`.
