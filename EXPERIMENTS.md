@@ -176,3 +176,12 @@ Open probability during oracle-open states:
 | 10 (1000010) | stuck holding | 53 | 0.143 | 0.401 |
 
 **Conclusion:** in the stuck episodes the model is confidently wrong (p(open) well under 0.5 for hundreds of steps), not marginal, so no threshold can fix it without breaking the closed phase (max p(open) during oracle-closed carrying reaches 0.50–0.60 in some successes). These are placed-and-holding states the model has not learned to recognise from its own rollouts. bce1 was trained with DAgger1, collected from the older v1a student; it has never seen its own failure states. Supports the planned **DAgger round 3 collected from bce1 itself, without `--relabel-execute`**, so the student keeps holding and every stuck step becomes an open-labelled frame (stop 150 steps after placement).
+
+## DAgger round 3 setup on Modal (11-21 ~08:40–09:15)
+
+Plan: collect from **bce1 itself** on fresh training seeds 2500000–2500119 (block unused so far; 2600000 = confirmation block and 7310000 = test block untouched), oracle labels the gripper only, student keeps executing its own gripper (no `--relabel-execute`), stop 150 steps after placement. Same collector as DAgger 1/2 (`method/dagger/collect.py`, wt-vla).
+
+Ops problems, in order:
+1. **First 1-episode test on a 4-vCPU container looked hung** (CPU load 0.00, empty log after 20+ min). I assumed the collector's fcntl locks on the Modal Volume were blocking and moved `--out` to local disk, copying to the volume at the end (`ops/modal_sim.py`). Stopped the app (`modal app stop -y`).
+2. **The second test showed it was not hung**: process-level CPU time showed the collector busy on ~2.6 cores; gVisor reports load 0.00, so that reading was meaningless. The real bottleneck is **Mesa software rendering of 3 cameras on CPU**: > 12 min for one episode vs ~1.5 min on the laptop (GPU EGL). The lock change is harmless and kept.
+3. Added `collect_shard_gpu` (T4, NVIDIA EGL rendering); test running.
