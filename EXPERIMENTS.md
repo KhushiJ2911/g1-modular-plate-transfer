@@ -158,3 +158,21 @@ Consequences:
 Side note: the evaluator rewrites PYTHONPATH to [package root, cwd] for the policy worker, and refuses scored runs < 30 episodes (multiples of 6).
 
 Also 08:10: Modal sim image (`ops/modal_sim.py`) passes `advaitic-check` (ok, 555 files, manifest 4fb10989…, identical to the laptop). bce1 checkpoint uploaded to volume `advaitic-ckpts`.
+
+## bce1 release diagnosis (11-21 ~08:35)
+
+Per-step gripper-open probability (probe run above) joined with the DAgger oracle label (open = plate touching rack, ≤ 5 cm from a site, ≤ 20° tilt) via deterministic replay (`analysis/grip_probe_join.py` → `results/probe_bce1/joined.jsonl`).
+
+Correction: the earlier "never released" list used episode indices; seeds are not contiguous (balanced sampler). The original never-released episodes 5, 11, 14, 20, 22 are seeds 1000005, 1000011, 1000014, 1000030, 1000033. In the rerun 1000011 and 1000030 succeeded, 1000033 never reached a placed state, and **1000005 and 1000014 got stuck again**.
+
+Open probability during oracle-open states:
+
+| Episode (seed) | outcome | oracle-open steps | mean p(open) | max p(open) |
+|---|---|---|---|---|
+| successes (18) | released | 52–591 | 0.25–0.95 | 1.0 (after opening) |
+| 5 (1000005) | stuck holding | 363 | **0.032** | **0.093** |
+| 14 (1000014) | stuck holding | 782 | **0.071** | **0.231** |
+| 15 (1000015) | stuck holding | 376 | 0.192 | 0.465 |
+| 10 (1000010) | stuck holding | 53 | 0.143 | 0.401 |
+
+**Conclusion:** in the stuck episodes the model is confidently wrong (p(open) well under 0.5 for hundreds of steps), not marginal, so no threshold can fix it without breaking the closed phase (max p(open) during oracle-closed carrying reaches 0.50–0.60 in some successes). These are placed-and-holding states the model has not learned to recognise from its own rollouts. bce1 was trained with DAgger1, collected from the older v1a student; it has never seen its own failure states. Supports the planned **DAgger round 3 collected from bce1 itself, without `--relabel-execute`**, so the student keeps holding and every stuck step becomes an open-labelled frame (stop 150 steps after placement).
