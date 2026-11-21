@@ -409,3 +409,31 @@ Findings:
 - Zero-shot eval map: one L4 container was **preempted** by Modal; the input was restarted automatically (extra eval time).
 
 **Codex agents (11-22).** #13 harness (wt-harness @5233dc7, branch harness): labels by replay for dagger3 (bce1's own rollouts; no priv labels in teacher_v1 / human60 / dagger*; dart0 129 + gen2 191 eps have them), plate-state estimator, release-supervisor state machine, offline checks. #14 research log (`~/advaitic/research_log/RESEARCH_LOG.md`, incremental via `.log_state.json`): first version done, 324 lines covering EXPERIMENTS.md up to line 402; spot-checked numbers match.
+
+## 11-22 night: SFT results, failure analysis, harness (user: cap $20 overnight; baseline metered $44.94 at 03:13)
+
+**Zero-shot base VLAs (final): pi0.5 base 0/90, MolmoAct2 base 0/90** (dev 1000000, 3 × 30, L4, `--policy-timeout 600`). All 30/30 episodes of each run end in `timeout` (1700 steps), no crashes. So all of pi0.5's 4/90 and MolmoAct2's 4/90 came from the (tiny) fine-tunes; the released weights do nothing useful on this embodiment as-is. One L4 container was preempted mid-run; Modal restarted the input.
+
+**bce4 evals.** First launch of 6 detached evals pointed `ADV_CKPT` at `/ckpts/../runs/<run>/last.pt` (to skip a download): **`FileNotFoundError`** inside the container → 30 × policy_error in 52 s (bce4a_r2; the other 4 stopped; one never launched: `RetryTimeoutError`). Also, the first local download of bce4a's last.pt was **truncated** (socket timeout; `PytorchStreamReader failed reading zip archive`), caught by a torch.load check before upload. Re-downloaded (sha256 d76f37e3…, bce4b 11b37956…), uploaded to ckpts (sizes verified), relaunched as 6 separate detached apps (`ops/launch_evals.sh`). Result files checked to carry the right `checkpoint` field (the failed launches had used the same names).
+
+| model | runs | dev total | vs bce1 57/90 |
+|---|---|---|---|
+| bce4a: continue bce1 + gen2, 4k steps | 16, 17, 14 | **47/90 = 52%** | z ≈ 1.5, p ≈ 0.13 |
+| bce4b: bce1 recipe (from v1b) + gen2, 6k steps | 19, 18, 17 | **54/90 = 60%** | n.s. |
+
+**Failure analysis** (replay of run 1, `analysis/replay_eval.py`, buckets via new `analysis/classify_failures.py` = the 11-21 rules):
+
+| run | ok | A no grasp | B no lift | C short | D1 on rack, never released | D2 on rack, unsettled | E drop |
+|---|---|---|---|---|---|---|---|
+| bce1 r1 | 19 | 3 | 0 | 2 | 1 | 4 | 1 |
+| bce4a r1 | 16 | 0 | 1 | 1 | **7** | 1 | 4 |
+| bce4b r1 | 19 | 1 | 1 | 1 | **5** | 3 | 0 |
+
+**Interpretation: the extra teacher data fixed grasping (A 3 → 0–1) but made the policy hold on: it places the plate on the rack and never opens (D1 1 → 5–7).** Plausible mechanism (not proven): the teacher waits at release (`wait_steps.release` up to 100 in its logs), so the BCE gripper head sees many "closed while on the rack" frames and stays below the 0.5 open threshold. This is a single, cheap decision to fix → **gripper-threshold sweep** (`ADV_GRIPPER_THRESHOLD`, dev-only override already in submission/policy.py): bce4b at 0.3 and 0.2, bce1 at 0.3 as a control (does a lower threshold release too early on bce1?). Smoke-tested first, then 9 evals launched 03:5x.
+
+**Smoke test before every full launch (user request).** The evaluator rejects < 30 episodes, and 30 episodes × `--max-steps 40` still took > 15 min on T4 (30 resets), so I wrote `ops/policy_smoke.py` + `modal_sim.py::smoke`: the evaluator's own `PolicyProcess` (same 120 s first-exchange timeout = load time), one reset at seed 1000000, 20 validated `act()` calls stepped in the real env. Validated: bce1 PASS (load 14.7 s, 0.015 s/call), missing ckpt FAIL with the real traceback. ~1 min, cents.
+
+**Harness (Codex #13, wt-harness 2a27e6c + 095ff8b).** Reviewed; committed by me (Codex sandbox had read-only git metadata). Added `ADV_H_SUPERVISE=0` passthrough flag so the harness cadence (exec 2 vs bce1's 10) can be ablated without the supervisor. 10/10 tests pass.
+- **dagger3 labelled by replay** (`method.harness.label_replay`, laptop, 2 shards, `ADV_THROTTLE=1`): **120/120 episodes, every pre-action state bit-for-bit equal** → `data/dagger3_priv` (uploaded).
+- **Estimator smoke** (L4, 50 steps, dart0 + gen2 + dagger3_priv): step 50 val held acc 0.979, release-region (true dist ≤ 6 cm) distance MAE 2.52 cm, 259 s total incl. cache build. Full run **est_v1**: A100, 10k steps, batch 64 (micro 32), val every 1000, launched 04:0x.
+- Harness eval path smoke (sim image built from wt-harness via new `ADV_SIM_CODE`, estimator = smoke ckpt): PASS for supervise on/off, load 4.9 s, exec 2 steps/call, 0.02 s/call.
