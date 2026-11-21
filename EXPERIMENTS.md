@@ -281,3 +281,36 @@ Identical to bce2a/bce2b except `dagger3 → dagger3s` (verified in run headers/
 | bce3b | bce1 | 3000 | 0.123 / 0.946 | 4216de3f |
 
 Evals: 3 runs each on dev 1000000 (Modal T4, CPU policy), launched 11:15.
+
+## Results: bce3 (strict labels) and microVLA v2 (11-21 ~11:50)
+
+All runs: dev 1000000, 30 balanced episodes × 3 repeats, Modal T4 (NVIDIA EGL), policy on CPU, all qualifying, 0 policy errors. Wilson 95% on the 90 pooled episodes.
+
+| Model | runs | total | 95% CI | policy s/episode |
+|---|---|---|---|---|
+| **bce1** (reference) | 19, 17, 21 | **57/90 (63%)** | 53–73% | 1 |
+| bce2a (v1b + dagger3 loose) | 10, 7, 7 | 24/90 (27%) | 19–37% | 1–2 |
+| **bce3a** (v1b + dagger3s strict) | 15, 15, 14 | 44/90 (49%) | 39–59% | 1 |
+| bce2b (bce1 ft + dagger3 loose) | 13, 12, 17 | 42/90 (47%) | 37–57% | 2 |
+| bce3b (bce1 ft + dagger3s strict) | 16, 15, 12 | 43/90 (48%) | 38–58% | 2–6 |
+| microVLA v1 | 14, 8, 10 | 32/90 (36%) | 26–46% | 17–27 |
+| microVLA v2a (128 px) | 3, 6, 5 | **14/90 (16%)** | 9–24% | 29–45 |
+| **microVLA v2b** (+ dagger3 loose) | 17, 13, 14 | **44/90 (49%)** | 39–59% | 18–28 |
+
+Two-proportion z-tests on pooled counts (seeds repeat, but per-seed outcomes are not fixed because of nondeterminism, so treated as independent; approximate): bce3a vs bce2a z ≈ 3.1, p ≈ 0.002 (strict labels fix most of the damage in the from-scratch recipe); bce3b vs bce2b no difference; bce1 vs bce3a z ≈ 1.95, p ≈ 0.05; microVLA v2b vs v1 z ≈ 1.8, p ≈ 0.07; v2a vs v1 z ≈ 3.2, p ≈ 0.001 (128 px clearly worse).
+
+Failure categories (run 1 of each; replay reproduces 30/30 everywhere):
+
+| run | ok | A no grasp | B slip | C short | D1 no release | D2 unsettled | E drop |
+|---|---|---|---|---|---|---|---|
+| bce1 | 19 | 3 | 0 | 2 | 1 | 4 | 1 |
+| bce2a | 10 | 1 | 0 | 3 | 3 | 10 | 3 |
+| bce3a | 15 | 3 | 1 | 2 | 0 | 8 | 1 |
+| bce2b | 13 | 2 | 3 | 1 | 2 | 7 | 2 |
+| bce3b | 16 | 1 | 1 | 0 | 2 | 7 | 3 |
+| microVLA v1 | 14 | 3 | 5 | 2 | 0 | 2 | 4 |
+| microVLA v2b | 17 | 1 | 6 | 2 | 0 | 3 | 1 |
+
+Interpretation:
+- **DAgger from bce1's own rollouts has not beaten bce1 in any form.** Strict labels recovered much of the damage (bce2a 27% → bce3a 49%) but D2 "released on rack, not settled" stays at 7–8 vs 4 for bce1. bce1 remains the best model (pooled over all its runs: laptop 14, 18; Modal 19, 17, 21; confirm 18 → 107/180 = 59%).
+- **microVLA: 128 px hurt badly** (16%), so finer patch tokens are not the fix here (unlike LIBERO); possibly too many tokens (3 cams × 256) for this model size and data, not investigated. **DAgger data helped the microVLA** (36% → 49%, p ≈ 0.07) even with loose labels: fewer drops (E 4 → 1), more successes; pickup slips (B) unchanged at 5–6.
