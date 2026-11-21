@@ -365,3 +365,4 @@ User request: train a larger model from scratch on L4 with well-tuned Muon, and 
 
 **`mvla_large_final` training done (17:42, exit 0, 3108 s on A100 ≈ 52 min):** val flow loss **0.0161 @20k** (v2b: 0.0191 @10k). Checkpoint sha256 b065543a…, promoted to ckpts volume. Dev evals (T4, CPU policy, ~32 min each): r1 **11/30**, r2 **9/30** (r3 pending). **The larger model has better held-out flow loss but a lower success rate than v2b (44/90).** Val loss is not a reliable predictor of closed-loop success here.
 - Spend at 18:16: metered $31.96 → benchmark $22.19 of $25.
+- r3 **10/30** → **mvla_large_final total 30/90 = 33%** vs mvla_v2b 44/90 = 49% (two-proportion z = 2.12, p ≈ 0.034): **3× params + 2× steps made the from-scratch microVLA significantly worse on success**, despite 16% lower val flow loss. Possible reasons (not tested): over-fitting the 262+DAgger episodes (35M params on ~200k frames), 96 px input distribution shift, no lr re-tuning with distill.
