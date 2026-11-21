@@ -130,3 +130,18 @@ Re-reading `results/dev_student_v1b_bce1.replay.jsonl`: of the 10 "D on rack, no
 
 - Modal CLI 1.6.4 installed as an isolated uv tool; auth via `modal setup` browser flow, workspace jaiswalkhushi2911 (token in `~/.modal.toml`).
 - 07:35 smoke job `ops/modal_hello.py`: T4 GPU, 15 GB, driver 620.70.06; ran and stopped cleanly.
+
+## Modal GPU benchmark (11-21 ~07:45)
+
+Setup: `ops/modal_train.py` (image: py3.12, torch 2.5.1+cu121, transformers 4.57.6, same pins as mlenv; code = wt-vla snapshot; data volume `advaitic-data` = human60, teacher_v1, teacher_v1_dart0, dagger, dagger2 (~3.8 GB, uploaded in ~3.5 min); cache built on a CPU container, digest 0c6a5f399d0e7038ac16af50). First image build failed: pre-downloading SigLIP via AutoProcessor needs sentencepiece; fixed by downloading only `SiglipVisionModel` (all the trainer uses).
+
+microVLA flow phase, 300 steps, batch 64, microbatch 64, 4 loader workers, no distill, rate measured over steps 25–300:
+
+| GPU | s/step | 10k flow steps | $/h (Modal list, GPU only) | GPU cost per 10k |
+|---|---|---|---|---|
+| Laptop RTX 3050 4 GB (microbatch 16, cool) | 0.75 | 2.1 h (5+ h with thermal pauses) | 0 | 0 |
+| T4 | 0.97 | 2.7 h | 0.59 | $1.59 |
+| L4 | 0.21 | 0.58 h | 0.80 | $0.47 |
+| **A100 40 GB** | **0.090** | **0.25 h** | 2.10 | **$0.52** |
+
+My prior (L4 best per dollar because the model is tiny) was wrong: the A100 is 2.3x faster than L4 for ~the same cost per run. T4 is slower than the laptop, likely because it has no native bf16 and the trainer autocasts to bf16. Decision: A100-40GB for training. CPU/memory charges come on top (8 vCPU, 32 GB per job).
