@@ -268,3 +268,16 @@ Rack contact at opening barely matters (touching 56/81, not touching 65/97). Med
 **My prior guess (2 cm) was wrong**: 2–4 cm releases succeed ~80%. Chosen rule: **open = touching rack AND distance ≤ 4 cm AND tilt ≤ 10°** (was ≤ 5 cm, ≤ 20°). Closed rule unchanged. States leaving the open set become **unlabelled** (masked), not "closed": a closed label there would teach holding at a spot the arm (never relabelled) may not correct, i.e. the original never-release failure. Rack contact kept (one change at a time). Caveat: observational and confounded by policy; good enough to pick a boundary, not proof.
 
 Relabel tool `analysis/relabel_dagger.py`: replays `action_executed` from the seed (camera-free env), recomputes the pre-action privileged snapshot exactly as the collector does, and **for every episode first checks the original rule reproduces the stored gripper labels and masks bit-for-bit, refusing to write otherwise**; also checks non-gripper `action` dims equal executed and no non-gripper labels exist. Only `action[:,18]` and `label_mask[:,18]` change; same file names, so the val split is unchanged. A verify-only pass reproduced 29/29 episodes exactly before it was stopped (redundant with the per-episode check). Output: `data/dagger3s` (source `data/dagger3` untouched).
+
+**Relabel result (11-21 ~11:05), `data/dagger3s`:** 8 shards × 15 = 120 episodes, every one passed the bit-exact reproduction check (original totals open 8,257 / closed 30,633 = the collector's own counts). Changes: **2,444 open → unlabelled; 0 added, 0 closed changed**; 5,813 open labels remain. Independent check over all 120 files: all non-gripper arrays byte-identical; no mask added; every dropped label was open (−1) and its value fell back to the executed student gripper (collector convention); kept labels unchanged; 0 problems. Stuck states (22 placed_not_released episodes) keep **1,966 / 2,662** open labels (18/22 episodes still have some): the never-release fix is preserved, only borderline states lost labels. By outcome: success 3,425 → 2,488; reached_then_failed 2,170 → 1,359.
+
+## bce3: bce2 with strict labels (dagger3s) (11-21 ~11:10)
+
+Identical to bce2a/bce2b except `dagger3 → dagger3s` (verified in run headers/configs: code_sha 5233dc7, data dirs, weights, steps, pos_weight 2, init checkpoint). 2×2 design: {loose, strict labels} × {from v1b 6k, fine-tune bce1 3k}.
+
+| Run | init | steps | val gripper BCE / open acc | ckpt sha |
+|---|---|---|---|---|
+| bce3a | v1b | 6000 | 0.158 / 0.930 | dc97b409 |
+| bce3b | bce1 | 3000 | 0.123 / 0.946 | 4216de3f |
+
+Evals: 3 runs each on dev 1000000 (Modal T4, CPU policy), launched 11:15.
