@@ -12,14 +12,14 @@ from .pickup_validation import LiftMetrics
 from .privileged import PrivilegedTaskState
 
 
-def trace(seed, out):
+def trace(seed, out, policy_factory=None):
     from advaitic_eval.environment import make_environment, observation
     from submission.policy_modular_heads import make_policy
 
-    policy = make_policy()
+    policy = (policy_factory or make_policy)()
     ctl = policy.controller
     env = make_environment()
-    rows, wrist, image_steps = [], [], []
+    rows, wrist, image_steps, pinches = [], [], [], []
     carry = None
     try:
         ts = env.reset(seed=seed)
@@ -35,6 +35,19 @@ def trace(seed, out):
                 break
             phase, elapsed = ctl.phase, ctl.machine.elapsed
             action = policy(obs)
+            if phase == Phase.GRASP and ctl.phase == Phase.LIFT:
+                view = ctl.view
+                pinches.append(
+                    dict(
+                        step=step,
+                        pregrasp_normal_world=(
+                            None if view.rotation is None else view.rotation[:, 2].tolist()
+                        ),
+                        face_iou=view.face_iou,
+                        face_frames=len(view.faces),
+                        hand_to_plate=ctl.confirmed_hand_to_plate.tolist(),
+                    )
+                )
             estimate = policy.task.snapshot(state)
             ctl.kin.set_state(state)
             pos, rot = ctl.kin.hand_pose("left")
@@ -66,7 +79,12 @@ def trace(seed, out):
                 carry = step
             ts = env.step(action)
         summary = dict(
-            seed=seed, **metrics.result(), transitions=ctl.transitions, carry=carry, stopped=step
+            seed=seed,
+            **metrics.result(),
+            transitions=ctl.transitions,
+            pinches=pinches,
+            carry=carry,
+            stopped=step,
         )
         np.savez_compressed(
             out,

@@ -95,7 +95,8 @@ class SourceView:
                 self.rims.append(y)
         source = source.copy()
         if len(self.faces) >= 3:
-            x, y, angle, self.face_iou = np.median(self.faces, axis=0)
+            x, y, angle, iou = np.median(self.faces, axis=0)
+            self.face_iou = float(iou)
             source[:2] = x, y
             c, s = np.cos(angle), np.sin(angle)
             self.rotation = np.array([[1.0, 0.0, 0.0], [0.0, s, -c], [0.0, c, s]])
