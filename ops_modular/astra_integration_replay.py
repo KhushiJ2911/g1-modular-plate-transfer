@@ -21,7 +21,13 @@ if modal.is_local():
     )
 
 
-@app.function(image=image, cpu=1, timeout=300, max_containers=35, volumes={"/runs": volume})
+if modal.is_local():
+    image = image.add_local_file(
+        Path(__file__).with_name("astra_integration_labels.py"), "/root/analysis/event_replay.py"
+    )
+
+
+@app.function(image=image, cpu=1, timeout=300, max_containers=2, volumes={"/runs": volume})
 def replay(folder):
     if re.fullmatch(r"astra_[a-zA-Z0-9_]+-10[0-9]{5}(-r[0-9]+)?", folder) is None:
         raise ValueError("Expected an integrator development run")
@@ -36,7 +42,7 @@ def replay(folder):
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / "metrics.jsonl"
         subprocess.run(
-            ["/root/code/.venv/bin/python", "/root/analysis/replay_eval.py", str(src), str(p)],
+            ["/root/code/.venv/bin/python", "/root/analysis/event_replay.py", str(src), str(p)],
             check=True,
         )
         r = json.loads(p.read_text())
@@ -72,7 +78,11 @@ if __name__ == "__main__":
     source = a.directory / (a.run + ".scores.json")
     out = a.directory / (a.run + ".replays.jsonl")
     fn = modal.Function.from_name("modular-astra-integration-replay", "replay")
-    seen = {json.loads(line)["seed"] for line in out.read_text().splitlines()} if out.exists() else set()
+    seen = (
+        {json.loads(line)["seed"] for line in out.read_text().splitlines()}
+        if out.exists()
+        else set()
+    )
     while True:
         rows = json.loads(source.read_text())
         failures = [r for r in rows if not r["success"] and r["seed"] not in seen]

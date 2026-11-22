@@ -8,7 +8,7 @@ from pathlib import Path
 
 import modal
 
-from ops_modular.modular_sim import image, volume, run_candidate
+from ops_modular.modular_sim import image, run_candidate, volume
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "astra_visual_9a2eca9_dev"
