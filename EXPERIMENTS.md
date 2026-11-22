@@ -557,3 +557,5 @@ Findings:
 
 - Plateau: every seat-cue stacking variant lands in 77–79%, within run-to-run noise (±2/30). Tilt fix alone hurts (−4 vs its 0.032 base, 68/90); stall release is neutral. The bce7 retrains are both far below bce1 (~65/90 with ensembling), so the residual head is moot; the bce7 recipe itself regressed.
 - Flywheel chain died mid-filter when the laptop slept (71 files written) → restarted (chain_flywheel2d). Laptop seat 0.020 eval also died, no report. Metered $81.31.
+
+**16:00 confirm block (user-approved, one shot).** Final config frozen before looking: bce1 + uniform temporal ensembling (decay 0) + estimator-gated supervisor + seat cue (0.024 rad, 10 steps). Fresh seeds in the confirmation block, never used: 2600100–2600189 (3×30; block 2600000–2600029 was used once on Fri for the threshold check). Paired baseline on the same seeds: bce1 + ensembling, no supervisor (ADV_H_SUPERVISE=0). App harness3. Flywheel bce6c/d evals follow when the chain finishes (dev only).
