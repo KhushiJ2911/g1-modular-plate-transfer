@@ -167,11 +167,57 @@ def audit(seed, archive):
         env.close()
 
 
+def handoff_geometry(seed, archive):
+    """Measure the grasp frame after pickup by replaying a completed official run."""
+    from .kinematics import G1Kinematics, pelvis_rotation
+    from .orientation_feedback import LEFT_GRASP_NORMAL
+    from .perception_audit import replay_truth
+
+    with np.load(archive) as file:
+        actions = file["actions"]
+    truth, states, outcome = replay_truth(seed, actions)
+    if not outcome["terminal"]:
+        raise ValueError("Incomplete action archive")
+    held = truth[:, 10].astype(bool)
+    lifted = np.flatnonzero(held & (truth[:, 2] > truth[0, 2] + 0.075))
+    if not len(lifted):
+        return dict(seed=seed, **outcome, grasp_angle=None)
+    kin = G1Kinematics()
+    offsets, errors = [], []
+    # One half-second of loaded geometry immediately after the first lift.
+    for step in lifted[lifted < lifted[0] + 25][::3]:
+        state = states[step]
+        basis = pelvis_rotation(state)
+        kin.set_state(state)
+        pos, rot = kin.hand_pose("left")
+        rot = basis @ rot
+        hand = state[18:21] + basis @ pos
+        offsets.append(rot.T @ (truth[step, :3] - hand))
+        normal = rot.T @ truth[step, 6:9]
+        errors.append(np.rad2deg(np.arccos(np.clip(normal @ LEFT_GRASP_NORMAL, -1, 1))))
+    opened = np.flatnonzero((np.arange(len(actions)) > lifted[0]) & (actions[:, 18] < 0))
+    event = opened[0] if len(opened) else -1
+    return dict(
+        seed=seed,
+        **outcome,
+        grasp_angle=float(np.median(errors)),
+        center_in_hand=np.median(offsets, axis=0).tolist(),
+        opened=bool(len(opened)),
+        held_at_open_or_end=bool(held[event]),
+        on_rack_at_open_or_end=bool(truth[event, 12]),
+        tilt_at_open_or_end=float(truth[event, 9]),
+        final_distance=float(np.linalg.norm(truth[-1, :3] - truth[-1, 3:6])),
+    )
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("seed", type=int)
-    p.add_argument("variant", choices=("base", "pickup", "audit"))
+    p.add_argument("variant", choices=("base", "pickup", "audit", "handoff"))
     p.add_argument("--archive")
     a = p.parse_args()
-    result = audit(a.seed, a.archive) if a.variant == "audit" else hybrid(a.seed, a.variant)
+    if a.variant in ("audit", "handoff"):
+        result = (audit if a.variant == "audit" else handoff_geometry)(a.seed, a.archive)
+    else:
+        result = hybrid(a.seed, a.variant)
     print(json.dumps(result))

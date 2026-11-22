@@ -251,7 +251,7 @@ def test_wrist_rim_requires_a_continuous_highlight_and_moves_laterally():
     assert 0.006 < y - shifted < 0.009
 
 
-def test_pickup_confirms_a_deflected_hand_on_the_rim():
+def test_pickup_retries_a_deflected_pinch_while_the_rack_still_supports_it():
     from method.modular.estimated import SITE_ROTATION
     from method.modular.pickup import PickupController
 
@@ -260,13 +260,14 @@ def test_pickup_confirms_a_deflected_hand_on_the_rim():
     state = np.zeros(50)
     state[44], state[7:9] = 0.9, -0.016
     hand, _ = kin.hand_pose("left")
-    plate = hand + [0.09, 0, -0.066]
-    task = {**placement(), "plate_xyz": plate, "plate_rot": SITE_ROTATION}
+    task = {**placement(), "plate_xyz": np.zeros(3), "plate_rot": SITE_ROTATION}
+    offset, _ = ctl._grasp_target(task, Phase.GRASP)
+    plate = task["plate_xyz"] = hand - offset
     ctl.machine.phase = Phase.GRASP
     ctl.closing = True
     ctl.initial_samples = [plate.copy()] * 6
     assert ctl._pickup_task(state, task)["held"]
-    state[19] += 0.06
+    state[18] += 0.042
     assert not ctl._pickup_task(state, task)["held"]
 
 

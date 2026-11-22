@@ -3,7 +3,6 @@
 import numpy as np
 
 from . import layout
-from .estimated import PLATE_RADIUS
 from .kinematics import pelvis_rotation
 from .observed_controller import CalibratedPlacementController, LockedSiteController
 from .phases import Phase
@@ -93,14 +92,10 @@ class PickupController(CalibratedPlacementController):
             fingers = np.mean(state[layout.LEFT_FINGERS])
             pinched = state[layout.GRIPPERS][0] >= 0.80 and fingers >= -0.0185
             if phase == Phase.GRASP:
-                # The loaded hand can deflect several cm along the plate and
-                # still hold the rim. Check physical compatibility with the
-                # observed plate plane and radius during settled closure.
-                delta = hand - self.source
-                normal = task["plate_rot"][:, 2]
-                depth = delta @ normal
-                radius = np.linalg.norm(delta - depth * normal)
-                consistent = abs(depth) < 0.04 and 0.055 < radius < PLATE_RADIUS + 0.025
+                # A loaded hand can pinch a remote part of the rim and then slip
+                # as the rack unloads. Retry such pinches while still supported.
+                target, _ = self._grasp_target({**task, "plate_xyz": self.source}, phase)
+                consistent = np.linalg.norm(hand - target) < 0.035
                 settled = abs(np.mean(state[layout.LEFT_FINGERS_VEL])) < 0.012
                 held = (
                     pinched

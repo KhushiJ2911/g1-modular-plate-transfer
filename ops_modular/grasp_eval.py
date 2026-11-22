@@ -135,7 +135,8 @@ def episode(seed: int, arm: str):
 )
 def pickup_trace(seed: int):
     documented_failures = {1010018, 1010029, 1010033, 1020026, 1020043}
-    if seed not in documented_failures and not 3000500 <= seed < 3002000:
+    fresh = 3000500 <= seed < 3002000 or 3055000 <= seed < 3057000
+    if seed not in documented_failures and not fresh:
         raise ValueError("Expected a development diagnostic seed")
     os.environ.update(
         MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa", LP_NUM_THREADS="2", ADV_HEADS=str(HEADS)
@@ -153,6 +154,37 @@ def pickup_trace(seed: int):
     )
     runs.commit()
     return dict(**result, seconds=time.monotonic() - start, archive=str(out), variant="trace")
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    memory=2048,
+    volumes={"/runs": runs},
+    timeout=1200,
+    max_containers=1,
+    scaledown_window=5,
+)
+def archived_handoff(seed: int, arm: str, archive: str):
+    folder = Path(archive)
+    if folder.parent.parent != Path("/runs/grasp-validation") or folder.name != "eval":
+        raise ValueError("Expected a pickup validation archive")
+    row = json.loads((folder / "report.json").read_text())["episodes"][0]
+    if row["seed"] != seed:
+        raise ValueError("Archive seed mismatch")
+    args = [
+        POLICY_PYTHON,
+        "-m",
+        EVAL,
+        str(seed),
+        "handoff",
+        "--archive",
+        str(folder / "episode_000.actions.npz"),
+    ]
+    result = json.loads(run(args).splitlines()[-1])
+    if any(result[k] != row[k] for k in ("success", "fell", "steps")):
+        raise ValueError("Official handoff replay mismatch")
+    return {**result, "variant": arm, "archive": archive}
 
 
 @app.local_entrypoint()
