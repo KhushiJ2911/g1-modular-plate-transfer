@@ -250,9 +250,26 @@ def summarize(path):
     return result
 
 
+def watch(path, phase):
+    output = path / f"sol_render_fk_{phase}.jsonl"
+    manifest = path / f"sol_render_fk_{phase}.calls"
+    planned = set(dict(groups())[phase])
+    while True:
+        collect(path, phase, once=True)
+        retry(path, phase)
+        rows = read_lines(output)
+        valid = {(r["seed"], r["arm"]) for r in rows if r.get("completed")}
+        failed = {r["call_id"] for r in rows if r.get("error")}
+        calls = {tuple(row["key"]): row["id"] for row in read_lines(manifest)}
+        unresolved = planned - valid
+        if not unresolved or all(calls[key] in failed for key in unresolved):
+            break
+        time.sleep(45)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "collect", "retry", "summary"))
+    parser.add_argument("command", choices=("prepare", "collect", "retry", "summary", "watch"))
     parser.add_argument("path", type=Path)
     parser.add_argument("--phase", choices=("smoke", "full"), default="smoke")
     parser.add_argument("--once", action="store_true")
@@ -263,5 +280,7 @@ if __name__ == "__main__":
         collect(args.path, args.phase, args.once)
     elif args.command == "retry":
         retry(args.path, args.phase)
+    elif args.command == "watch":
+        watch(args.path, args.phase)
     else:
         print(json.dumps(summarize(args.path), indent=2))
