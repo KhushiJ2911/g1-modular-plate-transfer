@@ -88,9 +88,10 @@ def job_dir(name):
 def qualify(
     name: str, seed_start: int, policy: str, heads: str, episodes: int = 30, smoke: bool = False
 ):
-    if seed_start not in (2_600_000, 7_310_000) and not smoke:
+    dev = 1_000_000 <= seed_start < 1_100_000
+    if seed_start not in (2_600_000, 7_310_000) and not (smoke or dev):
         raise ValueError(
-            "Qualifying runs only on the confirmation (2600000) or reviewer (7310000) block"
+            "Qualifying-format runs only on dev blocks, 2600000 (confirm) or 7310000 (reviewer)"
         )
     if smoke and not 1_000_000 <= seed_start < 1_100_000:
         raise ValueError("Smoke only on development seeds")
