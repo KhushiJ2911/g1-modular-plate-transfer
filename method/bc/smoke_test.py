@@ -299,6 +299,29 @@ def check_rare_open_overfit():
     print(f"Rare-open synthetic head overfit (loss, open accuracy): {results}")
 
 
+def check_residual_head():
+    torch.manual_seed(19)
+    rgb = torch.randint(0, 256, (2, 3, 3, 84, 84), dtype=torch.uint8)
+    for options, block_count in (({}, 3), ({"head_blocks": 2, "fuse_skip": True}, 2)):
+        model = BCModel(horizon=3, pretrained=False, head_type="resmlp", **options)
+        head = model.head
+        assert len(head.blocks) == block_count
+        with torch.no_grad():
+            fused = torch.randn(2, head.input.in_features)
+            assert torch.equal(head(fused), head.output(head.norm(head.input(fused))))
+        proprio = torch.randn(2, len(PROPRIO_DIMS), requires_grad=True)
+        actions = model(rgb, proprio)
+        assert actions.shape == (2, 3, len(ACTIVE_DIMS))
+        actions.square().mean().backward()
+        assert proprio.grad.shape == proprio.shape and proprio.grad.any()
+        assert head.input.weight.grad.any()
+        for block in head.blocks:
+            assert not block.project.weight.any() and not block.project.bias.any()
+            assert block.project.weight.grad.any()
+            if options.get("fuse_skip"):
+                assert block.project.weight.grad[:, 1024:].any()
+
+
 def check_bce_policy(root, checkpoint, obs):
     class FixedChunk(torch.nn.Module):
         def __init__(self, logits):
@@ -460,6 +483,7 @@ def main():
         check_losses()
         check_gripper_losses()
         check_rare_open_overfit()
+        check_residual_head()
         config = Config(
             data_dirs=tuple(directories),
             data_weights=(2, 1, 1),
@@ -478,10 +502,18 @@ def main():
             pretrained=False,
         )
         train(config, stop_after=10)
-        # Emulate a version-2 checkpoint/log written before gripper config/metrics.
+        # Emulate a version-2 checkpoint/log written before head config and gripper metrics.
         old_path = root / "interrupted" / "last.pt"
         old = torch.load(old_path, map_location="cpu", weights_only=False)
-        for key in ("gripper_loss", "gripper_weight", "gripper_pos_weight", "gripper_threshold"):
+        for key in (
+            "head_type",
+            "head_blocks",
+            "fuse_skip",
+            "gripper_loss",
+            "gripper_weight",
+            "gripper_pos_weight",
+            "gripper_threshold",
+        ):
             old["config"].pop(key)
         old.pop("val_metrics")
         atomic_save(old, old_path)

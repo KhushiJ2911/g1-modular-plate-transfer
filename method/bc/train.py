@@ -26,6 +26,7 @@ from .model import (
     auxiliary_loss,
     load_bc_weights,
     validate_gripper_config,
+    validate_head_config,
     validate_proprio_dims,
 )
 
@@ -58,6 +59,9 @@ class Config:
     ensemble_decay: float = 0.01
     aux_weight: float = 0.1
     proprio_dims: tuple = PROPRIO_DIMS
+    head_type: str = "mlp"
+    head_blocks: int = 3
+    fuse_skip: bool = False
     gripper_loss: str = "l1"
     gripper_weight: float = 1.0
     gripper_pos_weight: float = 1.0
@@ -66,6 +70,7 @@ class Config:
 
 def validate_config(config):
     validate_proprio_dims(config.proprio_dims)
+    validate_head_config(config.head_type, config.head_blocks)
     validate_gripper_config(
         config.gripper_loss,
         config.gripper_weight,
@@ -316,10 +321,19 @@ def train(config, *, stop_after=None, init_from=None):
         if previous.get("version") != 2:
             raise ValueError("Legacy training checkpoint: use --init-from in a new run directory")
         allowed_changes = {"run_dir", "cache_dir", "num_workers", "device"}
-        # Older version-2 checkpoints predate these fields and used L1.
+        # Fill in defaults for fields added since the first version-2 checkpoints.
+        defaults = Config()
         old_config = {
-            key: getattr(Config(), key)
-            for key in ("gripper_loss", "gripper_weight", "gripper_pos_weight", "gripper_threshold")
+            key: getattr(defaults, key)
+            for key in (
+                "head_type",
+                "head_blocks",
+                "fuse_skip",
+                "gripper_loss",
+                "gripper_weight",
+                "gripper_pos_weight",
+                "gripper_threshold",
+            )
         }
         old_config.update(previous["config"])
         for key, value in asdict(config).items():
@@ -333,6 +347,9 @@ def train(config, *, stop_after=None, init_from=None):
         pretrained=config.pretrained and previous is None and init_from is None,
         proprio_dims=config.proprio_dims,
         aux_head=config.aux_weight > 0,
+        head_type=config.head_type,
+        head_blocks=config.head_blocks,
+        fuse_skip=config.fuse_skip,
     ).to(device)
     if init_from is not None:
         initialize_from(model, init_from, store.stats)

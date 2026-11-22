@@ -11,6 +11,7 @@ from submission.model import (
     load_bc_weights,
     masked_l1,
     validate_gripper_config,
+    validate_head_config,
     validate_proprio_dims,
 )
 
@@ -25,5 +26,6 @@ __all__ = [
     "load_bc_weights",
     "masked_l1",
     "validate_gripper_config",
+    "validate_head_config",
     "validate_proprio_dims",
 ]

@@ -34,7 +34,14 @@ class BCPolicy:
             raise ValueError("Require 1 <= exec_steps <= horizon <= 50")
         self.proprio_dims = validate_proprio_dims(config.get("proprio_dims", PROPRIO_DIMS))
         # The auxiliary head never participates in inference, even when saved.
-        self.model = BCModel(self.horizon, pretrained=False, proprio_dims=self.proprio_dims)
+        self.model = BCModel(
+            self.horizon,
+            pretrained=False,
+            proprio_dims=self.proprio_dims,
+            head_type=config.get("head_type", "mlp"),
+            head_blocks=config.get("head_blocks", 3),
+            fuse_skip=config.get("fuse_skip", False),
+        )
         load_bc_weights(self.model, checkpoint["ema"])
         self.model.to(self.device).eval()
         stats = checkpoint["stats"]
