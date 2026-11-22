@@ -17,6 +17,7 @@ class ModularPolicy:
         self.controller = ModularController(kin, self.task)
 
     def reset(self):
+        self.controller.kin.reset()
         self.task.reset()
         self.controller.reset()
 

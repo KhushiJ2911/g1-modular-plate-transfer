@@ -58,12 +58,15 @@ class ModularController:
     def reset(self):
         self.machine = PhaseMachine()
         self.last_raw = None
+        self.target_xyz = None
+        self.target_rot = None
         self.closing = False
         self.grasp_path_start = None
         self.grasp_bias = np.zeros(7)
         self.grasp_streak = 0
         self.lost_streak = 0
         self.lift_origin = None
+        self.lift_rot = None
         self.plate_to_hand = None
         self.carry_rel = None
         self.retreat_start = None

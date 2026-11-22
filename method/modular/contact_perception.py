@@ -17,6 +17,10 @@ class PerceptionHeads(CorrectedTaskState):
             raise ValueError("Expected contact-only initialization")
         self.network = "hidden_weight" in self.weights
 
+    def reset(self):
+        super().reset()
+        self.raw_metrics = None
+
     def update(self, obs):
         task = super().update(obs)
         state = obs["state"]

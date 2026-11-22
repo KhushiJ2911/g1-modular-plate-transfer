@@ -75,7 +75,6 @@ class CorrectedTaskState(EstimatedTaskState):
         if not set(self.groups) <= GROUP_PHASES.keys():
             raise ValueError(f"Unknown estimator heads {self.groups}")
         estimator = policy.task.estimator
-        self.visual = None
 
         def record_visual(module, args):
             self.visual = args[0][0].detach().cpu().numpy()
@@ -85,6 +84,7 @@ class CorrectedTaskState(EstimatedTaskState):
 
     def reset(self):
         super().reset()
+        self.visual = None
         self.first_plate = None
         self.first_site = None
 
