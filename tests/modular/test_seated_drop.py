@@ -56,3 +56,15 @@ def test_seated_drop_rejects_uncorroborated_motion(condition):
             touching=condition != "no_contact",
             held=condition != "lost",
         )
+
+
+def test_combined_uses_stationary_pickup_estimate_even_with_wrist_rgb():
+    c = RoundFourController(None)
+    c.machine.phase = Phase.GRASP
+    c.initial_samples = [np.array([0.40, 0.1, 0.8])]
+    state = np.zeros(50)
+    task = {"plate_xyz": np.array([0.44, 0.1, 0.82]), "left_wrist_rgb": np.zeros((3, 84, 84))}
+    observed = c._pickup_task(state, task)
+    np.testing.assert_allclose(observed["plate_xyz"], [0.42, 0.1, 0.8])
+    assert not observed["held"]
+    assert not c.view.faces and not c.view.rims

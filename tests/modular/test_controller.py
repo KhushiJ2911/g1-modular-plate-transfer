@@ -315,6 +315,7 @@ def test_wrist_face_recovers_the_sign_of_the_source_lean():
     np.testing.assert_allclose(view.rotation[:, 2], normal, atol=0.02)
     assert view.face_iou > 0.9 and len(view.faces) == 3
 
+
 def test_seated_release_requires_support_and_measured_leveling():
     from method.modular.controller import _rotation_from_vector
     from method.modular.orientation_feedback import LEFT_GRASP_NORMAL
@@ -659,3 +660,59 @@ def test_supported_high_release_requires_evidence_of_resisted_descent():
     assert controller._supported_seat(task, delta)
     task["contacts"]["floor"] = True
     assert not controller._supported_seat(task, delta)
+
+
+def test_measured_release_holds_one_pose_until_settled_and_clear():
+    from method.modular.fallback_seating import FallbackSeatingController
+
+    class MeasuredController(FallbackSeatingController):
+        hold_measured_release = True
+
+    class ContactProbe:
+        present = True
+
+        def update(self, state):
+            return self.present
+
+    kin = FixedKinematics()
+    controller = MeasuredController(kin)
+    probe = ContactProbe()
+    controller.release_contact = probe
+    state = np.zeros(50)
+    state[layout.PELVIS_HEIGHT] = 0.75
+    task = {**placement(), "plate_rot": np.eye(3)}
+    controller.act(state, task)
+    controller.machine.phase = Phase.LOWER
+    controller.plate_to_hand = (np.zeros(3), np.eye(3))
+    controller._release_confirmed = lambda task: True
+    state[layout.LEFT_ARM] = np.linspace(0.12, 0.24, 7)
+    state[layout.GRIPPERS] = 0.9
+    task["held"] = True
+
+    release = controller.act(state, task)
+    assert controller.phase == Phase.RELEASE
+    np.testing.assert_array_equal(release[layout.GRIPPER_ACTION], [-1, -1])
+    np.testing.assert_allclose(
+        layout.denormalize_action(release)[layout.LEFT_ARM_ACTION],
+        state[layout.LEFT_ARM],
+        rtol=0,
+        atol=3e-7,
+    )
+    state[layout.LEFT_ARM] += 0.04
+    state[layout.GRIPPERS] = 0
+    for _ in range(SETTLE_STEPS + 3):
+        action = controller.act(state, task)
+        assert controller.phase == Phase.SETTLE
+        np.testing.assert_array_equal(
+            action[layout.LEFT_ARM_ACTION], release[layout.LEFT_ARM_ACTION]
+        )
+
+    probe.present = False
+    controller.act(state, task)
+    assert controller.phase == Phase.RETREAT
+    controller.act(state, task)
+    np.testing.assert_allclose(kin.ik_target, [0.377, 0.20, 0.12], atol=1e-7)
+
+    probe.present = True
+    controller.act(state, task)
+    assert controller.phase == Phase.HOLD
