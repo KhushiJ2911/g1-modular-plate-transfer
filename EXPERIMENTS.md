@@ -569,3 +569,15 @@ Budget cutoff left 13 valid full reset generation outcomes out of the 30 planned
 - Report interface and runtime checked against `layout.py`, `submission/estimator.py`, `controller.py`, `phases.py` and `ops_modular/lead_shard.py`: three RGB cameras with CHW uint8 84×84 inputs, 50 proprioceptive values (19 selected by the estimator), 20 normalized actions in [-1, 1], seven joint targets per arm, 75 measured-open settle steps on the nominal path. The CPU reference uses Python 3.12, torch 2.5.1 and torchvision 0.20.1.
 
 - 2026-11-23 02:59 IST, Astra, retrospective observations on 528c854. Dedicated `modular-astra-second-signal-views` ran one CPU at a time for seven previously submitted failure-action archives on blocks 1031000/1041000/1051000/1061000, 667.98 total worker-seconds. Reproduction uses `bash "$runs/astra_second_views.sh"` from the locked worktree with the dedicated Modal configuration and original event receipts. Six action-matched retreats stopped after 1.41–1.52 cm apparent plate travel and 0.000–0.831 cm real travel. The sole stationary failure satisfied planar distance and support in 18/18 sparse windows and the raw tilt gate in just 1/18, despite physical tilt of 8.0–8.4°. It had no saved HOLD timing. All six physical pad returns had raw held=false. See `runs/astra_sig1/second_observations.md`. Stopped the audit app. On the separate retired bd951bc signal all 22 physical failures were labeled, 20 with action-matched estimated inputs and two with independently marked sparse public reads. Held missed 15/15 pad returns in those action-matched episodes. Stopped `modular-astra-signal-audit-bd951bc`.
+
+### 2026-11-23 03:1x — round-3 fresh signal 54080e5 (policy_modular_combined) → FROZEN as the submission candidate
+- Blocks 1071000/1081000/1091000/1032000 (retired), 120 episodes split across our 10 T4s (SLICE 0/3), our CPUs (1/3) and the
+  jaiswalkhushi2911 account's CPUs (2/3); app `modular-shard-lead-54080e5`; sharded, non-qualifying.
+- At 109/120 complete: **109/109**, and all four 30-episode blocks already have ≥ 27 successes (pooled ≥ 109/120 = 90.8% even if
+  the last 11 fail). Final count to be appended.
+- Progression on fresh blocks: bd951bc 88.3% (158/179) → 528c854 ~93–94% (112–113/120) → 54080e5 ≥ 90.8%, 0 failures in 109.
+- FROZEN: commit 54080e5, factory `submission.policy_modular_combined:make_policy`, estimator est_v1b sha256 bd8ed33c…,
+  heads 64dfe105….npz. Export /home/keyu/advaitic/export/modular_54080e5.
+- Qualifying-format confirmation: `ops_modular/lead_qualify.py` (app `modular-qualify`, T4) — one unmodified
+  `advaitic-eval --episodes 30 --seed-start 2600000` report. Smoke (1 ep, dev 1000000, --smoke --max-steps 10): integrity ok,
+  no infra error, submission sha256 00e24502…. 2600000 run spawned: `fc-01M82K3DR2NYTVVVF0E13QJGKV`. Result pending.
