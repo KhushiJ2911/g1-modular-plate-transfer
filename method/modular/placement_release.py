@@ -181,3 +181,108 @@ def make_policy():
 
 def make_fk_policy():
     return _make_policy(visual_calibration=False)
+
+
+class GuardedClearance:
+    """Move away from the rim once supported recontact is measured."""
+
+    def __init__(self, detector):
+        self.detector = detector
+        self.reset()
+
+    def reset(self):
+        self.detector.reset()
+        self.samples = deque(maxlen=5)
+        self.start = None
+        self.plate = None
+        self.tilt = None
+        self.direction = None
+        self.travel = 0.0
+        self.clear_frames = 0
+        self.finished = False
+
+    def update(self, state, task, elapsed, hand, rotation):
+        contact = self.detector.update(state)
+        self.samples.append(task["plate_xyz"])
+        plate = np.median(self.samples, axis=0)
+        error = plate - task["site_xyz"]
+        contacts = task["contacts"]
+        grippers_open = bool(np.all(state[layout.GRIPPERS] <= 0.08))
+        supported = (
+            contacts["target_rack"]
+            and not (contacts["table"] or contacts["floor"])
+            and abs(error[0]) < 0.026
+            and abs(error[1]) < 0.024
+            and -0.048 < error[2] < -0.018
+        )
+        if self.finished or elapsed < 8:
+            return None
+        if self.start is None:
+            if not (contact and supported and grippers_open and task["tilt_deg"] < 17):
+                return None
+            # Slide radially away from the center in the rack plane. Preserve
+            # wrist angle so the pads do not sweep across the plate faces.
+            rack_axis = -task["site_rot"][:, 0]
+            radial = hand - plate
+            horizontal = rack_axis @ radial
+            if horizontal <= 0.04:
+                return None
+            self.start = hand.copy()
+            self.plate = plate
+            self.tilt = task["tilt_deg"]
+            self.direction = rack_axis
+            self.rotation = rotation.copy()
+        self.clear_frames = 0 if contact else self.clear_frames + 1
+        if (
+            not supported
+            or np.linalg.norm(plate - self.plate) > 0.008
+            or task["tilt_deg"] > self.tilt + 4
+            or self.clear_frames >= 3
+            or self.travel >= 0.025
+            or not grippers_open
+        ):
+            self.finished = True
+            return None
+        self.travel = min(self.travel + 0.0008, 0.025)
+        return self.start + self.travel * self.direction, self.rotation
+
+
+class GuardedClearanceController(SeatedReleaseController):
+    """Optional open-finger recovery with one bounded clearance attempt."""
+
+    def reset(self):
+        from .recontact import OpenFingerContact
+
+        super().reset()
+        self.clearance = GuardedClearance(OpenFingerContact())
+        self.clearance_pose = None
+
+    def _enter(self, task, hand_world, hand_rot):
+        super()._enter(task, hand_world, hand_rot)
+        if self.phase == Phase.RELEASE:
+            self.clearance.reset()
+
+    def act(self, obs_state, task_state=None):
+        self.clearance_pose = None
+        if self.phase in (Phase.RELEASE, Phase.SETTLE):
+            state = np.asarray(obs_state)
+            task_state = self._read_task(state, task_state)
+            if self.phase == Phase.RELEASE:
+                self.clearance.detector.update(state)
+            else:
+                self.kin.set_state(state)
+                hand, rotation = self.kin.hand_pose("left")
+                basis = pelvis_rotation(state)
+                self.clearance_pose = self.clearance.update(
+                    state,
+                    {**task_state, "site_xyz": self.target_xyz, "site_rot": self.target_rot},
+                    self.machine.elapsed,
+                    state[layout.PELVIS_XYZ] + basis @ hand,
+                    basis @ rotation,
+                )
+        return super().act(obs_state, task_state)
+
+    def _action(self, state, position=None, rotation=None, base=None, close=False):
+        if self.phase == Phase.SETTLE and self.clearance_pose is not None:
+            position, rotation = self.clearance_pose
+        return super()._action(state, position, rotation, base, close)

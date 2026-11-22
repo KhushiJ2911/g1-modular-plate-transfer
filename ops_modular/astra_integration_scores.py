@@ -40,7 +40,6 @@ def scores(name, plan):
             if (
                 e["seed"] != seed
                 or e["source_slot"] != slot
-                or e["policy_error"]
                 or not e["completed"]
             ):
                 continue
@@ -52,6 +51,7 @@ def scores(name, plan):
                     success=e["success"],
                     fell=e["fell"],
                     termination=e["termination"],
+                    policy_error=e["policy_error"],
                     folder=folder.name,
                 )
             )

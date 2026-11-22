@@ -94,11 +94,16 @@ def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smok
     persist()
     if smoke and not existing:
         s = plan[0]["seed"]
-        c = fn.spawn(name, s, policy, head)
+        reserved = fold / "official_smoke.call"
+        c = (
+            modal.FunctionCall.from_id(reserved.read_text().strip())
+            if reserved.exists()
+            else fn.spawn(name, s, policy, head)
+        )
         ids[s] = c.object_id
         persist()
         r = c.get()
-        if r["seed"] != s or not r["completed"] or r["policy_error"]:
+        if r["seed"] != s or not r["completed"]:
             raise ValueError("Full smoke failed integrity")
     submitted = False
     with concurrent.futures.ThreadPoolExecutor(10) as pool:
@@ -108,7 +113,10 @@ def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smok
             seen = {r["seed"] for r in rows}
             for r in rows:
                 if not r["success"] and r["seed"] not in replay_ids:
-                    replay_ids[r["seed"]] = replay.spawn(r["folder"]).object_id
+                    if r.get("policy_error"):
+                        replays[r["seed"]] = dict(bucket="policy_error", detail=r["policy_error"])
+                    else:
+                        replay_ids[r["seed"]] = replay.spawn(r["folder"]).object_id
             for seed, cid in replay_ids.items():
                 if seed in replays:
                     continue

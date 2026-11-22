@@ -270,3 +270,36 @@ def test_seated_release_requires_support_and_measured_leveling():
     assert controller._ready_to_release(task)
     task["contacts"]["table"] = True
     assert not controller._ready_to_release(task)
+
+
+def test_post_open_clearance_requires_recontact_and_stops_on_plate_motion():
+    from method.modular.placement_release import GuardedClearance
+
+    class Evidence:
+        contact = False
+
+        def reset(self):
+            self.contact = False
+
+        def update(self, state):
+            return self.contact
+
+    detector = Evidence()
+    clearance = GuardedClearance(detector)
+    pose = np.zeros(50)
+    task = placement()
+    hand = task["plate_xyz"] - [0.085, 0.0, 0.0]
+    rotation = np.eye(3)
+    assert clearance.update(pose, task, 10, hand, rotation) is None
+    detector.contact = True
+    task["contacts"]["target_rack"] = False
+    assert clearance.update(pose, task, 11, hand, rotation) is None
+    task["contacts"]["target_rack"] = True
+    target, orient = clearance.update(pose, task, 12, hand, rotation)
+    np.testing.assert_allclose(target, hand - [0.0008, 0.0, 0.0])
+    np.testing.assert_array_equal(orient, rotation)
+    displaced = {**task, "plate_xyz": task["plate_xyz"] + [0.0, 0.016, 0.0]}
+    for step in range(13, 16):
+        clearance.update(pose, displaced, step, hand, rotation)
+    assert clearance.finished
+    assert clearance.update(pose, task, 16, hand, rotation) is None
