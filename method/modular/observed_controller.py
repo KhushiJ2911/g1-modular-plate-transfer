@@ -121,10 +121,17 @@ class StableSourcePlate:
 class CalibratedPlacementController(LockedSiteController):
     """J with observation-only pickup, grasp geometry and seating feedback."""
 
+    loaded_grasp_normal = None
+
     def reset(self):
         super().reset()
         self.source_plate = StableSourcePlate()
-        self.orientation = CalibratedGraspOrientation(self.kin)
+        self.orientation = CalibratedGraspOrientation(self.kin, self.loaded_grasp_normal)
+
+    def set_loaded_grasp_normal(self, normal):
+        """Set one hand-frame calibration for this pickup method from CARRY."""
+        self.orientation.set_loaded_normal(normal)
+        self.loaded_grasp_normal = self.orientation.loaded_normal.copy()
 
     def act(self, obs_state, task_state=None):
         state = np.asarray(obs_state)

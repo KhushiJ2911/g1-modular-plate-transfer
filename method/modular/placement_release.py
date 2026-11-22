@@ -1,5 +1,6 @@
 """Level a seated plate with FK before unloading the fingers."""
 
+import json
 import os
 from collections import deque
 from pathlib import Path
@@ -10,7 +11,6 @@ from . import layout
 from .controller import _rotation_from_vector
 from .kinematics import pelvis_rotation
 from .observed_controller import CalibratedPlacementController
-from .orientation_feedback import LEFT_GRASP_NORMAL
 from .phases import Phase
 from .refined import inputs
 from .robust_controller import _with_phase_trace
@@ -78,14 +78,14 @@ class SeatedReleaseController(CalibratedPlacementController):
         basis = pelvis_rotation(state)
         hand = state[layout.PELVIS_XYZ] + basis @ position
         hand_rot = basis @ rotation
-        if visual["held"] and state[layout.GRIPPERS][0] >= 0.65:
+        if self.normal_source is not None and visual["held"] and state[layout.GRIPPERS][0] >= 0.65:
             self.normals.append(self.normal_source.measure(state, visual, hand, hand_rot))
         self.heights.append(hand[2])
         self.hand = hand, hand_rot
 
     def _start_leveling(self, reference):
         hand, rotation = self.hand
-        normal = LEFT_GRASP_NORMAL.copy()
+        normal = self.orientation.loaded_normal.copy()
         if len(self.normals) == self.normals.maxlen:
             measured = np.median(self.normals, axis=0)
             # Limit corrections to plausible grasp variation and keep the
@@ -95,7 +95,9 @@ class SeatedReleaseController(CalibratedPlacementController):
             if spread < 0.12:
                 normal += tangent * min(0.9, 0.25 / max(1e-8, np.linalg.norm(tangent)))
         self.level_normal = normal / np.linalg.norm(normal)
-        self.level_pose = hand, rotation
+        error = np.cross(rotation @ self.level_normal, reference)
+        correction = error * min(1.0, 0.22 / max(1e-8, np.linalg.norm(error)))
+        self.level_pose = hand, _rotation_from_vector(correction) @ rotation
         self.level_target = reference
         self.level_step = self.machine.step
 
@@ -121,17 +123,21 @@ class SeatedReleaseController(CalibratedPlacementController):
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):
         if self.phase == Phase.LOWER and self.level_pose is not None:
-            position, original_rotation = self.level_pose
-            normal = self.hand[1] @ self.level_normal
-            error = np.cross(normal, self.level_target)
-            correction = 0.8 * error
-            if np.linalg.norm(correction) > 0.12:
-                correction *= 0.12 / np.linalg.norm(correction)
-            rotation = _rotation_from_vector(correction) @ self.hand[1]
-            if self.level_tilt is not None and self.level_tilt <= 2.0:
-                rotation = self.hand[1]
-            elif self.machine.step - self.level_step < 2:
-                rotation = _rotation_from_vector(correction) @ original_rotation
+            # At the support point, hold hand translation while correcting
+            # rotation. Higher rotation weight is local to this nudge.
+            position, rotation = self.level_pose
+            basis = pelvis_rotation(state).T
+            arm = self.last_raw[layout.LEFT_ARM_ACTION]
+            goal = self.kin.ik(
+                "left",
+                basis @ (position - state[layout.PELVIS_XYZ]),
+                basis @ rotation,
+                q_init=arm,
+                rot_weight=0.22,
+                iters=16,
+            )
+            arm += np.clip(goal - arm, -0.02, 0.02)
+            position, rotation = None, None
         return super()._action(state, position, rotation, base, close)
 
     def act(self, obs_state, task_state=None):
@@ -148,12 +154,16 @@ def make_previous_heads():
     return _with_phase_trace(make_policy())
 
 
-def make_policy():
+def _make_policy(*, visual_calibration):
     from submission.policy_modular_heads import make_policy as make_heads
 
     baseline = make_heads()
     default = Path(__file__).resolve().parents[2] / "checkpoints/astra/normal_v1.npz"
-    normal = SeatedNormal(baseline.task, os.environ.get("ADV_PLACEMENT_NORMAL") or default)
+    normal = (
+        SeatedNormal(baseline.task, os.environ.get("ADV_PLACEMENT_NORMAL") or default)
+        if visual_calibration
+        else None
+    )
 
     class PlacementPolicy(type(baseline)):
         def __init__(self):
@@ -163,3 +173,148 @@ def make_policy():
             self.reset()
 
     return _with_phase_trace(PlacementPolicy())
+
+
+def make_policy():
+    return _make_policy(visual_calibration=True)
+
+
+def make_fk_policy():
+    return _make_policy(visual_calibration=False)
+
+
+class GuardedClearance:
+    """Move away from the rim once supported recontact is measured."""
+
+    def __init__(self, detector):
+        self.detector = detector
+        self.reset()
+
+    def reset(self):
+        self.detector.reset()
+        self.samples = deque(maxlen=5)
+        self.start = None
+        self.plate = None
+        self.tilt = None
+        self.direction = None
+        self.travel = 0.0
+        self.clear_frames = 0
+        self.finished = False
+
+    def update(self, state, task, elapsed, hand, rotation):
+        contact = self.detector.update(state)
+        self.samples.append(task["plate_xyz"])
+        plate = np.median(self.samples, axis=0)
+        error = plate - task["site_xyz"]
+        contacts = task["contacts"]
+        grippers_open = bool(np.all(state[layout.GRIPPERS] <= 0.08))
+        supported = (
+            contacts["target_rack"]
+            and not (contacts["table"] or contacts["floor"])
+            and abs(error[0]) < 0.026
+            and abs(error[1]) < 0.024
+            and -0.048 < error[2] < -0.018
+        )
+        if self.finished or elapsed < 8:
+            return None
+        if self.start is None:
+            if not (contact and supported and grippers_open and task["tilt_deg"] < 17):
+                return None
+            # Slide radially away from the center in the rack plane. Preserve
+            # wrist angle so the pads do not sweep across the plate faces.
+            rack_axis = -task["site_rot"][:, 0]
+            radial = hand - plate
+            horizontal = rack_axis @ radial
+            if horizontal <= 0.04:
+                return None
+            self.start = hand.copy()
+            self.plate = plate
+            self.tilt = task["tilt_deg"]
+            self.direction = rack_axis
+            self.rotation = rotation.copy()
+        self.clear_frames = 0 if contact else self.clear_frames + 1
+        if (
+            not supported
+            or np.linalg.norm(plate - self.plate) > 0.008
+            or task["tilt_deg"] > self.tilt + 4
+            or self.clear_frames >= 3
+            or self.travel >= 0.025
+            or not grippers_open
+        ):
+            self.finished = True
+            return None
+        self.travel = min(self.travel + 0.0008, 0.025)
+        return self.start + self.travel * self.direction, self.rotation
+
+
+class GuardedClearanceController(SeatedReleaseController):
+    """Optional open-finger recovery with one bounded clearance attempt."""
+
+    def reset(self):
+        from .recontact import OpenFingerContact
+
+        super().reset()
+        self.clearance = GuardedClearance(OpenFingerContact())
+        self.clearance_pose = None
+
+    def _enter(self, task, hand_world, hand_rot):
+        super()._enter(task, hand_world, hand_rot)
+        if self.phase == Phase.RELEASE:
+            self.clearance.reset()
+
+    def act(self, obs_state, task_state=None):
+        self.clearance_pose = None
+        if self.phase in (Phase.RELEASE, Phase.SETTLE):
+            state = np.asarray(obs_state)
+            task_state = self._read_task(state, task_state)
+            if self.phase == Phase.RELEASE:
+                self.clearance.detector.update(state)
+            else:
+                self.kin.set_state(state)
+                hand, rotation = self.kin.hand_pose("left")
+                basis = pelvis_rotation(state)
+                started, finished = self.clearance.start is not None, self.clearance.finished
+                self.clearance_pose = self.clearance.update(
+                    state,
+                    {**task_state, "site_xyz": self.target_xyz, "site_rot": self.target_rot},
+                    self.machine.elapsed,
+                    state[layout.PELVIS_XYZ] + basis @ hand,
+                    basis @ rotation,
+                )
+                if os.environ.get("SOL_PHASE_TRACE") == "1":
+                    if not started and self.clearance.start is not None:
+                        print(
+                            "SOL_PLACEMENT " + json.dumps({"clearance_started": self.machine.step})
+                        )
+                    if not finished and self.clearance.finished:
+                        print(
+                            "SOL_PLACEMENT "
+                            + json.dumps(
+                                {
+                                    "clearance_finished": self.machine.step,
+                                    "travel": self.clearance.travel,
+                                }
+                            )
+                        )
+        return super().act(obs_state, task_state)
+
+    def _action(self, state, position=None, rotation=None, base=None, close=False):
+        if self.phase == Phase.SETTLE and self.clearance_pose is not None:
+            position, rotation = self.clearance_pose
+        return super()._action(state, position, rotation, base, close)
+
+
+def make_guarded_release():
+    """Development factory for the integrated release with guarded clearance."""
+    from method.modular.pickup import PickupController
+    from submission.policy_modular import make_policy as make_baseline
+    from submission.policy_modular_heads import PerceptionPolicy
+
+    class GuardedPickup(GuardedClearanceController, PickupController):
+        def __init__(self, kin, source):
+            super().__init__(kin, source, normal_source=None)
+
+    checkpoint = os.environ["ADV_HEADS"]
+    policy = PerceptionPolicy(make_baseline(), checkpoint, GuardedPickup)
+    policy.controller.normal_source = SeatedNormal(policy.task, checkpoint)
+    return _with_phase_trace(policy)

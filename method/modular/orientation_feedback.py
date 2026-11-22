@@ -64,10 +64,19 @@ LEFT_GRASP_NORMAL /= np.linalg.norm(LEFT_GRASP_NORMAL)
 
 
 class CalibratedGraspOrientation:
-    """Use measured arm orientation with one calibrated grasp geometry."""
+    """Propagate the grasp normal through the measured arm orientation."""
 
-    def __init__(self, kin):
+    def __init__(self, kin, loaded_normal=None):
         self.kin = kin
+        self.loaded_normal = LEFT_GRASP_NORMAL.copy()
+        if loaded_normal is not None:
+            self.set_loaded_normal(loaded_normal)
+
+    def set_loaded_normal(self, normal):
+        normal = np.asarray(normal, dtype=float)
+        if normal.shape != (3,) or not np.isfinite(normal).all() or np.linalg.norm(normal) < 1e-8:
+            raise ValueError("Expected a finite, nonzero hand-frame normal")
+        self.loaded_normal = normal / np.linalg.norm(normal)
 
     def update(self, state, task, phase):
         active = (Phase.GRASP, Phase.LIFT, Phase.CARRY, Phase.ALIGN, Phase.LOWER)
@@ -76,7 +85,12 @@ class CalibratedGraspOrientation:
         basis = pelvis_rotation(state)
         self.kin.set_state(state)
         hand = basis @ self.kin.hand_pose("left")[1]
-        normal = hand @ LEFT_GRASP_NORMAL
+        grasp_normal = (
+            self.loaded_normal
+            if phase in (Phase.CARRY, Phase.ALIGN, Phase.LOWER)
+            else LEFT_GRASP_NORMAL
+        )
+        normal = hand @ grasp_normal
         x = task["plate_rot"][:, 0] - normal * (normal @ task["plate_rot"][:, 0])
         if np.linalg.norm(x) < 1e-8:
             x = np.cross(task["plate_rot"][:, 1], normal)

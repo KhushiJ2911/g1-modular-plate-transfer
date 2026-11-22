@@ -314,3 +314,180 @@ def test_wrist_face_recovers_the_sign_of_the_source_lean():
     np.testing.assert_allclose(estimated[:2], center[:2], atol=0.006)
     np.testing.assert_allclose(view.rotation[:, 2], normal, atol=0.02)
     assert view.face_iou > 0.9 and len(view.faces) == 3
+
+def test_seated_release_requires_support_and_measured_leveling():
+    from method.modular.controller import _rotation_from_vector
+    from method.modular.orientation_feedback import LEFT_GRASP_NORMAL
+    from method.modular.placement_release import SeatedReleaseController
+
+    kin = FixedKinematics()
+    controller = SeatedReleaseController(kin, None, None)
+    task = {**placement(), "held": True}
+    task["contacts"]["target_rack"] = False
+    controller.machine.phase = Phase.LOWER
+    controller.machine.elapsed = 98
+    controller.machine.step = 410
+    controller.target_xyz = task["site_xyz"]
+    controller.target_rot = np.eye(3)
+    reference = controller.target_rot[:, 2]
+    tilt_axis = np.cross(LEFT_GRASP_NORMAL, reference)
+    aligned = _rotation_from_vector(
+        tilt_axis / np.linalg.norm(tilt_axis) * np.arccos(LEFT_GRASP_NORMAL @ reference)
+    )
+    tilted = _rotation_from_vector([0.17, 0, 0]) @ aligned
+    hand = np.array([0.38, 0.20, 0.78])
+    controller.hand = hand, tilted
+
+    assert not controller._ready_to_release(task)
+    assert controller.level_pose is None
+    task["contacts"]["target_rack"] = True
+    assert not controller._ready_to_release(task)
+    np.testing.assert_allclose(controller.level_pose[0], hand)
+    assert np.linalg.norm(controller.level_pose[1] @ LEFT_GRASP_NORMAL - reference) < 0.01
+
+    controller.machine.step += 16
+    assert not controller._ready_to_release(task)
+    controller.hand = hand, aligned
+    assert controller._ready_to_release(task)
+    task["contacts"]["table"] = True
+    assert not controller._ready_to_release(task)
+
+
+def test_post_open_clearance_requires_recontact_and_stops_on_plate_motion():
+    from method.modular.placement_release import GuardedClearance
+
+    class Evidence:
+        contact = False
+
+        def reset(self):
+            self.contact = False
+
+        def update(self, state):
+            return self.contact
+
+    detector = Evidence()
+    clearance = GuardedClearance(detector)
+    pose = np.zeros(50)
+    task = placement()
+    hand = task["plate_xyz"] - [0.085, 0.0, 0.0]
+    rotation = np.eye(3)
+    assert clearance.update(pose, task, 10, hand, rotation) is None
+    detector.contact = True
+    task["contacts"]["target_rack"] = False
+    assert clearance.update(pose, task, 11, hand, rotation) is None
+    task["contacts"]["target_rack"] = True
+    target, orient = clearance.update(pose, task, 12, hand, rotation)
+    np.testing.assert_allclose(target, hand - [0.0008, 0.0, 0.0])
+    np.testing.assert_array_equal(orient, rotation)
+    displaced = {**task, "plate_xyz": task["plate_xyz"] + [0.0, 0.016, 0.0]}
+    for step in range(13, 16):
+        clearance.update(pose, displaced, step, hand, rotation)
+    assert clearance.finished
+    assert clearance.update(pose, task, 16, hand, rotation) is None
+
+
+def test_loaded_grasp_normal_begins_at_carry_and_persists_across_reset():
+    from method.modular.orientation_feedback import LEFT_GRASP_NORMAL
+    from method.modular.placement_release import SeatedReleaseController
+
+    kin = FixedKinematics()
+    controller = SeatedReleaseController(kin, None, None)
+    baseline = SeatedReleaseController(kin, None, None)
+    state = np.zeros(50)
+    state[layout.GRIPPERS] = 0.9
+    task = {**placement(), "plate_rot": np.eye(3)}
+    measured = np.array([0.0, -1.0, 0.0])
+    controller.set_loaded_grasp_normal(measured)
+    controller.reset()
+    for phase in (Phase.GRASP, Phase.LIFT):
+        pre_carry = controller.orientation.update(state, task, phase)
+        np.testing.assert_allclose(pre_carry["plate_rot"][:, 2], LEFT_GRASP_NORMAL)
+    carried = controller.orientation.update(state, task, Phase.CARRY)
+    np.testing.assert_array_equal(carried["plate_rot"][:, 2], measured)
+    baseline_pose = baseline.orientation.update(state, task, Phase.CARRY)
+    np.testing.assert_allclose(baseline_pose["plate_rot"][:, 2], LEFT_GRASP_NORMAL)
+    controller.hand = kin.hand_pose("left")
+    controller._start_leveling(measured)
+    np.testing.assert_array_equal(controller.level_normal, measured)
+    with pytest.raises(ValueError, match="hand-frame normal"):
+        controller.set_loaded_grasp_normal(np.zeros(3))
+
+
+def test_seating_stall_requires_a_descending_command_not_static_sag():
+    from method.modular.fk_seating import DescentMonitor
+
+    monitor = DescentMonitor()
+    for _ in range(12):
+        monitor.update(0.8, 0.775)
+    assert not monitor.seated()
+    for step in range(12):
+        monitor.update(0.8 - 0.001 * step, 0.775 - 0.001 * step)
+    assert not monitor.seated()
+    for step in range(12):
+        monitor.update(0.8, 0.775 - 0.001 * step)
+    assert monitor.seated()
+    for step in range(12):
+        monitor.update(0.8, 0.845 - 0.0002 * step)
+    assert monitor.seated()
+
+
+def test_fk_release_tolerates_low_site_only_with_seating_evidence():
+    from method.modular.fk_seating import FKSeatingController
+
+    controller = FKSeatingController(FixedKinematics())
+    task = {**placement(), "held": True}
+    task["plate_xyz"][2] = task["site_xyz"][2] - 0.009
+    controller.hand_to_center = np.zeros(3)
+    controller.lower_start_z = 0.91
+    controller.measured_hand_z = 0.8
+    controller.machine.elapsed = 110
+    controller.target_xyz = task["site_xyz"]
+    assert not controller._ready_to_release(task)
+
+    task["contacts"]["target_rack"] = False
+    for step in range(12):
+        controller.descent.update(0.8, 0.775 - 0.001 * step)
+    assert controller._ready_to_release(task)
+
+    task["plate_xyz"][1] += 0.05
+    assert not controller._ready_to_release(task)
+    task["plate_xyz"][1] -= 0.05
+    task["tilt_deg"] = 13
+    assert not controller._ready_to_release(task)
+
+
+def test_low_site_uses_stationary_source_support_height():
+    from method.modular.site_seating import SupportReferencedController
+
+    controller = SupportReferencedController(FixedKinematics())
+    controller.machine.phase = Phase.CARRY
+    controller.initial_samples = [np.array([0.55, 0.24, 0.818])]
+    controller.source = np.array([0.55, 0.24, 0.78])
+    controller.target_xyz = np.array([0.55, -0.24, 0.83])
+    pos, rot = controller.kin.hand_pose("left")
+    controller._enter({"plate_rel": np.zeros(3)}, pos, rot)
+    np.testing.assert_allclose(controller.target_xyz, [0.55, -0.24, 0.85])
+    assert controller.low_site_adjustment > 0
+
+
+def test_settle_height_fallback_keeps_freeze_and_drift_guards():
+    from method.modular.site_seating import SupportReferencedController
+
+    controller = SupportReferencedController(FixedKinematics())
+    task = placement()
+    controller.target_xyz = task["site_xyz"].copy()
+    controller.target_xyz[2] += 0.029
+    controller.release_z = task["plate_xyz"][2]
+    for _ in range(controller.settle_samples.maxlen):
+        controller.settle_samples.append(np.r_[task["plate_xyz"], task["tilt_deg"]])
+    controller.open_steps = SETTLE_STEPS - 1
+    assert not controller._ready_to_retreat(task)
+    controller.open_steps = SETTLE_STEPS
+    assert controller._ready_to_retreat(task)
+
+    task["tilt_deg"] = 20
+    assert not controller._ready_to_retreat(task)
+    task["tilt_deg"] = 6
+    shifted = np.r_[task["plate_xyz"] + [0, 0, 0.012], 6]
+    controller.settle_samples.append(shifted)
+    assert not controller._ready_to_retreat(task)
