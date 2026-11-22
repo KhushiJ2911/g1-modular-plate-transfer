@@ -21,7 +21,7 @@ def main():
     args = p.parse_args()
     if os.environ.get("MODAL_CONFIG_PATH") != "/home/keyu/.modal_modular.toml":
         raise ValueError("Select the dedicated account")
-    if not 1 <= args.count <= 60:
+    if args.kind != "train" and not 1 <= args.count <= 60:
         raise ValueError("Use shards of 1–60 episodes")
     RUNS.mkdir(parents=True, exist_ok=True)
     manifest = RUNS / (args.name + ".calls.jsonl")

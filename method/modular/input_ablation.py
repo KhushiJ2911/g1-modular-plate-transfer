@@ -41,6 +41,7 @@ GROUPS = {
     "all_source_fixed": (),
     "all_source_site_fixed": (),
     "all_robust": (),
+    "all_grasp": (),
     "contacts_robust": ("contacts",),
 }
 
@@ -52,6 +53,7 @@ def substitute(variant, phase, truth, estimate, locked_site, basis):
         "all_source_fixed",
         "all_source_site_fixed",
         "all_robust",
+        "all_grasp",
     }:
         return estimate
     keys = GROUPS[variant]
@@ -221,13 +223,14 @@ def run(start, count, variants, checkpoint, out):
 
     from .controller import ModularController
     from .kinematics import G1Kinematics
-    from .observed_controller import LockedSiteController
+    from .observed_controller import CalibratedPlacementController, LockedSiteController
 
     seeds = development_seeds(start, count)
     torch.set_num_threads(1)
     estimator = EstimatedTaskState(Estimator(checkpoint), G1Kinematics())
     controller = ModularController(G1Kinematics())
     fixed_controller = LockedSiteController(G1Kinematics())
+    calibrated_controller = CalibratedPlacementController(G1Kinematics())
     env = make_environment()
     try:
         with out.open("x", encoding="utf-8") as stream:
@@ -238,6 +241,8 @@ def run(start, count, variants, checkpoint, out):
                         if variant in {"all_site_fixed", "all_source_site_fixed", "all_robust"}
                         else controller
                     )
+                    if variant == "all_grasp":
+                        selected = calibrated_controller
                     result = _run_episode(env, selected, estimator, seed, variant)
                     stream.write(json.dumps(result, allow_nan=False) + "\n")
                     stream.flush()

@@ -7,6 +7,7 @@ import numpy as np
 from .controller import ModularController
 from .estimated import PLATE_RADIUS
 from .kinematics import pelvis_rotation
+from .orientation_feedback import CalibratedGraspOrientation
 from .phases import Phase
 
 SITE_FRAMES = 6
@@ -59,13 +60,16 @@ class LockedSiteController(ModularController):
         super().reset()
         self.site_contacts = LockedSiteContacts()
 
+    def _read_task(self, state, task):
+        if task is not None:
+            return task
+        if self.task_state_source is None:
+            raise ValueError("An observation-derived task state is required")
+        return self.task_state_source(state)
+
     def act(self, obs_state, task_state=None):
         state = np.asarray(obs_state)
-        if task_state is None:
-            if self.task_state_source is None:
-                raise ValueError("An observation-derived task state is required")
-            task_state = self.task_state_source(state)
-        task = self.site_contacts.update(state, task_state)
+        task = self.site_contacts.update(state, self._read_task(state, task_state))
         # J's first 24 approach steps have zero commanded base velocity.
         # Complete the initial six-sample lock in that same stationary window.
         if self.last_raw is not None and self.machine.step < SITE_FRAMES:
@@ -109,3 +113,24 @@ class StableSourcePlate:
             "plate_xyz": plate,
             "plate_rel": pelvis_rotation(state).T @ (plate - state[18:21]),
         }
+
+
+class CalibratedPlacementController(LockedSiteController):
+    """J with observation-only pickup, grasp geometry and seating feedback."""
+
+    def reset(self):
+        super().reset()
+        self.source_plate = StableSourcePlate()
+        self.orientation = CalibratedGraspOrientation(self.kin)
+
+    def act(self, obs_state, task_state=None):
+        state = np.asarray(obs_state)
+        task = self.source_plate.update(
+            state,
+            self._read_task(state, task_state),
+            self.phase,
+            self.machine.elapsed,
+            self.closing,
+        )
+        task = self.orientation.update(state, task, self.phase)
+        return super().act(state, task)

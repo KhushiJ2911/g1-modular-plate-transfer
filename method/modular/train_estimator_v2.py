@@ -65,6 +65,7 @@ class Frames:
         self.target = torch.from_numpy(np.concatenate(truth)).to(device)
         self.baseline = np.concatenate(baseline)
         self.phase = np.asarray(phase)
+        self.phase_ids = torch.as_tensor(self.phase, device=device)
         self.episode = np.asarray(episode)
         self.first = torch.tensor(np.asarray(first)[self.episode], device=device)
         weights = np.zeros(len(self.phase))
@@ -82,7 +83,7 @@ def forward(model, ds, idx):
     return model.predict(z, start[inv], ds.state[idx], ds.state[first][inv])
 
 
-def loss(pred, labels, pos_weight):
+def loss(pred, labels, pos_weight, phase):
     fresh = torch.isfinite(labels[:, 8])
     y = labels.nan_to_num()
 
@@ -91,6 +92,13 @@ def loss(pred, labels, pos_weight):
 
     value = huber((pred[:, :3] - y[:, :3]) / 0.015) + 0.25 * huber((pred[:, 6] - y[:, 6]) / 4.0)
     value += 0.3 * F.binary_cross_entropy_with_logits(pred[:, 7], y[:, 7])
+    pickup = phase == PHASES.index("PREGRASP")
+    place = (phase == PHASES.index("LOWER")) | (phase == PHASES.index("ALIGN"))
+    if pickup.any():
+        value += 0.4 * huber((pred[pickup, :2] - y[pickup, :2]) / 0.012)
+    if place.any():
+        value += 0.4 * huber((pred[place, 2] - y[place, 2]) / 0.012)
+        value += 0.2 * huber((pred[place, 5] - y[place, 5]) / 0.012)
     if fresh.any():
         p, y = pred[fresh], y[fresh]
         actual = rotation_matrix(y[:, 8:14])
@@ -141,6 +149,10 @@ def metrics(pred, ds):
             episode_bias_cm=float(np.mean([np.linalg.norm(g.mean(0)) for g in groups])),
             noise_cm=float(np.mean([np.linalg.norm(g.std(0)) for g in groups])),
             global_bias_cm=delta[mask].mean(0).tolist(),
+            plate_xy_mae_cm=float(np.linalg.norm(delta[mask, :2], axis=1).mean()),
+            plate_z_mae_cm=float(np.abs(delta[mask, 2]).mean()),
+            site_z_mae_cm=float(100 * np.abs(pred[mask, 5] - truth[mask, 5]).mean()),
+            site_z_bias_cm=float(100 * np.mean(pred[mask, 5] - truth[mask, 5])),
             plate_mae_cm=float(np.linalg.norm(delta[mask], axis=1).mean()),
             plate_p95_cm=float(np.percentile(np.linalg.norm(delta[mask], axis=1), 95)),
             site_mae_cm=float(
@@ -221,7 +233,7 @@ def train(directory, out, base, start, count, steps, batch, smoke=False):
         idx = torch.multinomial(ds.weights, batch, replacement=True)
         optimizer.zero_grad(set_to_none=True)
         p = forward(model, ds, idx)
-        value = loss(p, ds.target[idx], pos_weight)
+        value = loss(p, ds.target[idx], pos_weight, ds.phase_ids[idx])
         if not torch.isfinite(value):
             raise ValueError("Nonfinite training objective")
         value.backward()
@@ -236,6 +248,11 @@ def train(directory, out, base, start, count, steps, batch, smoke=False):
                 + 0.3 * overall["site_mae_cm"]
                 + 0.08 * overall["normal_mae_deg"]
             )
+            if "PREGRASP" in score and "LOWER" in score:
+                key += (
+                    0.3 * score["PREGRASP"]["plate_xy_mae_cm"]
+                    + 0.3 * score["LOWER"]["plate_z_mae_cm"]
+                )
             history.append(
                 dict(step=i, loss=float(value.detach()), selection=key, validation=overall)
             )
