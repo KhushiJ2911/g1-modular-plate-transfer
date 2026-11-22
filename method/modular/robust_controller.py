@@ -191,6 +191,10 @@ class RobustPlacementController(CalibratedPlacementController):
         if self.phase == Phase.LOWER and self.seating is not None:
             self.seating.depth_history.clear()
 
+    def _ready_to_lower(self, task, desired):
+        site_ready = not self.use_late_site or self.site_contacts.locked
+        return site_ready and super()._ready_to_lower(task, desired)
+
     def _ready_to_release(self, task):
         if self.seating is None:
             return super()._ready_to_release(task)
