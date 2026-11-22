@@ -10,6 +10,7 @@ from pathlib import Path
 
 import modal
 from grpclib.exceptions import StreamTerminatedError
+from modal.types import InputStatus
 
 from ops_modular.modular_sim import WEIGHTS_SHA, image, run_candidate
 
@@ -226,12 +227,39 @@ def sweep(
 def collect(out):
     path = Path(out)
     calls = list(map(json.loads, path.with_suffix(".calls").read_text().splitlines()))
+    # Keep the original manifest immutable. Replacements are recorded only
+    # after checking the failed input's remote status and its volume archive.
+    retry_path = path.with_suffix(".retry.calls")
+    if retry_path.exists():
+        by_job = {tuple(record[:2]): record for record in calls}
+        for seed, arm, new_id, old_id, _reason in map(
+            json.loads, retry_path.read_text().splitlines()
+        ):
+            if by_job[seed, arm][2] != old_id:
+                raise ValueError("Replacement does not match the preceding call")
+            by_job[seed, arm] = [seed, arm, new_id]
+        calls = list(by_job.values())
 
     def check(record):
         _, _, call_id = record
+        call = modal.FunctionCall.from_id(call_id)
         try:
-            return modal.FunctionCall.from_id(call_id).get(timeout=0)
-        except (TimeoutError, OSError, StreamTerminatedError, modal.exception.ConnectionError):
+            return call.get(timeout=0)
+        except TimeoutError as err:
+            try:
+                nodes = call.get_call_graph()
+            except (OSError, StreamTerminatedError, modal.exception.ConnectionError):
+                return None
+            for node in nodes:
+                if node.function_call_id == call_id and node.status not in (
+                    InputStatus.PENDING,
+                    InputStatus.SUCCESS,
+                ):
+                    raise RuntimeError(
+                        f"{call_id} ended with {node.status.name}. Inspect the volume before retrying."
+                    ) from err
+            return None
+        except (OSError, StreamTerminatedError, modal.exception.ConnectionError):
             return None
 
     with path.open("a+") as f, concurrent.futures.ThreadPoolExecutor(12) as pool:
