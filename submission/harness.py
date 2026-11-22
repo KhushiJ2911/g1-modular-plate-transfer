@@ -18,6 +18,10 @@ DEFAULT_CONFIG = {
     "held_steps": 4,
     "lost_steps": 10,
     "place_distance_m": 0.08,
+    "place_servo": False,
+    "place_kp": 2.0,  # 1/s
+    "place_vmax": 0.10,  # m/s, per planar axis
+    "tilt_hold": False,
     "arm_speed_rad_s": 0.4,
     "base_speed_m_s": 0.04,
     "gripper_closed_min": 0.2,
@@ -54,7 +58,7 @@ def validate_config(config):
         default = DEFAULT_CONFIG[key]
         if type(value) is not type(default) or not math.isfinite(value):
             raise ValueError(f"Invalid harness {key} type/value")
-        if key not in ("temporal_ensemble", "supervise") and value < 0:
+        if type(default) is not bool and value < 0:
             raise ValueError(f"Harness {key} must be nonnegative")
         if type(default) is int and value < 1:
             raise ValueError(f"Harness {key} must be positive")
@@ -202,6 +206,18 @@ class ReleaseSupervisor:
             # Continue holding even after the minimum settle period: no success
             # flag is available, so never guess that a re-grasp is appropriate.
         else:
+            if self.phase == "PLACE" and held and distance <= c["place_distance_m"]:
+                if c["place_servo"]:
+                    # Labels already use R(-yaw) * (world_xyz - pelvis_xyz).
+                    # Move the held plate toward the site, not away from it.
+                    velocity = np.clip(
+                        c["place_kp"] * (site[:2] - plate[:2]), -c["place_vmax"], c["place_vmax"]
+                    )
+                    # Fixed planar raw limits [-1,1] m/s: teacher's
+                    # 2*(velocity-low)/(high-low)-1 is identity here.
+                    actions[:, :2] = velocity
+                if c["tilt_hold"] and tilt > c["release_tilt_deg"]:
+                    actions[:, [0, 1, 3]] = 0  # recheck next observation; retain BC arms/height
             actions[:, 18] = -1 if self.phase == "APPROACH" else 1
             actions[:, 19] = -1  # bce1 is a left-hand policy; keep unused hand open
         self.time += len(actions)

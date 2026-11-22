@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from method.harness.data import audit_files, check_seed, snapshot_labels
+from method.harness.data import audit_files, check_seed, pelvis_relative, snapshot_labels
 from method.harness.label_replay import replay_episode
 from submission.harness import (
     ARM_HIGH,
@@ -173,12 +173,88 @@ class SupervisorTests(unittest.TestCase):
             ("HELD_THRESHOLD", "nan"),
             ("RELEASE_DISTANCE_M", "0.2"),
             ("TEMPORAL_ENSEMBLE", "maybe"),
+            ("PLACE_KP", "-1"),
+            ("PLACE_VMAX", "nan"),
+            ("PLACE_SERVO", "maybe"),
         ):
             with self.assertRaises(ValueError):
                 config_from_env({"ADV_H_" + key: value})
         self.estimate["held"] = float("nan")
         with self.assertRaises(ValueError):
             self.step()
+
+    def test_place_servo_sign_frame_clipping_and_bc_preservation(self):
+        self.config.update(place_servo=True, place_vmax=0.05)
+        self.supervisor = ReleaseSupervisor(self.config, log=False)
+        self.place()
+        self.actions[:, :18] = 0.3
+        for yaw in (0.0, np.pi / 2, -np.pi / 3):
+            self.state[18:22] = [1, 2, 0.75, yaw]
+            plate, site = np.array([1.5, 2.3, 0.95]), np.array([1.56, 2.29, 0.95])
+            self.estimate["plate_rel"] = pelvis_relative(plate, self.state)
+            self.estimate["target_site_rel"] = pelvis_relative(site, self.state)
+            c, s = np.cos(self.state[21]), np.sin(self.state[21])
+            expected = np.clip([2 * (c * 0.06 - s * 0.01), 2 * (-s * 0.06 - c * 0.01)], -0.05, 0.05)
+            output = self.step()
+            np.testing.assert_allclose(output[:, :2], np.tile(expected, (2, 1)), atol=1e-6)
+            np.testing.assert_array_equal(output[:, 2:18], self.actions[:, 2:18])
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] - [0.03, 0, 0]
+        np.testing.assert_allclose(self.step()[:, 0], -0.05, atol=1e-6)  # plate +x of site
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"].copy()
+        np.testing.assert_array_equal(self.step()[:, :2], 0)
+
+    def test_place_flags_gating_grasp_approach_and_release(self):
+        # Default-off flags preserve brief-13 actions, including PLACE base commands.
+        self.actions[:, :18] = 0.3
+        self.place()
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.config.update(place_servo=True, tilt_hold=True)
+        self.supervisor = ReleaseSupervisor(self.config, log=False)
+        for _ in range(3):  # APPROACH -> GRASP -> CARRY; no premature base override
+            np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.step()  # PLACE
+        self.estimate["held"] = 0.0
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.estimate["held"] = 0.95
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.1, 0, 0]
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.assertEqual(self.supervisor.phase, "CARRY")
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.02, 0, 0]
+        for _ in range(4):
+            output = self.step()
+        self.assertEqual(self.supervisor.phase, "RELEASE")
+        np.testing.assert_array_equal(output[0], pose_hold_action(self.state))
+        np.testing.assert_array_equal(self.step(), output)  # SETTLE remains latched
+
+    def test_tilt_hold_independent_and_clears_when_level(self):
+        self.config["tilt_hold"] = True
+        self.supervisor = ReleaseSupervisor(self.config, log=False)
+        self.place()
+        self.actions[:, :18] = 0.3
+        self.estimate["tilt_deg"] = 30.0
+        for _ in range(5):
+            output = self.step()
+            np.testing.assert_array_equal(output[:, [0, 1, 3]], 0)
+            np.testing.assert_array_equal(output[:, 4:18], self.actions[:, 4:18])
+            self.assertTrue((output[:, 18] == 1).all())
+            self.assertIsNone(self.supervisor.release_time)
+        self.estimate["tilt_deg"] = 5.0
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.supervisor.config["place_servo"] = True
+        self.estimate["tilt_deg"] = 30.0
+        np.testing.assert_array_equal(self.step()[:, [0, 1, 3]], 0)  # hold takes priority
+        cfg = config_from_env(
+            {
+                "ADV_H_PLACE_SERVO": "1",
+                "ADV_H_TILT_HOLD": "1",
+                "ADV_H_PLACE_KP": "3.0",
+                "ADV_H_PLACE_VMAX": "0.07",
+            }
+        )
+        self.assertEqual(
+            [cfg[k] for k in ("place_servo", "tilt_hold", "place_kp", "place_vmax")],
+            [True, True, 3.0, 0.07],
+        )
 
 
 class ReplayTests(unittest.TestCase):
