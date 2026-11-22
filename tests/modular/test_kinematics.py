@@ -1,7 +1,13 @@
 """Fast analytic checks on the independent model. No environment rollout."""
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pytest
+
+# Candidate methods live in the worktree, outside the evaluator wheel.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from method.modular import layout
 from method.modular.kinematics import (

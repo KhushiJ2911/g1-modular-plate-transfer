@@ -44,7 +44,7 @@ def pose_error(p, r, target_p, target_r):
     )
 
 
-def fk_episode(env, kin, seed):
+def fk_episode(env, kin, seed, trace=False):
     ts = env.reset(seed=seed)
     rng = np.random.default_rng(seed)
     base = env.raw_hold_action()
@@ -62,6 +62,25 @@ def fk_episode(env, kin, seed):
                 layout.denormalize_action(action), env.denormalize_action(action), atol=5e-7
             )
         ts = env.step(action)
+        if trace:
+            # Privileged training labels for an observability diagnostic.
+            # A rigid torso quaternion/translation determines both arm bases.
+            state = ts.low_dim_obs
+            inner = env.inner_env
+            torso = inner.data.body(inner.robot.namespace + "torso_link")
+            print(
+                json.dumps(
+                    dict(
+                        seed=seed,
+                        step=t + 1,
+                        state=state.tolist(),
+                        torso_p=world_to_pelvis(state, torso.xpos).tolist(),
+                        torso_r=rotation_vector(
+                            pelvis_rotation(state).T @ torso.xmat.reshape(3, 3)
+                        ).tolist(),
+                    )
+                )
+            )
         if ts.last():
             break
     state = ts.low_dim_obs
@@ -100,8 +119,7 @@ def fk_episode(env, kin, seed):
             p, r, world_to_pelvis(state, hp), pelvis_rotation(state).T @ hr
         )
         record[side + "_pelvis_body_m"], _ = pose_error(
-            p, r, pelvis.xmat.reshape(3, 3).T @ (hp - pelvis.xpos),
-            pelvis.xmat.reshape(3, 3).T @ hr
+            p, r, pelvis.xmat.reshape(3, 3).T @ (hp - pelvis.xpos), pelvis.xmat.reshape(3, 3).T @ hr
         )
         record[side + "_torso_m"], record[side + "_torso_deg"] = pose_error(
             local_torso.xmat.reshape(3, 3).T @ (p - local_torso.xpos),
@@ -133,7 +151,9 @@ class Reach:
         self.kin = kin
         self.command = state[layout.LEFT_ARM].copy()
         self.right_hold = state[layout.RIGHT_ARM].copy()
-        self.solution = self.command.copy()
+        self.kin.set_state(state)
+        # Retract and raise the fingertips above the rack during locomotion.
+        self.solution = self.kin.ik("left", [0.28, 0.18, 0.16], np.eye(3))
         self.bias = np.zeros(7)
         self.stopped = False
 
@@ -143,7 +163,7 @@ class Reach:
         raw = np.zeros(20, dtype=np.float32)
         raw[2] = 0.74
         raw[layout.RIGHT_ARM_ACTION] = self.right_hold
-        stand_error = (plate_pose[:2] - [0.47, 0.16]) - state[layout.PELVIS_XY]
+        stand_error = (plate_pose[:2] - [0.50, 0.16]) - state[layout.PELVIS_XY]
         distance = np.linalg.norm(stand_error)
         if distance <= 0.035:
             self.stopped = True
@@ -158,7 +178,7 @@ class Reach:
             # Integral action removes steady arm-servo tracking error under gravity.
             err = self.solution - state[layout.LEFT_ARM]
             self.bias = np.clip(self.bias + 0.07 * np.clip(err, -0.08, 0.08), -0.12, 0.12)
-            self.command += np.clip(self.solution + self.bias - self.command, -0.055, 0.055)
+        self.command += np.clip(self.solution + self.bias - self.command, -0.055, 0.055)
         raw[layout.LEFT_ARM_ACTION] = self.command
         return layout.normalize_action(raw)
 
@@ -167,12 +187,18 @@ def reach_episode(env, kin, seed, trace=False):
     ts = env.reset(seed=seed)
     reach = Reach(kin, ts.low_dim_obs)
     plate = env.inner_env.plates[0]
+    initial_xyz = plate.get_pose()[:3].copy()
+    max_plate_drift = 0.0
     settled = 0
     tail = []
     for step in range(1, 401):
         ts = env.step(reach.act(ts.low_dim_obs, plate.get_pose()))
         p, r = live_hand(env, "left")
-        target_p, target_r = pregrasp(plate.get_pose())
+        current_pose = plate.get_pose()
+        max_plate_drift = max(
+            max_plate_drift, float(np.linalg.norm(current_pose[:3] - initial_xyz))
+        )
+        target_p, target_r = pregrasp(current_pose)
         meters, deg = pose_error(p, r, target_p, target_r)
         tail = (tail + [(meters, deg)])[-10:]
         settled += int(reach.stopped)
@@ -207,6 +233,7 @@ def reach_episode(env, kin, seed, trace=False):
         settled_steps=settled,
         final10_max_m=meters,
         final10_max_deg=deg,
+        max_plate_drift_m=max_plate_drift,
         fell=fell,
         reached=bool(settled == 120 and not fell and meters <= 0.01 and deg <= 10),
     )
@@ -227,7 +254,7 @@ def main():
     try:
         for seed in range(args.start, args.start + args.count):
             if args.mode == "fk":
-                record = fk_episode(env, kin, seed)
+                record = fk_episode(env, kin, seed, args.trace)
             else:
                 record = reach_episode(env, kin, seed, args.trace)
             print(json.dumps(record), flush=True)
