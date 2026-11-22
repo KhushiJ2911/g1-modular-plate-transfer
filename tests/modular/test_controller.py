@@ -235,7 +235,7 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
 
 
 def test_wrist_rim_requires_a_continuous_highlight_and_moves_laterally():
-    from method.modular.pickup import rim_lateral
+    from method.modular.pickup_vision import rim_lateral
 
     wrist = np.zeros((3, 84, 84), dtype=np.uint8)
     pos = np.array([0.4, 0.23, 0.85])
@@ -249,3 +249,47 @@ def test_wrist_rim_requires_a_continuous_highlight_and_moves_laterally():
     shifted = rim_lateral(right, pos, rotation, 0.816)
     # The wrist image's horizontal axis points toward the robot's right.
     assert 0.006 < y - shifted < 0.009
+
+
+def test_pickup_confirms_a_deflected_hand_on_the_rim():
+    from method.modular.estimated import SITE_ROTATION
+    from method.modular.pickup import PickupController
+
+    kin = FixedKinematics()
+    ctl = PickupController(kin)
+    state = np.zeros(50)
+    state[44], state[7:9] = 0.9, -0.016
+    hand, _ = kin.hand_pose("left")
+    plate = hand + [0.09, 0, -0.066]
+    task = {**placement(), "plate_xyz": plate, "plate_rot": SITE_ROTATION}
+    ctl.machine.phase = Phase.GRASP
+    ctl.closing = True
+    ctl.initial_samples = [plate.copy()] * 6
+    assert ctl._pickup_task(state, task)["held"]
+    state[19] += 0.06
+    assert not ctl._pickup_task(state, task)["held"]
+
+
+def test_wrist_face_recovers_the_sign_of_the_source_lean():
+    from PIL import Image, ImageDraw
+
+    from method.modular.pickup_vision import FOCAL_PIXELS, WRIST_CAMERA, SourceView
+
+    # Render a known circular outline independently of the ray-plane fit.
+    hand = np.array([0.35, 0.22, 0.88])
+    center = hand + [0.16, -0.032, -0.060]
+    angle = np.deg2rad(-30)
+    normal = np.array([0.0, -np.cos(angle), np.sin(angle)])
+    arc = np.linspace(0, np.pi * 2, 100)
+    disk = np.c_[np.cos(arc), np.sin(arc) * np.sin(angle), np.sin(arc) * np.cos(angle)]
+    camera = hand + [-0.028, 0, 0.04]
+    points = (center + 0.018 * normal + 0.114 * disk - camera) @ WRIST_CAMERA
+    uv = 41.5 + FOCAL_PIXELS * points[:, :2] * [-1, 1] / points[:, 2, None]
+    image = Image.new("L", (84, 84))
+    ImageDraw.Draw(image).polygon(list(map(tuple, uv)), fill=240)
+    rgb = np.broadcast_to(np.asarray(image), (3, 84, 84))
+    view = SourceView()
+    for _ in range(3):
+        estimated = view.update(rgb, hand, np.eye(3), center + [0, 0.032, 0], 10)
+    np.testing.assert_allclose(estimated[:2], center[:2], atol=0.006)
+    np.testing.assert_allclose(view.rotation[:, 2], normal, atol=0.02)

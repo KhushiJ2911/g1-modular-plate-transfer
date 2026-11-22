@@ -1,43 +1,15 @@
 """Observation-only source localization and pinch/lift verification."""
 
-import mujoco
 import numpy as np
 
 from . import layout
+from .estimated import PLATE_RADIUS
 from .kinematics import pelvis_rotation
 from .observed_controller import CalibratedPlacementController, LockedSiteController
 from .phases import Phase
+from .pickup_vision import SourceView
 
 WINDOW = 6
-
-# Wrist camera mount and 60 degree vertical FOV from the fixed G1 geometry.
-_camera_q, _camera_mat = np.empty(4), np.empty(9)
-mujoco.mju_euler2Quat(_camera_q, np.array([0.0, -0.87, -1.57]), "xyz")
-mujoco.mju_quat2Mat(_camera_mat, _camera_q)
-WRIST_CAMERA = _camera_mat.reshape(3, 3)
-FOCAL_PIXELS = 42 / np.tan(np.deg2rad(30))
-
-
-def rim_lateral(rgb, hand, rotation, height):
-    """World y of an upright plate from the bright front lip at PREGRASP."""
-    # A continuous vertical highlight distinguishes the rim from isolated
-    # highlights on rack pins. Discard cropped and ambiguous wrist views.
-    strip = rgb[:, 16:49, 5:79].min(axis=0)
-    u = strip.argmax(axis=1)
-    v = np.arange(len(u))
-    bright = strip[v, u] > 195
-    if bright.sum() < 9:
-        return None
-    u, v = u[bright] + 5, v[bright] + 16
-    center = np.median(u)
-    if np.median(np.abs(u - center)) > 3:
-        return None
-    ray = np.array([(center - 41.5) / FOCAL_PIXELS, (41.5 - np.median(v)) / FOCAL_PIXELS, -1])
-    # The reached standoff fixes the observed lip at about 10.5 cm depth.
-    # Account for the site-to-camera mount, nominal source lean, and the
-    # single lateral calibration shared by all continuous source positions.
-    point = hand + rotation @ ([-0.028, 0, 0.040] + 0.105 * (WRIST_CAMERA @ ray))
-    return point[1] - 0.12 * (point[2] - height) + 0.020
 
 
 class PickupController(CalibratedPlacementController):
@@ -47,7 +19,7 @@ class PickupController(CalibratedPlacementController):
         super().reset()
         self.initial_samples = []
         self.near_samples = []
-        self.rim_samples = []
+        self.view = SourceView()
         self.source = None
         self.hand_to_center = None
         self.fk_rise = 0.0
@@ -57,7 +29,7 @@ class PickupController(CalibratedPlacementController):
         if self.phase == Phase.PREGRASP:
             # A failed pinch can displace the plate. Discard the old near view.
             self.near_samples.clear()
-            self.rim_samples.clear()
+            self.view = SourceView()
             self.hand_to_center = None
             self.fk_rise = 0.0
             if self.machine.grasp_retries:
@@ -93,23 +65,25 @@ class PickupController(CalibratedPlacementController):
                 self.source = initial.copy()
                 self.source[:2] = (initial[:2] + near[:2]) / 2
 
-            if "left_wrist_rgb" in task and task["tilt_deg"] < 18:
+            if "left_wrist_rgb" in task:
                 basis = pelvis_rotation(state)
                 self.kin.set_state(state)
                 pos, rot = self.kin.hand_pose("left")
-                y = rim_lateral(
+                self.source = self.view.update(
                     task["left_wrist_rgb"],
                     state[layout.PELVIS_XYZ] + basis @ pos,
                     basis @ rot,
-                    self.source[2],
+                    self.source,
+                    task["tilt_deg"],
                 )
-                if y is not None:
-                    self.rim_samples.append(y)
-            if len(self.rim_samples) >= 3:
-                offset = np.median(self.rim_samples) - self.source[1]
-                self.source[1] += 0.90 * np.clip(offset, -0.035, 0.035)
 
         basis = pelvis_rotation(state)
+        if phase == Phase.GRASP and self.view.rotation is not None:
+            task = {
+                **task,
+                "plate_rot": self.view.rotation,
+                "plate_rot_rel": basis.T @ self.view.rotation,
+            }
         if phase == Phase.GRASP and not self.closing:
             task = {**task, "held": False}
         elif phase in (Phase.GRASP, Phase.LIFT):
@@ -119,8 +93,14 @@ class PickupController(CalibratedPlacementController):
             fingers = np.mean(state[layout.LEFT_FINGERS])
             pinched = state[layout.GRIPPERS][0] >= 0.80 and fingers >= -0.0185
             if phase == Phase.GRASP:
-                target, _ = self._grasp_target({**task, "plate_xyz": self.source}, phase)
-                consistent = np.linalg.norm(hand - target) < 0.035
+                # The loaded hand can deflect several cm along the plate and
+                # still hold the rim. Check physical compatibility with the
+                # observed plate plane and radius during settled closure.
+                delta = hand - self.source
+                normal = task["plate_rot"][:, 2]
+                depth = delta @ normal
+                radius = np.linalg.norm(delta - depth * normal)
+                consistent = abs(depth) < 0.04 and 0.055 < radius < PLATE_RADIUS + 0.025
                 settled = abs(np.mean(state[layout.LEFT_FINGERS_VEL])) < 0.012
                 held = (
                     pinched

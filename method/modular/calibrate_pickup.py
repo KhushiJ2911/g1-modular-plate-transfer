@@ -8,7 +8,8 @@ import numpy as np
 
 from .kinematics import G1Kinematics, pelvis_rotation
 from .phases import Phase
-from .pickup import PickupController, rim_lateral
+from .pickup import PickupController
+from .pickup_vision import rim_lateral
 from .privileged import PrivilegedTaskState
 
 
