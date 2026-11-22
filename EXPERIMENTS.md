@@ -584,3 +584,12 @@ Budget cutoff left 13 valid full reset generation outcomes out of the 30 planned
 
 - 2026-11-23 03:13 IST, Astra freeze. Stopped the local collector and disabled retrospective dispatch. Ran `MODAL_CONFIG_PATH=/home/keyu/.modal_modular.toml uv run --locked --with modal modal app stop --yes modular-astra-balanced-6b02f33`. Subsequent inventory confirms stopped at 03:13:10 IST with zero tasks and no active Astra deployments. No new rollout or replay was launched. The complete unmodified FK development report at start 1000000 remains 27/30, source slots 4, 5, 5, 4, 5, 4. Last verified incomplete individual attempts were 25/27 on 1010000 and 17/19 on 1020000; there is no pooled uninterrupted three-block result. Local report verification covered all 68 committed files in the 54080e5 export's method/modular, submission and src/advaitic_eval directories, the est_v1b and calibrated-head hashes, official per-source-slot indexing, and the lead's actual EGL/T4 confirmation invocation. Frozen runtime files were untouched.
 - 03:15 IST, lead-managed frozen combined signal tallied locally from existing launcher journals and mirrored reports (`uv run --locked python "$runs/astra_sig3_summary.py"`). 114 complete successes, six unresolved of 120 planned. Blocks 1071000, 1081000, 1091000, 1032000 have 27, 29, 29, 29 actual successes. Zero falls or policy errors in the 114 terminal outcomes. By source slot 0–5 the counts were 20/20, 20/20, 20/20, 18/18, 18/18, 18/18. The pooled full-plan lower bound is 114/120 (95.0%). This is a non-qualifying sharded signal.
+
+### 2026-11-23 04:0x — QUALIFYING-FORMAT confirmation, 2600000, frozen 54080e5: **25/30 — FAIL**
+- `ops_modular/lead_qualify.py` (app `modular-qualify`, T4), one unmodified `advaitic-eval --episodes 30 --seed-start 2600000`;
+  status FAIL, integrity ok, no infrastructure error, submission sha256 00e24502…, 955 s. Reported as is; 2600000 is now used.
+- Failed episodes: 3 (s0), 6 (s3), 7 (s0), 11 (s3), 16 (s3); episodes 17–29 all succeeded; slot 3 2/5.
+- Camera-free replay: 2600003, 2600006 on rack ~4 cm never released; 2600007, 2600016 held hovering 18/13 cm; 2600011 grasp lost.
+- The never-released bucket had 0/114 occurrences in the sharded fresh-process runs → hypothesis: policy state not reset between
+  episodes in a persistent policy process (sharded runs never exercise reset()). Diagnostics launched: single-process qualifying-format
+  runs on dev blocks 1031000 (sharded 30/30) and 1041000 (sharded 29/30); astra auditing reset() against a fresh instance.
