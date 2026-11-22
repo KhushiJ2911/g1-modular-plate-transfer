@@ -1,6 +1,6 @@
 # Modular G1 plate transfer
 
-The controller converts camera and robot observations into a continuous estimate of the plate and destination. It uses that estimate to pick up, carry, seat and release the plate with geometric feedback. The round-three candidate is `54080e5`, served by `submission.policy_modular_combined:make_policy`. Final policy SHA and qualifying results are pending.
+The controller converts camera and robot observations into a continuous estimate of the plate and destination. It uses that estimate to pick up, carry, seat and release the plate with geometric feedback. The lead froze commit `54080e586a9c892d7a903b99be316564328a4f77` and factory `submission.policy_modular_combined:make_policy`. All four fresh development blocks had already reached 27 successes apiece at freeze. The uninterrupted qualifying confirmation is in progress.
 
 ## Observations, actions and control
 
@@ -12,7 +12,7 @@ The policy receives three CHW `uint8` RGB views (head, right wrist and left wris
 - **CARRY → ALIGN → LOWER.** Track the destination standoff, center over the locked site, then descend with bounded position and orientation feedback. The combined candidate tries ordinary release confirmation first. A late fallback uses FK height, descent stall or rack contact, and the stationary source support height when the locked site is low.
 - **RELEASE → SETTLE → RETREAT → HOLD.** Open both grippers and hold joint targets during settling. The ordinary retreat gate requires 75 measured-open steps, rack support and pose checks. If the open hand stalls after settling or guarded retreat, the clearance wrapper can withdraw the base a bounded distance while monitoring plate displacement, tilt and support.
 
-The output is one 20-value action in `[-1,1]`: pelvis planar velocity, height target and yaw rate; seven absolute joint targets per arm; and two gripper commands. FK and IK use a separate fixed-robot MuJoCo model driven by measured joints. Inference uses public observations and fixed geometry. Simulator truth and recorded action sequences are used for offline labeling and replay analysis only. [Layout and controller](../method/modular/controller.py) · [Runtime and interface provenance](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23)
+The output is one 20-value action in `[-1,1]`: pelvis planar velocity, height target and yaw rate; seven absolute joint targets per arm; and two gripper commands. FK and IK use a separate fixed-robot MuJoCo model driven by measured joints. Inference uses public observations and fixed geometry. Simulator truth supplied training labels and guided controller development on generation seeds. Archived action sequences supported retrospective diagnostics and matched-prefix intervention tests. [Layout and controller](../method/modular/controller.py) · [Runtime and interface provenance](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23)
 
 ## Data and training
 
@@ -32,30 +32,30 @@ Each row identifies its cohort. Gains on identical reset seeds or on an identica
 | --- | --- | --- |
 | `e588ae9`, estimated-state feedback baseline | **12/72** on the common, locally auditable development set | **18/88** returned on planned starts 1000000, 1010000, 1020000. |
 | `9de5c51`, grasp-calibrated placement orientation, site lock and learned contact | **42/72** on the same seeds | **52/88** on the same planned blocks. |
-| `bd951bc`, median pickup, proprioceptive grasp/lift checks and loaded-normal calibration | **65/72** on the same three-way intersection. On the full 88-seed two-way join, **52/88 → 80/88** against `9de5c51`. | **81/90** dev (28/30, 28/30, 25/30). First fresh read **158/179**, finalized at **158/180** on starts 1030000, 1040000, 1050000, 1060000, 1070000, 1080000. |
+| `bd951bc`, median pickup, proprioceptive grasp/lift checks and loaded-normal calibration | **65/72** on the same three-way intersection. On the full 88-seed two-way join, **52/88 → 80/88** against `9de5c51`. | **81/90** dev (28/30, 28/30, 25/30). Fresh signal **158/180 (87.8%)** on starts 1030000, 1040000, 1050000, 1060000, 1070000, 1080000. |
 | `528c854`, guarded open-hand base withdrawal | Generation plan 3002200, same original prefix and rendered feedback after the recovery point: **24/30 → 26/30**. The stopped round-two baseline and clearance both scored **34/34** among their returned pairs. | Fresh starts 1031000, 1041000, 1051000, 1061000: **112/119** returned, or **112–113/120** with one unresolved. |
-| `54080e5`, late FK/proprio release and low-site settling plus the withdrawal | On 3002200, standalone fallback from reset was **25/30** versus **24/30** baseline, with zero activations. Adding clearance in the archived comparison raised **25/30 → 26/30**. Clearance alone also reached **26/30** in its matched-prefix test. | **TBD / 120** on fresh starts 1071000, 1081000, 1091000, 1032000. |
+| `54080e5`, late FK/proprio release and low-site settling plus the withdrawal | On 3002200, standalone fallback from reset was **25/30** versus **24/30** baseline, with zero activations. Adding clearance in the archived comparison raised **25/30 → 26/30**. Clearance alone also reached **26/30** in its matched-prefix test. | At 03:15 IST, **114/114 completed** of 120 on fresh starts 1071000, 1081000, 1091000, 1032000. The four blocks had 27, 29, 29 and 29 successes. These completed outcomes guarantee **at least 95.0%** across the full plan. |
 
-The early sharded totals had outstanding calls. The 72-seed intersection includes recovered failure archives and is a comparison on available reports. Full-time FK seating (`6b02f33`) improved selected dev **81/90 → 83/90**, then fell to **153/180** against `bd951bc`’s **158/180** on the same fresh seeds. The late release fallback recovered each controlled height-bias pair **0/2 → 2/2** at +20 mm plate height and −20 mm locked-site height. These camera-free continuations test the failure mechanism. The single full-reset gain on 3002200 diverged before the fallback could act.
+The early sharded totals had outstanding calls. The 72-seed intersection includes recovered failure archives and is a comparison on available reports. Full-time FK seating (`6b02f33`) improved selected dev **81/90 → 83/90**, then fell to **153/180** against `bd951bc`’s **158/180** on the same fresh seeds. In a separate uninterrupted official run, `6b02f33` passed development block 1000000 at **27/30**, with source slots 0–5 scoring 4, 5, 5, 4, 5 and 4 out of five. Integrity passed, with zero falls or policy errors. The other two uninterrupted FK runs stopped at freeze. The late release fallback recovered each controlled height-bias pair **0/2 → 2/2** at +20 mm plate height and −20 mm locked-site height. These camera-free continuations test the failure mechanism. The single full-reset gain on 3002200 diverged before the fallback could act.
 
 [Common-seed joins](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23) · [Round-one fresh signal](../EXPERIMENTS.md#2026-11-23-0051--paired-180-episode-fresh-block-signal-eval-blocks-10300001080000-retired-after-this-use) · [Round-two fresh signal](../EXPERIMENTS.md#2026-11-23-023x--round-2-fresh-block-signal-528c854-methodmodularbase_clearance--112113120-9394)
 
 ## Failure modes and evaluation limits
 
-Of 28 audited baseline `e588ae9` failures, 19 reached the destination area and stayed held to timeout, seven lost their grasp, and two fell into other categories. Original-action replay of all 22 fresh `bd951bc` failures found **15 pad recontacts after opening and initially clearing, five reached the destination without opening, one incomplete transfer, and one pickup failure**. For the seven audited `528c854` timeouts, **six recontacted after opening and one remained clear but tilted**. Terminal held-on-rack status alone obscured the distinction. The remaining engineering priority is robust separation after release, with plate-motion estimates that can distinguish actual displacement from view-dependent error. [Baseline and event replay log](../EXPERIMENTS.md)
+Of 28 audited baseline `e588ae9` failures, 19 reached the destination area and stayed held to timeout, seven lost their grasp, and two fell into other categories. Original-action replay of all 22 fresh `bd951bc` failures found **15 pad recontacts after opening and initially clearing, five reached the destination without opening, one incomplete transfer, and one pickup failure**. For the seven audited `528c854` timeouts, **six recontacted after opening and one remained clear but tilted**. At all six pad returns the estimator reported held=false. In six episodes that did withdraw, action-matched replays found that the motion check stopped the base after an apparent 1.41–1.52 cm of plate travel. Physical travel was 0.000–0.831 cm. Extending withdrawal on three archived generation failures changed the commands and recovered zero episodes. [Baseline and event replay log](../EXPERIMENTS.md)
 
 Sharded runs used the evaluator’s full episode horizon with a one-episode `--smoke` invocation per seed. They are non-qualifying. Development blocks were reused for selection, and fresh signal blocks were retired after one use. Early returns favor short successes. Generation continuations start from an archived prefix and serve as diagnostic evidence. Simulation success and separately reported policy wall time are different measures.
 
 | Final frozen submission | Seed start | Successes / episodes | Source slots 0–5 | Original report, integrity and video |
 | --- | ---: | --- | --- | --- |
-| Candidate SHA and repository URL TBD | 2600000 | TBD | TBD | TBD |
+| `54080e5` combined confirmation | 2600000 | In progress | Pending | Pending |
 | Same frozen candidate, final reviewer run once | 7310000 | TBD | TBD | TBD |
 
-Each final block is one uninterrupted run of the unmodified balanced evaluator. A 30-episode pass requires at least 27 successes, five episodes per source slot and valid integrity checks. The confirmation uses the frozen candidate once. The reviewer block runs once at the end with the same freeze. Supply the original `report.json`, per-slot totals, and the final video link when available. The experiment log also records a generation failure/recovery clip under `runs/astra_video/placement_comparison.mp4`. [Protocol and deliverables](../README.md#deliverables) · [Experiment log](../EXPERIMENTS.md)
+Each final block uses one uninterrupted run of the unmodified evaluator. A 30-episode pass requires at least 27 successes, five episodes per source slot and valid integrity checks. In the original `report.json`, `per_source_slot` keys 1–6 correspond to zero-based source slots 0–5 in this report. The lead's confirmation uses EGL on a T4, CPU Torch inference and the default zero recorded videos. The separate clip at `runs/astra_video/placement_comparison.mp4` shows an FK timeout and a withdrawal recovery on matched generation seed 3001616. [Protocol and deliverables](../README.md#deliverables) · [Experiment log](../EXPERIMENTS.md)
 
 ## Reproduce
 
-Use a clean private clone at the candidate SHA. The following is the CPU reference setup for round three. For final confirmation, freeze the selected SHA and factory first. Weight retrieval reads existing file artifacts. Commands that train or run evaluation are for reproduction.
+Use a clean checkout of the frozen SHA. The commands below reproduce a development block with OSMesa and record three videos. The lead's actual confirmation uses the same factory and weights in the EGL container defined by the qualifying runner. [Qualifying invocation](../ops_modular/lead_qualify.py)
 
 ```bash
 git checkout --detach 54080e5
@@ -84,8 +84,8 @@ export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 LP_NUM_THREADS
 export CUDA_VISIBLE_DEVICES=''
 factory=submission.policy_modular_combined:make_policy
 
-# Reproduce one complete block. Use 7310000 only for the final reviewer run.
-seed=2600000
+# Development reproduction with the frozen policy.
+seed=1000000
 uv run --locked --no-dev --extra video advaitic-eval \
   --policy "$factory" --policy-python "$PWD/.policy/bin/python" \
   --method modular-combined --checkpoint "est_v1b@$est_sha + heads@$head_sha" \
