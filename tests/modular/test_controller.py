@@ -4,7 +4,7 @@ import pytest
 from method.modular import layout
 from method.modular.controller import ModularController
 from method.modular.phases import SETTLE_STEPS, TIMEOUTS, Phase, PhaseMachine
-from method.modular.run_privileged import failure_bucket
+from method.modular.run_privileged import development_seeds, failure_bucket
 
 
 class FixedKinematics:
@@ -48,8 +48,7 @@ def test_release_freezes_until_both_grippers_open_and_settled():
     assert controller.phase == Phase.RELEASE
 
     state[layout.GRIPPERS] = 0
-    task["held"] = False
-    controller.act(state, task)
+    controller.act(state, task)  # The pads can still touch a plate when fully open.
     for _ in range(SETTLE_STEPS - 1):
         action = controller.act(state, task)
         assert controller.phase == Phase.SETTLE
@@ -93,3 +92,11 @@ def test_failure_buckets(end_held, bucket):
         "end_held": end_held,
     }
     assert failure_bucket(record) == bucket
+
+
+def test_rollout_seeds_enforce_full_range_and_episode_cap():
+    assert list(development_seeds(3000000, 2)) == [3000000, 3000001]
+    assert list(development_seeds(1000000, 2)) == [1000000, 1000001]
+    for start, count in ((2600000, 1), (7310000, 1), (7309999, 2), (3000000, 61)):
+        with pytest.raises(ValueError):
+            development_seeds(start, count)

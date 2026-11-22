@@ -217,6 +217,20 @@ def summarize(records: list[dict]) -> dict:
     }
 
 
+def development_seeds(start: int, episodes: int) -> range:
+    stop = start + episodes
+    if not 1 <= episodes <= 60:
+        raise ValueError("Use 1–60 episodes per invocation")
+    dev = 1_000_000 <= start < stop <= 1_100_000
+    privileged = 3_000_000 <= start < stop <= 2**32
+    protected = any(
+        start < hi and stop > lo for lo, hi in ((2_600_000, 2_700_000), (7_310_000, 7_320_000))
+    )
+    if protected or not (dev or privileged):
+        raise ValueError("Use a non-protected 1000000-block dev or 3000000+ privileged seed range")
+    return range(start, stop)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policy", choices=POLICIES, required=True)
@@ -225,18 +239,15 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
-    stop = args.seed_start + args.episodes
-    if not 1 <= args.episodes <= 60 or not 1 <= args.workers <= args.episodes:
-        parser.error("Use 1–60 episodes and 1–episodes workers")
-    if not any(
-        first <= args.seed_start < stop <= last
-        for first, last in ((1_000_000, 1_100_000), (3_000_000, 3_100_000))
-    ):
-        parser.error("Use an approved 1000000+ dev or 3000000+ privileged seed block")
+    if not 1 <= args.workers <= args.episodes:
+        parser.error("Use 1–episodes workers")
+    try:
+        seeds = development_seeds(args.seed_start, args.episodes)
+    except ValueError as exc:
+        parser.error(str(exc))
     os.environ["ORT_DISABLE_TELEMETRY"] = "1"
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ.setdefault("MUJOCO_GL", "egl")
-    seeds = range(args.seed_start, stop)
     started = time.monotonic()
     records = []
     with ExitStack() as stack:
