@@ -39,7 +39,7 @@ TIMEOUTS = {
     Phase.LIFT: 165,
     Phase.CARRY: 350,
     Phase.ALIGN: 160,
-    Phase.LOWER: 160,
+    Phase.LOWER: 210,
     Phase.RELEASE: 80,
     Phase.SETTLE: 140,
     Phase.RETREAT: 90,

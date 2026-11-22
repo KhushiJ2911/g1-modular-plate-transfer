@@ -9,7 +9,7 @@ import os
 import sys
 import time
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -31,7 +31,8 @@ def make_policy(kind: str):
         return ModularController(G1Kinematics(), None)
 
     # The replay teacher is a sibling-worktree diagnostic dependency only.
-    sys.path.append(str(TEACHER_ROOT))
+    if str(TEACHER_ROOT) not in sys.path:
+        sys.path.append(str(TEACHER_ROOT))
     from method.teacher.teacher import Teacher
 
     teacher = Teacher(mode="v1")
@@ -96,7 +97,10 @@ def run_episode(seed: int) -> dict:
 
         try:
             action = policy.act(ts) if source is None else policy.act(state, snap)
-            action = validate_actions(action)[0]
+            action = validate_actions(action)
+            if action.shape != (1, 20):
+                raise ValueError("Expected one action per privileged rollout step")
+            action = action[0]
         except (ValueError, RuntimeError, KeyError, np.linalg.LinAlgError) as exc:
             policy_error = f"{type(exc).__name__}: {exc}"
             break
@@ -120,6 +124,7 @@ def run_episode(seed: int) -> dict:
                     "held": bool(snap["held"]),
                     "lift_m": float(lift),
                     "site_distance_m": snap["site_distance"],
+                    "tilt_deg": snap["tilt_deg"],
                     "plate_xyz": list(snap["pose"][:3] if source is None else snap["plate_xyz"]),
                     "pelvis": state[18:22].tolist(),
                 }
@@ -177,6 +182,8 @@ def failure_bucket(row: dict) -> str:
         return "success"
     if row["termination"] in {"fell", "physics_error", "policy_error"}:
         return row["termination"]
+    if row["end_contacts"].get("floor"):
+        return "plate_on_floor"
     if row["first_held"] is None:
         return "A never grasped"
     if not row["m2"]:
@@ -186,6 +193,8 @@ def failure_bucket(row: dict) -> str:
         return "C lifted, never reached rack"
     if row["end_contacts"]["target_rack"]:
         return "D1 on rack, never released" if row["end_held"] else "D2 on rack, not settled"
+    if row["end_held"]:
+        return "E held off rack"
     return "E reached rack, then dropped"
 
 
@@ -228,6 +237,7 @@ def main() -> int:
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ.setdefault("MUJOCO_GL", "egl")
     seeds = range(args.seed_start, stop)
+    started = time.monotonic()
     records = []
     with ExitStack() as stack:
         stream = stack.enter_context(args.out.open("x", encoding="utf-8"))
@@ -244,14 +254,20 @@ def main() -> int:
                     initargs=(args.policy,),
                 )
             )
-            results = pool.map(run_episode, seeds)
+            futures = [pool.submit(run_episode, seed) for seed in seeds]
+            results = (future.result() for future in as_completed(futures))
         for row in results:
             stream.write(json.dumps(row, allow_nan=False) + "\n")
             stream.flush()
             records.append(row)
             print(row["seed"], row["success"], row["failure_bucket"], row["steps"], flush=True)
     summary = summarize(records)
-    summary.update(policy=args.policy, seed_start=args.seed_start, workers=args.workers)
+    summary.update(
+        policy=args.policy,
+        seed_start=args.seed_start,
+        workers=args.workers,
+        wall_seconds=time.monotonic() - started,
+    )
     data = json.dumps(summary, indent=2) + "\n"
     args.out.with_suffix(".summary.json").write_text(data, encoding="utf-8")
     print(data, end="")

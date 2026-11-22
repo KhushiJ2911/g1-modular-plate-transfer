@@ -41,7 +41,6 @@ def test_release_freezes_until_both_grippers_open_and_settled():
     controller.machine.phase = Phase.RELEASE
     task["held"] = True
     state[layout.GRIPPERS] = 0.9
-    controller.release_xyz = task["plate_xyz"].copy()
     release = controller.act(state, task)
     np.testing.assert_array_equal(release[layout.GRIPPER_ACTION], [-1, -1])
     for _ in range(10):
@@ -58,7 +57,7 @@ def test_release_freezes_until_both_grippers_open_and_settled():
     controller.act(state, task)
     assert controller.phase == Phase.RETREAT
     controller.act(state, task)
-    np.testing.assert_allclose(kin.ik_target, [0.30, 0.20, 0.145], atol=1e-7)
+    np.testing.assert_allclose(kin.ik_target, [0.377, 0.20, 0.12], atol=1e-7)
 
     task["plate_xyz"] += [0, 0.02, 0]
     guarded = controller.act(state, task)

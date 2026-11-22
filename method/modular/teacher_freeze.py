@@ -47,7 +47,7 @@ class TeacherFreeze:
         snap = teacher.observe()
         fully_open = np.all(np.abs(ts.low_dim_obs[44:46]) <= OPEN_TOLERANCE)
         if self.open_steps < FREEZE_STEPS:
-            self.open_steps = self.open_steps + 1 if fully_open and not snap["held"] else 0
+            self.open_steps = self.open_steps + 1 if fully_open else 0
             self.phase = "FREEZE"
             self.frozen_steps += 1
             teacher.physical_step += 1

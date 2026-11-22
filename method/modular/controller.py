@@ -14,15 +14,22 @@ from .phases import SETTLE_STEPS, Phase, PhaseMachine
 # Sources and extraction command are recorded in the sol development report.
 GRASP_OFFSET = np.array([-0.090, 0.024, 0.009])
 GRASP_ROTATION_VECTOR = np.array([-1.485, 0.140, 0.055])
-PREGRASP_OFFSET = np.array([-0.060, 0.016, 0.0])
-STANDOFF_XY = np.array([0.50, 0.235])
+PREGRASP_OFFSET = np.array([-0.080, 0.035, 0.0])
+SOURCE_STANDOFF_XY = np.array([0.50, 0.205])
+TARGET_STANDOFF_XY = np.array([0.46, 0.205])
+TUCKED_HAND = np.array([0.27, 0.14, 0.19])
+# Seed the local IK solve with the elbow bent forward during the reach.
+GRASP_IK_SEED = np.array([-0.55, 0.22, 0.30, 0.80, -0.15, 0.10, 0.00])
 LIFT_M = 0.16
 
 
 def _rotation_from_vector(vector):
     quaternion = np.empty(4)
     rotation = np.empty(9)
-    mujoco.mju_axisAngle2Quat(quaternion, vector / np.linalg.norm(vector), np.linalg.norm(vector))
+    angle = np.linalg.norm(vector)
+    if angle < 1e-9:
+        return np.eye(3)
+    mujoco.mju_axisAngle2Quat(quaternion, vector / angle, angle)
     mujoco.mju_quat2Mat(rotation, quaternion)
     return rotation.reshape(3, 3)
 
@@ -50,16 +57,21 @@ class ModularController:
     def reset(self):
         self.machine = PhaseMachine()
         self.last_raw = None
-        self.grasp_q = None
+        self.closing = False
+        self.grasp_path_start = None
+        self.grasp_bias = np.zeros(7)
         self.grasp_streak = 0
         self.lost_streak = 0
         self.lift_origin = None
         self.plate_to_hand = None
         self.carry_rel = None
-        self.release_xyz = None
+        self.retreat_start = None
+        self.retreat_tilt = None
         self.retreat_pose = None
-        self.stable_steps = 0
+        self.open_steps = 0
+        self.placement_streak = 0
         self.place_correction = np.zeros(3)
+        self.place_rotation_bias = np.zeros(3)
 
     @property
     def phase(self):
@@ -78,7 +90,12 @@ class ModularController:
         self.target_rot = np.array(task["site_rot"], dtype=float)
 
     def _grasp_target(self, task, phase):
-        rot = task["plate_rot"]
+        normal = task["plate_rot"][:, 2]
+        x = np.array([1.0, 0.0, 0.0]) - normal[0] * normal
+        if np.linalg.norm(x) < 1e-5:
+            x = np.array([0.0, 1.0, 0.0]) - normal[1] * normal
+        x /= np.linalg.norm(x)
+        rot = np.column_stack((x, np.cross(normal, x), normal))
         offset = GRASP_OFFSET.copy()
         offset[0] += (0, 0.009, -0.009)[self.machine.grasp_retries]
         if phase == Phase.PREGRASP:
@@ -96,34 +113,47 @@ class ModularController:
         raw[layout.GRIPPER_ACTION] = (float(close), 0.0)
         if position is not None:
             basis = pelvis_rotation(state).T
+            reaching = self.phase in (Phase.APPROACH, Phase.PREGRASP, Phase.GRASP)
             q = self.kin.ik(
                 "left",
                 basis @ (position - state[layout.PELVIS_XYZ]),
                 basis @ rotation,
-                q_init=raw[layout.LEFT_ARM_ACTION],
+                q_init=GRASP_IK_SEED if reaching else raw[layout.LEFT_ARM_ACTION],
                 rot_weight=0.14,
-                iters=10,
+                iters=32 if reaching else 10,
             )
+            if self.phase in (Phase.PREGRASP, Phase.GRASP):
+                error = np.clip(q - state[layout.LEFT_ARM], -0.08, 0.08)
+                self.grasp_bias = np.clip(self.grasp_bias + 0.07 * error, -0.12, 0.12)
+                q += self.grasp_bias
             arms = raw[layout.LEFT_ARM_ACTION]
-            arms += np.clip(q - arms, -0.035, 0.035)
+            rate = 0.012 if self.phase == Phase.RETREAT else 0.035
+            arms += np.clip(q - arms, -rate, rate)
         self.last_raw = raw
         return layout.normalize_action(raw)
 
     def _ready_to_release(self, task):
         contact = task["contacts"]
-        return (
+        error = task["plate_xyz"] - self.target_xyz
+        retrying = self.machine.elapsed >= 120
+        seated = (
             task["held"] >= 0.5
             and contact["target_rack"]
             and not contact["table"]
             and not contact["floor"]
-            and np.linalg.norm(task["plate_xyz"] - self.target_xyz) <= 0.043
-            and task["tilt_deg"] <= 16
+            and -0.047 <= error[2] <= -0.018
+            and task["tilt_deg"] <= 12
         )
+        centered = abs(error[0]) < 0.027 and abs(error[1]) < 0.022
+        return seated and (centered or (retrying and np.linalg.norm(error) < 0.039))
 
     def _enter(self, task, hand_world, hand_rot):
         phase = self.phase
         if phase in (Phase.PREGRASP, Phase.GRASP):
-            self.grasp_q = None
+            self.grasp_path_start = hand_world
+            if phase == Phase.PREGRASP:
+                self.grasp_bias.fill(0)
+            self.closing = False
             self.grasp_streak = 0
         elif phase == Phase.LIFT:
             plate_rot = task["plate_rot"]
@@ -136,16 +166,18 @@ class ModularController:
             self.lost_streak = 0
         elif phase == Phase.CARRY:
             self.carry_rel = np.array(task["plate_rel"])
+            self.carry_rel[2] += 0.065
         elif phase == Phase.ALIGN:
             self.place_correction.fill(0)
-        elif phase == Phase.RELEASE:
-            self.release_xyz = np.array(task["plate_xyz"])
+            self.place_rotation_bias.fill(0)
+        elif phase == Phase.LOWER:
+            self.placement_streak = 0
         elif phase == Phase.SETTLE:
-            self.stable_steps = 0
+            self.open_steps = 0
         elif phase == Phase.RETREAT:
-            self.release_xyz = np.array(task["plate_xyz"])
-            away = -self.target_rot[:, 0]
-            self.retreat_pose = hand_world + 0.080 * away + [0, 0, 0.025], hand_rot
+            self.retreat_start = np.array(task["plate_xyz"])
+            self.retreat_tilt = task["tilt_deg"]
+            self.retreat_pose = hand_world, hand_rot
 
     def act(self, obs_state, task_state=None):
         state = np.asarray(obs_state)
@@ -172,23 +204,28 @@ class ModularController:
         phase = self.phase
 
         if phase == Phase.APPROACH:
-            base_goal = plate[:2] - STANDOFF_XY
+            if self.machine.elapsed >= 24:
+                base_goal = plate[:2] - SOURCE_STANDOFF_XY
+            position = state[layout.PELVIS_XYZ] + basis @ TUCKED_HAND
+            rotation = basis
             ready = (
-                np.linalg.norm(base_goal - state[layout.PELVIS_XY]) < 0.023
+                base_goal is not None
+                and np.linalg.norm(base_goal - state[layout.PELVIS_XY]) < 0.023
                 and np.linalg.norm(state[layout.PELVIS_LINEAR_VEL][:2]) < 0.075
                 and self.machine.elapsed >= 15
             )
         elif phase in (Phase.PREGRASP, Phase.GRASP):
             position, rotation = self._grasp_target(task, phase)
             distance = np.linalg.norm(position - hand_world)
+            blend = min((self.machine.elapsed + 1) / (28 if phase == Phase.GRASP else 22), 1)
+            position = self.grasp_path_start + blend * (position - self.grasp_path_start)
             angle = np.linalg.norm(rotation_vector(rotation @ hand_rot.T))
-            reached = distance < 0.012 and angle < 0.17
+            reached = distance < 0.018 and angle < 0.18 and blend >= 1
             if phase == Phase.PREGRASP:
                 ready = reached and self.machine.elapsed >= 12
             else:
-                if self.grasp_q is None and reached:
-                    self.grasp_q = self.last_raw[layout.LEFT_ARM_ACTION].copy()
-                if self.grasp_q is not None:
+                self.closing |= bool(reached)
+                if self.closing:
                     position = None
                     close = True
                 self.grasp_streak = self.grasp_streak + 1 if held and gripper >= 0.65 else 0
@@ -204,7 +241,7 @@ class ModularController:
                 and not task["contacts"]["source_rack"]
             )
         elif phase == Phase.CARRY:
-            base_goal = self.target_xyz[:2] - STANDOFF_XY
+            base_goal = self.target_xyz[:2] - TARGET_STANDOFF_XY
             desired = state[layout.PELVIS_XYZ] + basis @ self.carry_rel
             position, rotation = self._hand_from_plate(desired, self.target_rot)
             close = True
@@ -215,42 +252,53 @@ class ModularController:
         elif phase in (Phase.ALIGN, Phase.LOWER):
             height = 0.090
             if phase == Phase.LOWER:
-                height -= min((self.machine.elapsed + 1) / 100, 1) * 0.135
+                height -= min((self.machine.elapsed + 1) / 125, 1) * 0.135
             desired = self.target_xyz + [0, 0, height]
             # Loaded arm joints sag under constant targets. Integrate the
             # measured plate error slowly, within a bounded IK offset.
             self.place_correction = np.clip(
                 self.place_correction + 0.035 * (desired - plate),
-                [-0.045, -0.045, -0.075],
-                [0.045, 0.045, 0.095],
+                [-0.08, -0.08, -0.075],
+                [0.08, 0.08, 0.095],
             )
             position, rotation = self._hand_from_plate(
                 desired + self.place_correction, self.target_rot
             )
-            close = True
-            ready = (
-                np.linalg.norm(plate - desired) < 0.023 and task["tilt_deg"] < 14
-                if phase == Phase.ALIGN
-                else self._ready_to_release(task)
+            normal_error = np.cross(task["plate_rot"][:, 2], self.target_rot[:, 2])
+            self.place_rotation_bias = np.clip(
+                self.place_rotation_bias + 0.026 * normal_error, -0.22, 0.22
             )
+            rotation = _rotation_from_vector(self.place_rotation_bias) @ rotation
+            close = True
+            if phase == Phase.ALIGN:
+                ready = np.linalg.norm(plate - desired) < 0.023 and task["tilt_deg"] < 14
+            else:
+                self.placement_streak = (
+                    self.placement_streak + 1 if self._ready_to_release(task) else 0
+                )
+                ready = self.placement_streak >= 8
         elif phase == Phase.RELEASE:
-            ready = bool(np.all(state[layout.GRIPPERS] <= 0.08) and not held)
+            ready = bool(np.all(state[layout.GRIPPERS] <= 0.08))
         elif phase == Phase.SETTLE:
-            open_and_clear = np.all(state[layout.GRIPPERS] <= 0.08) and not held
-            self.stable_steps = self.stable_steps + 1 if open_and_clear else 0
+            both_open = np.all(state[layout.GRIPPERS] <= 0.08)
+            self.open_steps = self.open_steps + 1 if both_open else 0
             ready = (
-                self.stable_steps >= SETTLE_STEPS
+                self.open_steps >= SETTLE_STEPS
                 and task["contacts"]["target_rack"]
-                and np.linalg.norm(plate - self.release_xyz) < 0.025
+                and np.linalg.norm(plate - self.target_xyz) < 0.047
+                and task["tilt_deg"] < 17
             )
         elif phase == Phase.RETREAT:
-            position, rotation = self.retreat_pose
-            ready = np.linalg.norm(hand_world - position) < 0.014
+            start, rotation = self.retreat_pose
+            away = -self.target_rot[:, 0]
+            travel = min(0.075, (self.machine.elapsed + 1) * 0.0015)
+            position = start + travel * away
+            ready = travel >= 0.075 and np.linalg.norm(hand_world - position) < 0.014
             unsafe = (
-                held
+                np.any(state[layout.GRIPPERS] > 0.08)
                 or not task["contacts"]["target_rack"]
-                or np.linalg.norm(plate - self.release_xyz) > 0.015
-                or task["tilt_deg"] > 20
+                or np.linalg.norm(plate - self.retreat_start) > 0.012
+                or task["tilt_deg"] > min(19, self.retreat_tilt + 4)
             )
         elif phase == Phase.HOLD:
             close = bool(self.last_raw[layout.GRIPPER_ACTION][0])
