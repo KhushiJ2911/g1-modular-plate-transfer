@@ -6,6 +6,7 @@ from . import layout
 from .kinematics import pelvis_rotation
 from .observed_controller import CalibratedPlacementController, LockedSiteController
 from .phases import Phase
+from .pickup_vision import SourceView
 
 WINDOW = 6
 
@@ -17,8 +18,10 @@ class PickupController(CalibratedPlacementController):
         super().reset()
         self.initial_samples = []
         self.near_samples = []
+        self.view = SourceView()
         self.source = None
         self.hand_to_center = None
+        self._confirmed_transform = None
         self.fk_rise = 0.0
 
     def _enter(self, task, hand_world, hand_rot):
@@ -26,12 +29,22 @@ class PickupController(CalibratedPlacementController):
         if self.phase == Phase.PREGRASP:
             # A failed pinch can displace the plate. Discard the old near view.
             self.near_samples.clear()
+            self.view = SourceView()
             self.hand_to_center = None
+            self._confirmed_transform = None
             self.fk_rise = 0.0
             if self.machine.grasp_retries:
                 self.source = None
         elif self.phase == Phase.LIFT:
             self.hand_to_center = hand_rot.T @ (self.lift_origin - hand_world)
+            self._confirmed_transform = np.eye(4)
+            self._confirmed_transform[:3, :3] = hand_rot.T @ self.lift_rot
+            self._confirmed_transform[:3, 3] = self.hand_to_center
+
+    @property
+    def confirmed_hand_to_plate(self):
+        """Map plate-frame points into the hand frame at confirmed LIFT entry."""
+        return None if self._confirmed_transform is None else self._confirmed_transform.copy()
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):
         # The GRASP entry is the reached pregrasp pose. Hold the arm targets
@@ -61,7 +74,25 @@ class PickupController(CalibratedPlacementController):
                 self.source = initial.copy()
                 self.source[:2] = (initial[:2] + near[:2]) / 2
 
+            if "left_wrist_rgb" in task:
+                basis = pelvis_rotation(state)
+                self.kin.set_state(state)
+                pos, rot = self.kin.hand_pose("left")
+                self.source = self.view.update(
+                    task["left_wrist_rgb"],
+                    state[layout.PELVIS_XYZ] + basis @ pos,
+                    basis @ rot,
+                    self.source,
+                    task["tilt_deg"],
+                )
+
         basis = pelvis_rotation(state)
+        if phase == Phase.GRASP and self.view.rotation is not None:
+            task = {
+                **task,
+                "plate_rot": self.view.rotation,
+                "plate_rot_rel": basis.T @ self.view.rotation,
+            }
         if phase == Phase.GRASP and not self.closing:
             task = {**task, "held": False}
         elif phase in (Phase.GRASP, Phase.LIFT):
@@ -71,6 +102,8 @@ class PickupController(CalibratedPlacementController):
             fingers = np.mean(state[layout.LEFT_FINGERS])
             pinched = state[layout.GRIPPERS][0] >= 0.80 and fingers >= -0.0185
             if phase == Phase.GRASP:
+                # A loaded hand can pinch a remote part of the rim and then slip
+                # as the rack unloads. Retry such pinches while still supported.
                 target, _ = self._grasp_target({**task, "plate_xyz": self.source}, phase)
                 consistent = np.linalg.norm(hand - target) < 0.035
                 settled = abs(np.mean(state[layout.LEFT_FINGERS_VEL])) < 0.012
@@ -85,7 +118,15 @@ class PickupController(CalibratedPlacementController):
                 self.fk_rise = rigid[2] - self.lift_origin[2]
                 # Fingers slipping shut or a plate that stays behind for ten
                 # consecutive observations trips the phase machine's bounded retry.
-                held = pinched and np.linalg.norm(rigid - plate) < 0.060
+                residual = rigid - plate
+                consistent = np.linalg.norm(residual) < 0.060
+                # Before reopening a confirmed pinch, use the independent height
+                # gates to resolve a depth disagreement when xy still agrees.
+                if pinched and not consistent and self.lost_streak >= 9:
+                    consistent = np.linalg.norm(residual[:2]) < 0.060 and self._lift_ready(
+                        {**task, "held": True}
+                    )
+                held = pinched and consistent
             task = {**task, "held": bool(held)}
 
         if phase in (Phase.APPROACH, Phase.PREGRASP, Phase.GRASP) and self.source is not None:

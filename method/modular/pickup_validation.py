@@ -95,6 +95,8 @@ def hybrid(seed, variant):
                     },
                     "contacts": {**task["contacts"], "source_rack": est["contacts"]["source_rack"]},
                 }
+                if "left_wrist_rgb" in est:
+                    combined["left_wrist_rgb"] = est["left_wrist_rgb"]
                 action = ctl.act(obs["state"], combined)
             else:
                 action = ModularController.act(ctl, ts.low_dim_obs, task)
@@ -165,11 +167,80 @@ def audit(seed, archive):
         env.close()
 
 
+def handoff_geometry(seed, archive):
+    """Measure the grasp frame after pickup by replaying a completed official run."""
+    from .kinematics import G1Kinematics, pelvis_rotation
+    from .orientation_feedback import LEFT_GRASP_NORMAL
+    from .perception_audit import replay_truth
+
+    with np.load(archive) as file:
+        actions = file["actions"]
+    truth, states, outcome = replay_truth(seed, actions)
+    if not outcome["terminal"]:
+        raise ValueError("Incomplete action archive")
+    held = truth[:, 10].astype(bool)
+    # A 30-frame secure lift could still slip near the source. Track attachment
+    # from the first loaded 5 cm rise until the plate clears the rack by 15 cm.
+    raised = held & (truth[:, 2] >= truth[0, 2] + 0.05)
+    above = np.flatnonzero(raised)
+    cleared = np.flatnonzero(raised & (np.linalg.norm(truth[:, :2] - truth[0, :2], axis=1) >= 0.15))
+    start = above[0] if len(above) else len(held)
+    stop = cleared[0] if len(cleared) else len(held)
+    empty = 0
+    longest_empty = 0
+    for attached in held[start:stop]:
+        empty = 0 if attached else empty + 1
+        longest_empty = max(longest_empty, empty)
+    outcome.update(
+        first_raised=int(above[0]) if len(above) else None,
+        first_cleared=int(cleared[0]) if len(cleared) else None,
+        longest_empty_before_clearance=longest_empty,
+    )
+    lifted = np.flatnonzero(held & (truth[:, 2] > truth[0, 2] + 0.075))
+    if not len(lifted):
+        return dict(seed=seed, **outcome, grasp_angle=None)
+    kin = G1Kinematics()
+    offsets, normals, errors = [], [], []
+    # One half-second of loaded geometry immediately after the first lift.
+    for step in lifted[lifted < lifted[0] + 25][::3]:
+        state = states[step]
+        basis = pelvis_rotation(state)
+        kin.set_state(state)
+        pos, rot = kin.hand_pose("left")
+        rot = basis @ rot
+        hand = state[18:21] + basis @ pos
+        offsets.append(rot.T @ (truth[step, :3] - hand))
+        normal = rot.T @ truth[step, 6:9]
+        normals.append(normal)
+        errors.append(np.rad2deg(np.arccos(np.clip(normal @ LEFT_GRASP_NORMAL, -1, 1))))
+    opened = np.flatnonzero((np.arange(len(actions)) > lifted[0]) & (actions[:, 18] < 0))
+    event = opened[0] if len(opened) else -1
+    local_normal = np.mean(normals, axis=0)
+    released = np.flatnonzero(~held[event:]) if len(opened) else []
+    return dict(
+        seed=seed,
+        **outcome,
+        grasp_angle=float(np.median(errors)),
+        normal_in_hand=(local_normal / np.linalg.norm(local_normal)).tolist(),
+        center_in_hand=np.median(offsets, axis=0).tolist(),
+        opened=bool(len(opened)),
+        frames_to_physical_release=int(released[0]) if len(released) else None,
+        reacquired_after_open=bool(len(released) and held[event + released[0] + 1 :].any()),
+        held_at_open_or_end=bool(held[event]),
+        on_rack_at_open_or_end=bool(truth[event, 12]),
+        tilt_at_open_or_end=float(truth[event, 9]),
+        final_distance=float(np.linalg.norm(truth[-1, :3] - truth[-1, 3:6])),
+    )
+
+
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("seed", type=int)
-    p.add_argument("variant", choices=("base", "pickup", "audit"))
+    p.add_argument("variant", choices=("base", "pickup", "audit", "handoff"))
     p.add_argument("--archive")
     a = p.parse_args()
-    result = audit(a.seed, a.archive) if a.variant == "audit" else hybrid(a.seed, a.variant)
+    if a.variant in ("audit", "handoff"):
+        result = (audit if a.variant == "audit" else handoff_geometry)(a.seed, a.archive)
+    else:
+        result = hybrid(a.seed, a.variant)
     print(json.dumps(result))

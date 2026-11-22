@@ -18,7 +18,9 @@ if modal.is_local():
         Path(__file__).with_name("modular_sim.py"), "/root/ops_modular/modular_sim.py"
     )
 
-APP = "modular-grasp-feedback"
+APP = os.environ.get("GRASP_EVAL_APP", "modular-grasp-feedback")
+if not APP.startswith("modular-grasp-"):
+    raise ValueError("Use a dedicated pickup app")
 app = modal.App(APP)
 runs = modal.Volume.from_name("modular-runs")
 data = modal.Volume.from_name("modular-data")
@@ -122,28 +124,100 @@ def episode(seed: int, arm: str):
     return {**result, "seconds": time.monotonic() - start}
 
 
+@app.function(
+    image=image,
+    cpu=2,
+    memory=4096,
+    max_containers=16,
+    volumes={"/runs": runs, "/data": data},
+    timeout=5400,
+    scaledown_window=10,
+)
+def pickup_trace(seed: int):
+    documented_failures = {1010018, 1010029, 1010033, 1020026, 1020043}
+    fresh = 3000500 <= seed < 3002000 or 3055000 <= seed < 3057000
+    if seed not in documented_failures and not fresh:
+        raise ValueError("Expected a development diagnostic seed")
+    os.environ.update(
+        MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa", LP_NUM_THREADS="2", ADV_HEADS=str(HEADS)
+    )
+    if hashlib.sha256(HEADS.read_bytes()).hexdigest() != HEAD_SHA:
+        raise ValueError("Unexpected perception head weights")
+    parent = Path("/runs/grasp-validation")
+    parent.mkdir(exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix=f"trace-{seed}-", dir=parent)) / "trace.npz"
+    start = time.monotonic()
+    result = json.loads(
+        run([POLICY_PYTHON, "-m", "method.modular.pickup_trace", str(seed), str(out)]).splitlines()[
+            -1
+        ]
+    )
+    runs.commit()
+    return dict(**result, seconds=time.monotonic() - start, archive=str(out), variant="trace")
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    memory=2048,
+    volumes={"/runs": runs},
+    timeout=1200,
+    max_containers=1,
+    scaledown_window=5,
+)
+def archived_handoff(seed: int, arm: str, archive: str):
+    folder = Path(archive)
+    if folder.parent.parent != Path("/runs/grasp-validation") or folder.name != "eval":
+        raise ValueError("Expected a pickup validation archive")
+    runs.reload()
+    os.environ.update(MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa")
+    row = json.loads((folder / "report.json").read_text())["episodes"][0]
+    if row["seed"] != seed:
+        raise ValueError("Archive seed mismatch")
+    args = [
+        POLICY_PYTHON,
+        "-m",
+        EVAL,
+        str(seed),
+        "handoff",
+        "--archive",
+        str(folder / "episode_000.actions.npz"),
+    ]
+    result = json.loads(run(args).splitlines()[-1])
+    if any(result[k] != row[k] for k in ("success", "fell", "steps")):
+        raise ValueError("Official handoff replay mismatch")
+    return {**result, "variant": arm, "archive": archive}
+
+
 @app.local_entrypoint()
-def sweep(start: int, out: str, mode: str = "hybrid", smoke: bool = False):
+def sweep(
+    start: int, out: str, mode: str = "hybrid", smoke: bool = False, candidate_only: bool = False
+):
     from advaitic_eval.protocol import make_plan
 
     arms = {"hybrid": ("base", "pickup"), "obs": ("obs_base", "obs_pickup")}[mode]
+    if candidate_only:
+        arms = arms[-1:]
     jobs = [(e.seed, arm) for e in make_plan(30, start) for arm in arms]
     if smoke:
-        jobs = jobs[:2]
+        jobs = jobs[: len(arms)]
     path = Path(out)
     fn = modal.Function.from_name(APP, "episode")
     with (
         concurrent.futures.ThreadPoolExecutor(8) as pool,
-        path.with_suffix(".calls").open("x") as manifest,
+        path.with_suffix(".calls").open("a+") as manifest,
     ):
+        manifest.seek(0)
+        existing = [(seed, arm) for seed, arm, _ in map(json.loads, manifest)]
+        if len(existing) != len(set(existing)) or not set(existing) <= set(jobs):
+            raise ValueError("Call manifest does not match the plan")
+        missing = [job for job in jobs if job not in existing]
 
         def spawn(job):
             seed, arm = job
             return seed, arm, fn.spawn(seed, arm).object_id
 
-        calls = []
-        for record in pool.map(spawn, jobs):
-            calls.append(record)
+        for record in pool.map(spawn, missing):
             manifest.write(json.dumps(record) + "\n")
             manifest.flush()
     collect(str(path))
@@ -152,12 +226,28 @@ def sweep(start: int, out: str, mode: str = "hybrid", smoke: bool = False):
 def collect(out):
     path = Path(out)
     calls = list(map(json.loads, path.with_suffix(".calls").read_text().splitlines()))
+    # Keep the original manifest immutable. Replacements are recorded only
+    # after checking the failed input's remote status and its volume archive.
+    retry_path = path.with_suffix(".retry.calls")
+    if retry_path.exists():
+        by_job = {tuple(record[:2]): record for record in calls}
+        for seed, arm, new_id, old_id, _reason in map(
+            json.loads, retry_path.read_text().splitlines()
+        ):
+            if by_job[seed, arm][2] != old_id:
+                raise ValueError("Replacement does not match the preceding call")
+            by_job[seed, arm] = [seed, arm, new_id]
+        calls = list(by_job.values())
 
     def check(record):
         _, _, call_id = record
+        call = modal.FunctionCall.from_id(call_id)
         try:
-            return modal.FunctionCall.from_id(call_id).get(timeout=0)
+            return call.get(timeout=0)
+        except modal.exception.FunctionTimeoutError:
+            raise
         except (TimeoutError, OSError, StreamTerminatedError, modal.exception.ConnectionError):
+            # A preempted attempt can show FAILURE while its original call resumes.
             return None
 
     with path.open("a+") as f, concurrent.futures.ThreadPoolExecutor(12) as pool:
