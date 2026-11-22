@@ -132,6 +132,9 @@ class ModularController:
         self.last_raw = raw
         return layout.normalize_action(raw)
 
+    def _ready_to_lower(self, task, desired):
+        return np.linalg.norm(task["plate_xyz"] - desired) < 0.023 and task["tilt_deg"] < 14
+
     def _ready_to_release(self, task):
         contact = task["contacts"]
         error = task["plate_xyz"] - self.target_xyz
@@ -271,7 +274,7 @@ class ModularController:
             rotation = _rotation_from_vector(self.place_rotation_bias) @ rotation
             close = True
             if phase == Phase.ALIGN:
-                ready = np.linalg.norm(plate - desired) < 0.023 and task["tilt_deg"] < 14
+                ready = self._ready_to_lower(task, desired)
             else:
                 self.placement_streak = (
                     self.placement_streak + 1 if self._ready_to_release(task) else 0

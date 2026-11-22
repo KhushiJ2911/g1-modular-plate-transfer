@@ -7,7 +7,11 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OWNED = ("method/modular/observed_controller.py", "method/modular/robust_controller.py")
+OWNED = (
+    "method/modular/controller.py",
+    "method/modular/observed_controller.py",
+    "method/modular/robust_controller.py",
+)
 
 
 def git(*args, root=ROOT, **kwargs):
@@ -91,6 +95,15 @@ def prepare(dest):
                 "    assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)",
                 """    assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)
     assert all(1_000_000 <= seed < 1_100_000 or 3_000_400 <= seed < 3_010_000 for _, seed, _ in jobs)
+    if limit := os.environ.get("SOL_SHARD_PER_SLOT"):
+        counts = Counter()
+        selected = []
+        for job in jobs:
+            block, _, slot = job
+            counts[block, slot] += 1
+            if counts[block, slot] <= int(limit):
+                selected.append(job)
+        jobs = selected
     jobs = jobs[:int(os.environ.get("SOL_SHARD_EPISODES", len(jobs)))]""",
             ),
             (

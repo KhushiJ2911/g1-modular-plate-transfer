@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 
 import modal
@@ -21,7 +22,13 @@ def report():
 
     for job in ("collector", "supervisor"):
         cid = (DIR / (job + ".call")).read_text().strip()
-        modal.FunctionCall.from_id(cid).get()
+        c = modal.FunctionCall.from_id(cid)
+        while True:
+            try:
+                c.get(timeout=10)
+                break
+            except (TimeoutError, modal.exception.ConnectionError):
+                time.sleep(45)
     generation, fit, audit = [
         json.loads(read(name + ".json")) for name in ("generation", "heads", "closed_loop")
     ]

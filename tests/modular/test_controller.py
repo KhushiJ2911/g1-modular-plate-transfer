@@ -133,9 +133,12 @@ def test_rigid_grasp_tracks_the_hand_without_blending_visual_position():
     hand, rotation = kin.hand_pose("left")
     grasp.capture(task, hand, rotation)
     pose[layout.PELVIS_XYZ] = [0.04, 0.03, 0.07]
+    pose[layout.PELVIS_YAW] = np.pi / 2
     vision = {**task, "plate_xyz": np.ones(3)}
     held = grasp.update(pose, vision, vision, Phase.LIFT)
-    np.testing.assert_allclose(held["plate_xyz"], task["plate_xyz"] + pose[layout.PELVIS_XYZ])
+    x, y, z = task["plate_xyz"]
+    np.testing.assert_allclose(held["plate_xyz"], [-y + 0.04, x + 0.03, z + 0.07])
+    np.testing.assert_allclose(held["plate_rot"][:, 0], [0.0, 1.0, 0.0], atol=1e-12)
     assert held["held"]
     vision["held"] = False
     for _ in range(6):
@@ -181,3 +184,13 @@ def test_seating_feedback_requires_depth_or_near_rack_stall():
     task["plate_xyz"] = task["site_xyz"] - [0.0, 0.0, 0.039]
     seating.depth_history.clear()
     assert seating.ready(task, task["site_xyz"], 1)
+
+
+def test_alignment_cannot_end_while_site_is_provisional():
+    from method.modular.robust_controller import RobustPlacementController
+
+    controller = RobustPlacementController(FixedKinematics(), None, late_site=True)
+    task = placement()
+    assert not controller._ready_to_lower(task, task["plate_xyz"])
+    controller.site_contacts.locked = True
+    assert controller._ready_to_lower(task, task["plate_xyz"])
