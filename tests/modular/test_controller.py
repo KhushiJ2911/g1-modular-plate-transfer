@@ -373,3 +373,40 @@ def test_fk_release_tolerates_low_site_only_with_seating_evidence():
     task["plate_xyz"][1] -= 0.05
     task["tilt_deg"] = 13
     assert not controller._ready_to_release(task)
+
+
+def test_low_site_uses_stationary_source_support_height():
+    from method.modular.site_seating import SupportReferencedController
+
+    controller = SupportReferencedController(FixedKinematics())
+    controller.machine.phase = Phase.CARRY
+    controller.initial_samples = [np.array([0.55, 0.24, 0.818])]
+    controller.source = np.array([0.55, 0.24, 0.78])
+    controller.target_xyz = np.array([0.55, -0.24, 0.83])
+    pos, rot = controller.kin.hand_pose("left")
+    controller._enter({"plate_rel": np.zeros(3)}, pos, rot)
+    np.testing.assert_allclose(controller.target_xyz, [0.55, -0.24, 0.85])
+    assert controller.low_site_adjustment > 0
+
+
+def test_settle_height_fallback_keeps_freeze_and_drift_guards():
+    from method.modular.site_seating import SupportReferencedController
+
+    controller = SupportReferencedController(FixedKinematics())
+    task = placement()
+    controller.target_xyz = task["site_xyz"].copy()
+    controller.target_xyz[2] += 0.029
+    controller.release_z = task["plate_xyz"][2]
+    for _ in range(controller.settle_samples.maxlen):
+        controller.settle_samples.append(np.r_[task["plate_xyz"], task["tilt_deg"]])
+    controller.open_steps = SETTLE_STEPS - 1
+    assert not controller._ready_to_retreat(task)
+    controller.open_steps = SETTLE_STEPS
+    assert controller._ready_to_retreat(task)
+
+    task["tilt_deg"] = 20
+    assert not controller._ready_to_retreat(task)
+    task["tilt_deg"] = 6
+    shifted = np.r_[task["plate_xyz"] + [0, 0, 0.012], 6]
+    controller.settle_samples.append(shifted)
+    assert not controller._ready_to_retreat(task)

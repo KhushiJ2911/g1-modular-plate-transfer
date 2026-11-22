@@ -157,6 +157,22 @@ class ModularController:
         centered = abs(error[0]) < 0.027 and abs(error[1]) < 0.022
         return seated and (centered or (retrying and np.linalg.norm(error) < 0.039))
 
+    def _ready_to_retreat(self, task):
+        return (
+            self.open_steps >= SETTLE_STEPS
+            and task["contacts"]["target_rack"]
+            and np.linalg.norm(task["plate_xyz"] - self.target_xyz) < 0.047
+            and task["tilt_deg"] < 17
+        )
+
+    def _unsafe_retreat(self, state, task):
+        return (
+            np.any(state[layout.GRIPPERS] > 0.08)
+            or not task["contacts"]["target_rack"]
+            or np.linalg.norm(task["plate_xyz"] - self.retreat_start) > 0.012
+            or task["tilt_deg"] > min(19, self.retreat_tilt + 4)
+        )
+
     def _enter(self, task, hand_world, hand_rot):
         phase = self.phase
         if phase in (Phase.PREGRASP, Phase.GRASP):
@@ -288,24 +304,14 @@ class ModularController:
         elif phase == Phase.SETTLE:
             both_open = np.all(state[layout.GRIPPERS] <= 0.08)
             self.open_steps = self.open_steps + 1 if both_open else 0
-            ready = (
-                self.open_steps >= SETTLE_STEPS
-                and task["contacts"]["target_rack"]
-                and np.linalg.norm(plate - self.target_xyz) < 0.047
-                and task["tilt_deg"] < 17
-            )
+            ready = self._ready_to_retreat(task)
         elif phase == Phase.RETREAT:
             start, rotation = self.retreat_pose
             away = -self.target_rot[:, 0]
             travel = min(0.075, (self.machine.elapsed + 1) * 0.0015)
             position = start + travel * away
             ready = travel >= 0.075 and np.linalg.norm(hand_world - position) < 0.014
-            unsafe = (
-                np.any(state[layout.GRIPPERS] > 0.08)
-                or not task["contacts"]["target_rack"]
-                or np.linalg.norm(plate - self.retreat_start) > 0.012
-                or task["tilt_deg"] > min(19, self.retreat_tilt + 4)
-            )
+            unsafe = self._unsafe_retreat(state, task)
         elif phase == Phase.HOLD:
             close = bool(self.last_raw[layout.GRIPPER_ACTION][0])
 

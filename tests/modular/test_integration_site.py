@@ -58,3 +58,43 @@ def test_stationary_site_and_late_plate(tmp_path):
     assert wrapped.snapshot(state) is task
     wrapped.reset()
     assert wrapped.site_delta is None
+
+
+def test_pinch_center_requires_closed_held_grasp_before_release(tmp_path):
+    state = np.zeros(50)
+    state[18:22] = [0.20, -0.10, 0.80, np.pi / 2]
+    state[44] = 1
+
+    class Source:
+        def reset(self):
+            self.held = True
+
+        def update(self, obs):
+            return dict(
+                held=self.held, plate_rel=np.zeros(3), plate_xyz=state[18:21], site_xyz=np.zeros(3)
+            )
+
+    class Hand:
+        def set_state(self, observed):
+            np.testing.assert_array_equal(observed, state)
+
+        def hand_pose(self, side):
+            assert side == "left"
+            return np.array([0.10, 0.04, 0.02]), np.eye(3)
+
+    source = Source()
+    phase = SimpleNamespace(value="CARRY")
+    ctl = SimpleNamespace(phase=phase, kin=Hand(), hand_to_center=np.array([0.01, 0.03, -0.08]))
+    path = tmp_path / "pinch.npz"
+    np.savez(path, pinch_center_bias=[0.001, 0.003, 0.004])
+    adapter = PlacementEstimate(source, ctl, path, ("pinch",))
+    obs = {"state": state}
+    observed = adapter.update(obs)
+    np.testing.assert_allclose(observed["plate_rel"], [0.109, 0.067, -0.064])
+    np.testing.assert_allclose(observed["plate_xyz"], [0.133, 0.009, 0.736])
+    for phase.value, source.held, state[44] in [
+        ("RELEASE", True, 1),
+        ("LOWER", False, 1),
+        ("ALIGN", True, 0.5),
+    ]:
+        np.testing.assert_array_equal(adapter.update(obs)["plate_xyz"], state[18:21])

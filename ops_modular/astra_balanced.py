@@ -57,8 +57,20 @@ def balanced(name, seed_start):
         or hashlib.sha256(head.read_bytes()).hexdigest() != frozen["digest"]
     ):
         raise ValueError("Perception weights do not match the frozen export")
-    dest = Path("/runs/modular") / f"{name}-balanced-{seed_start}"
-    path = dest / "eval/report.json"
+    volume.reload()
+    root = Path("/runs/modular")
+    prefix = f"{name}-balanced-{seed_start}"
+    # Preemptions may persist the directory before the evaluator writes its
+    # report. Preserve interrupted attempts and reuse any finished scored run.
+    attempt = 0
+    while True:
+        dest = root / (prefix if attempt == 0 else f"{prefix}-r{attempt}")
+        path = dest / "eval/report.json"
+        if not dest.exists():
+            break
+        if path.exists() and not json.loads(path.read_text()).get("infrastructure_error"):
+            break
+        attempt += 1
     if not path.exists():
         dest.mkdir(exist_ok=False)
         volume.commit()
@@ -100,6 +112,7 @@ def balanced(name, seed_start):
         or report["infrastructure_error"]
         or actual != expected
         or len(actual) != 30
+        or not report["qualifying_run"]
         or not all(e["completed"] for e in report["episodes"])
         or report["policy"] != candidate["policy"]
     ):
@@ -109,5 +122,7 @@ def balanced(name, seed_start):
         "successes": report["successes"],
         "meets_success_criterion": report["meets_success_criterion"],
         "submission_sha256": report["submission_sha256"],
-        "worker_seconds": float((dest / "wall_seconds").read_text()),
+        "worker_seconds": (
+            float((dest / "wall_seconds").read_text()) if (dest / "wall_seconds").exists() else None
+        ),
     }

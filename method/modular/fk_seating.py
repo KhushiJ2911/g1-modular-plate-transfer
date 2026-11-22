@@ -120,7 +120,7 @@ class FKSeatingController(PickupController):
         return -0.070 <= delta[2] <= 0.008 and self.descent.seated()
 
 
-def make_policy():
+def make_policy(controller_type=FKSeatingController):
     """Build the calibrated contact-head policy with FK placement height."""
     import os
 
@@ -128,7 +128,7 @@ def make_policy():
     from submission.policy_modular_heads import PerceptionPolicy
 
     checkpoint = os.environ["ADV_HEADS"]
-    policy = PerceptionPolicy(make_baseline(), checkpoint, FKSeatingController)
+    policy = PerceptionPolicy(make_baseline(), checkpoint, controller_type)
     with np.load(checkpoint, allow_pickle=False) as data:
         policy.controller.set_loaded_grasp_normal(data["loaded_normal"])
         if "loaded_center_bias" in data:

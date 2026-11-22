@@ -12,14 +12,16 @@ import modal
 
 from ops_modular.modular_sim import image
 
-APP = "modular-sol-height-hybrid-v5"
+APP = "modular-sol-low-site-referenced"
 CHECKPOINT = "64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff"
 app = modal.App(APP)
 volume = modal.Volume.from_name("modular-runs")
 weights = modal.Volume.from_name("advaitic-runs")
 
 
-def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_contact=False):
+def scenario(
+    seed, archive, normal, mode, plate_bias, site_bias, hide_rack_contact=False, settle_trace=False
+):
     import numpy as np
     from bigym.loco import make
 
@@ -32,13 +34,20 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_conta
     from method.modular.phases import Phase
     from method.modular.pickup import PickupController
     from method.modular.privileged import PrivilegedTaskState
+    from method.modular.recontact import OpenFingerContact
     from method.modular.refined import align_normal
+    from method.modular.site_seating import SupportReferencedController
 
     with np.load(Path(archive) / "episode_000.actions.npz", allow_pickle=False) as f:
         actions = f["actions"]
     env = make("move_plate", camera_keys=())
     kin = G1Kinematics()
-    policy = (PickupController if mode == "base" else FKSeatingController)(kin)
+    controller = {
+        "base": PickupController,
+        "fk": FKSeatingController,
+        "seat_ref": SupportReferencedController,
+    }
+    policy = controller[mode](kin)
     policy.site_contacts = PerceivedRackContact(policy.site_contacts)
     policy.set_loaded_grasp_normal(normal)
     try:
@@ -95,10 +104,13 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_conta
         policy._enter({**physical, "plate_rot": nominal}, hand, rotation)
         policy.hand_to_center = offset
         policy.machine.phase = Phase.CARRY
+        policy.initial_samples = [initial["plate_xyz"]]
         policy._enter(physical, hand, rotation)
         opening, supported_steps, proprio_steps = None, 0, 0
         heights = []
         windows = []
+        settle_rows = []
+        recontact = OpenFingerContact() if settle_trace else None
         while not ts.last():
             state = ts.low_dim_obs
             physical = truth(state)
@@ -115,14 +127,38 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_conta
             }
             if hide_rack_contact and phase == Phase.LOWER:
                 task["contacts"] = {**physical["contacts"], "target_rack": False}
+            if (
+                settle_trace
+                and phase in (Phase.RELEASE, Phase.SETTLE, Phase.RETREAT, Phase.HOLD)
+                and opening
+            ):
+                hit = recontact.update(state)
+                if (policy.machine.step - opening["step"]) % 5 == 0:
+                    hand, _ = hand_world(state)
+                    settle_rows.append(
+                        dict(
+                            step=policy.machine.step,
+                            phase=phase.value,
+                            plate=plate.tolist(),
+                            hand=hand.tolist(),
+                            target=target.tolist(),
+                            true_site=physical["site_xyz"].tolist(),
+                            tilt=physical["tilt_deg"],
+                            contacts=physical["contacts"],
+                            held=physical["held"],
+                            recontact=hit,
+                            closure=state[layout.GRIPPERS].tolist(),
+                            open_steps=policy.open_steps,
+                        )
+                    )
             if phase == Phase.LOWER:
                 supported_steps += bool(physical["contacts"]["target_rack"] and physical["held"])
-                if mode == "fk":
+                if mode != "base":
                     hand, rotation = hand_world(state)
                     heights.append(float((hand + rotation @ offset)[2] - physical["plate_xyz"][2]))
             a = validate_actions(policy.act(state, task))[0]
             if phase == Phase.LOWER:
-                if mode == "fk":
+                if mode != "base":
                     proprio_steps += bool(policy.descent.seated())
                     if hide_rack_contact and policy.machine.step % 6 == 0:
                         samples = np.array(policy.descent.samples)
@@ -159,7 +195,9 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_conta
             opening=opening,
             supported_lower_steps=supported_steps,
             proprio_seating_steps=proprio_steps,
+            site_adjustment_m=getattr(policy, "low_site_adjustment", 0.0),
             fk_error_median_cm=float(100 * np.median(heights)) if heights else None,
+            **({"settle_trace": settle_rows} if settle_trace else {}),
             **({"windows": windows} if hide_rack_contact else {}),
         )
     finally:
@@ -174,7 +212,9 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_conta
     max_containers=12,
     volumes={"/runs": volume, "/weights": weights},
 )
-def episode(seed, archive, include_site_bias, proprio_only=False):
+def episode(
+    seed, archive, include_site_bias, proprio_only=False, settle_trace=False, compare_support=False
+):
     if not 3_000_700 <= seed < 3_000_750:
         raise ValueError("Use the predeclared public-prefix development range")
     if not Path(archive).is_relative_to("/runs/grasp-validation") or Path(archive).name != "eval":
@@ -197,6 +237,12 @@ def episode(seed, archive, include_site_bias, proprio_only=False):
     grid = [(mode, p, s) for p, s in biases for mode in ("base", "fk")]
     if proprio_only:
         grid = [("base", 0.020, 0.0, True), ("fk", 0.020, 0.0, True)]
+    if settle_trace:
+        grid = [("fk", 0.0, site, False, True) for site in (0.0, -0.020)]
+    if compare_support:
+        grid = [
+            (mode, 0.0, site, False, True) for site in (0.0, -0.020) for mode in ("fk", "seat_ref")
+        ]
     source = (
         "from pathlib import Path\nimport json\nimport numpy as np\n"
         + inspect.getsource(scenario)
