@@ -363,3 +363,58 @@ submission.policy_modular_integrated:make_visual_release • modular-shard-astra
 19:09 IST · All 30 fresh signed and merged-v1 pickup handoffs have complete matched placement continuations. Fitted normal gave 28/30 merged-v1 transfers vs 25/30 signed (zero signed gains, three losses). Signed prior-normal control 4/30. Signed CPU time 557.8 s on modular-astra-grasp-transfer, max two workers. All archive paths and per-seed physical results are preserved in astra_{signed,v1}_calibrated.all.json. The 230-opening pre-open risk audit on modular-astra-preopen-audit-v2 completed in 8.31 CPU seconds. Held-out tests with 8 failed / 39 successful transfers gave pre-open detections / false alarms of 1/1 with visual tilt, 1/5 with geometry, and 2/1 with geometry plus arm/finger tracking. Frozen split uses seed%5 >=2 for fit, 1 for threshold, 0 untouched test. Rejected the pre-opening gate.
 
 19:13 IST · The six matched post-pickup generation transfers all succeeded on each of the three public center signals (raw v1b, visual residual, FK pinch). Aggregate worker-seconds 2844.8, 3229.0, 2569.0. Every numerical pinch prefix matched its saved public commands within 4.77e-7. Held LOWER xyz tail dropped from 3.12 cm raw to 2.11 cm visual residual and 0.99 cm pinch, averaged across per-episode p95s. CARRY tail was lowest with visual residual (1.50 cm vs 4.56 cm raw, 4.29 cm pinch). No success gain, neither translation-only factory promoted. Reproduce table with uv run --locked python /home/keyu/advaitic/plans/modular_controller/runs/astra_position_report.py. First exact bd951bc input trace confirmed all 593 active action predictions within 4.77e-7. It diagnosed an estimated-held false negative during physical pad recontact before RETREAT. Frozen open-finger validation on the new paired 3001600 generation data uses modular-astra-contact-validation, two CPU workers, and reuses the first completed generation record as a one-episode smoke. The controller is unchanged.
+
+2026-11-22 · Terminal sharded dev read astra_calibrated_bd951bc_dev [f8b237992d84]
+
+submission.policy_modular_calibrated:make_policy • modular-shard-astra-bd951bc2-64dfe105 • /runs/heads/64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff.npz. 81/90 complete, blocks 1000000 / 1010000 / 1020000 (28/30, 28/30, 25/30), slots 0–5 (10/15, 15/15, 15/15, 13/15, 15/15, 13/15). Decision no-go. Failure counts D1 held on rack after opening (7), D1 held on rack without opening (1), D3 released on rack, unsettled (1). Complete source and replay diagnostics in astra_calibrated_bd951bc_dev.final.json.
+
+2026-11-22 · Astra · Paired FK seating on independent rendered observations
+
+The pinned contact/normal baseline and the FK height candidate each passed 6/6 fresh actual rollouts, zero gains or losses. Seeds 3001200, 3001201, 3001202, 3001209, 3001215, 3001226, one from each source slot. Reproduction/archives in runs/astra_height_dispatch.py and runs/astra_height_obs.results.json. This generation comparison is separate from sharded dev and from Sol's independent 30-pair comparison.
+
+2026-11-22 · Astra · Generation-only test of outward base clearance after release
+
+CPU app modular-astra-base-clearance on the dedicated account. After deploying ops_modular/astra_base_clearance.py, runs/astra_base_dispatch.py and runs/astra_base_current.py journal detached calls, collect results and check the one-episode smoke before the predefined cohorts. Archived 3110180–3110239 compare original public outcomes with the late fork. The fresh 30-pair 3001600 plan additionally tests whether the late movement disturbs successful delayed placements. Camera-free outside the policy; physical plate/support labels gate the experimental motion and are used only for this hybrid diagnosis. Original before-HOLD successes finish under precisely the same sequence of actions. Each endpoint allows at most two CPU containers. Current public smoke for the fork uses the original 3001603 FK episode. No development-evaluation actions are used to select clearance parameters.
+
+19:43 IST · A file-path deployment of the new clearance diagnostic and revised contact/video helpers omitted their sibling ops_modular package. The affected containers failed during startup before running a simulation. Recovered with the dedicated-account command uv run --with modal modal deploy -m ops_modular.<module>; calls bound to the old unqualified module are journaled in runs/astra_packaging_recovery.jsonl. Previously completed sim records and the independent official sharder are retained. Module-mode deploy is required for these helpers' package imports.
+
+2026-11-22 · modular-shard-astra-bd951bc2-64dfe105 completed 90 OSMesa evaluator episodes in 24.89 aggregate worker-hours (61884 policy steps, 0 falls). Durations come from returned calls; detail in astra_calibrated_bd951bc_dev.timing.json.
+
+### Astra · completed DAgger closed-loop audit bdef9224c902
+
+DAgger sidecar SHA-256 `bdef9224c9024ecb33a6dce9d612ebcc77539540d9b0d0094bcffba8ef60936c` is at modular-data:/astra-dagger/heads.npz. Use ADV_HEADS to select it with submission.policy_modular_heads:make_policy.
+
+Whole-episode split: 240 fresh training, 30 selection, 30 offline test. The fit included 60 historical teacher episodes. One T4 trained for 85.3 s including I/O.
+
+Generation finished 300 verified CPU episodes using 132.45 worker-hours (100 container limit). The 3111000-series audit used 10.81 worker-hours with four CPU workers after smoke, increased to eight after 14 reports. It recorded 21/30 successes and 0 falls.
+
+Each cell gives raw v1b → new heads on the same observation-driven trajectories. Bias is the mean magnitude of each episode's mean plate XYZ error. Noise is the mean norm of within-episode XYZ standard deviations.
+
+| Phase | Episodes / frames | Bias cm | Noise cm | XY MAE cm | Z MAE cm | XYZ p95 cm | Held FP/FN | Rack contact FP/FN |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| APPROACH | 30 / 425 | 3.16 → 0.92 | 2.10 → 0.63 | 3.34 → 1.06 | 0.48 → 0.13 | 6.73 → 1.83 | 0/0 → 0/0 | 0/0 → 0/0 |
+| PREGRASP | 30 / 195 | 2.56 → 1.97 | 2.72 → 1.46 | 6.10 → 5.25 | 1.74 → 1.67 | 34.47 → 33.19 | 3/1 → 3/2 | 0/1 → 0/1 |
+| GRASP | 30 / 292 | 1.96 → 1.70 | 1.47 → 1.08 | 5.81 → 5.68 | 1.38 → 1.26 | 29.54 → 30.68 | 7/5 → 4/4 | 0/0 → 0/0 |
+| LIFT | 30 / 384 | 2.42 → 2.42 | 1.19 → 1.19 | 2.22 → 2.22 | 1.55 → 1.55 | 4.55 → 4.55 | 0/0 → 0/0 | 0/0 → 0/0 |
+| CARRY | 28 / 615 | 3.44 → 3.44 | 1.42 → 1.42 | 2.74 → 2.74 | 2.14 → 2.14 | 5.43 → 5.43 | 0/0 → 0/0 | 0/0 → 0/0 |
+| ALIGN | 28 / 161 | 1.95 → 1.95 | 1.37 → 1.37 | 1.91 → 1.91 | 1.15 → 1.15 | 3.97 → 3.97 | 0/0 → 0/0 | 0/10 → 1/8 |
+| LOWER | 28 / 580 | 1.67 → 1.67 | 0.99 → 0.99 | 1.65 → 1.65 | 0.82 → 0.82 | 2.93 → 2.93 | 0/0 → 0/5 | 5/119 → 7/59 |
+| RELEASE | 25 / 66 | 0.97 → 0.97 | 1.35 → 1.35 | 1.57 → 1.57 | 0.43 → 0.43 | 2.93 → 2.93 | 19/0 → 15/1 | 0/36 → 0/0 |
+| SETTLE | 25 / 250 | 2.20 → 2.20 | 0.46 → 0.46 | 2.15 → 2.15 | 0.79 → 0.79 | 4.46 → 4.46 | 0/69 → 15/35 | 0/216 → 1/0 |
+| RETREAT | 0 / 0 | — | — | — | — | — | — | — |
+| HOLD | 8 / 107 | 5.40 → 5.40 | 0.19 → 0.19 | 4.85 → 4.85 | 1.08 → 1.08 | 29.28 → 29.28 | 0/52 → 0/56 | 0/82 → 0/82 |
+
+2026-11-22 · Astra · Frozen historical placement continuations in modular-astra-base-clearance
+
+Dedicated-account runner runs/astra_base_dispatch.py; source rollouts 3110180–3110239; all 60 archived public outcomes verified previously by deterministic replay. The immediate oracle-gated open-hand base withdrawal activated in five: 3110201, 3110208, 3110216, 3110219, and 3110227. Every activated fork converted a timeout into genuine physics success. Full fixed cohort 32/60 → 37/60, five gains, zero losses, and zero falls among activated attempts. Aggregate returned worker wall 128.05 s, two CPU containers maximum. Smoke 3110220 stayed idle because the supported plate already tilted 33.0 degrees; it completed in 6.88 s. The active smoke 3110201 passed in 6.87 s before the remaining calls. Current 3001600-generation smoke and the two-second/timed-by-phase alternatives are separate cohorts. Output in runs/astra_base_clearance.results.json.
+
+### 2026-11-22 — astra/lead: sharded dev eval of bd951bc (policy_modular_calibrated) — 81/90 (90.0%), COMPLETE
+- Candidate `bd951bc`: submission.policy_modular_calibrated:make_policy = merged pickup (short-median estimate, proprio grasp
+  confirmation, drop retry) + sol's loaded-grasp FK orientation calibration + contact head (`advaitic-runs:/heads/64dfe105….npz`).
+  Run `astra_calibrated_bd951bc_dev` (app `modular-shard-astra-bd951bc2-64dfe105`), official balanced plans, one CPU container/episode,
+  1-episode full-length `--smoke` runs → dev-only, NON-QUALIFYING.
+- **81/90**: block 1000000 28/30, 1010000 28/30, **1020000 25/30** (below the 27/30 per-block bar). Per slot s0 10/15, s1 15/15,
+  s2 15/15, s3 13/15, s4 15/15, s5 13/15. All 9 failures `timeout`, no falls. Slot 0 is the weak slot.
+- Progression on the same seeds: e588ae9 18/88 → 9de5c51 52/88 → bd951bc 81/90.
+- Not yet folded in: sol's FK seating (6b02f33; hybrid 12/12 vs 0/12 under a 2 cm plate-z bias) and low-site settling; astra-grasp's
+  pickup_vision update.
