@@ -585,3 +585,12 @@ Findings:
 - **bce1 + ensembling + supervisor + seat cue (10 steps) with est_v2: 25, 25, 27 = 77/90 (86%)** on dev vs 71/90 (79%) with est_v1b, same seeds. (Estimator path isn't written to the harness log; the policy reads ADV_ESTIMATOR directly and fails if the file is missing, and the smoke passed.) est_v2 training data = flywheel2 shards from seeds 2950000+, so no overlap with dev or the confirm block.
 - **Astra #21 placement diagnosis** (replay of 38 failures + 8 successes, all reproduced; analysis/replay_rack.py, results/brief21_rack/summary.csv): all 11 baseline failures that opened the gripper did so **3.5–4.2 cm above the slot** at only 4–8° tilt, i.e. dropped from too high; the tilted-on-rack failures were all < 20° at first contact and tipped after an early release (6 of 7 opened 15–31 steps before crossing 20°). Estimator understated distance by 1.26 cm at those opening decisions (tilt error only 0.43°). Hover = stall (8.4 cm above / 5.4 cm beside, actions ~constant), only in the tilt-fix runs. Tilt fix regressions were mostly not caused by the wrist probe (only 1 of 7 lost seeds probed).
 - **Fix: `ADV_H_RELEASE_HEIGHT_GUARD=1`** (harness dc4c10a): keep placing until estimated plate centre ≤ 2 cm above the slot, in addition to the existing gates. Predicted +5 of 19 dev failures. 24 harness tests pass. Deployed advaitic-sim-harness4, smoke ok; spawned g_v2 (guard + est_v2) and g_v1b (guard + est_v1b), 3×30 each.
+
+**17:23 release-height guard results** (dev 1000000, harness4, new code verified in the logged config):
+| config (bce1 + ensembling + supervisor + seat cue 10) | runs | total |
+|---|---|---|
+| est_v1b (previous best) | 23, 24, 24 | 71/90 (79%) |
+| est_v1b + height guard | 25, 26, 26 | 77/90 (86%) |
+| est_v2 | 25, 25, 27 | 77/90 (86%) |
+| est_v2 + height guard | 25, 27, 25 | 77/90 (86%) |
+- The guard and est_v2 fix the same failure (release while the plate is still ~3.5–4 cm high because the estimate understates distance): either one gives +6, and stacking them adds nothing. Proposed final: est_v2 + guard (same score, guard is a cheap safety net). Confirm on the already-once-used confirm seeds 2600100–189 (paired against the existing 66/90 and 51/90 arms) awaits user approval: the auto-mode classifier blocked the spawn because the standing rule said no confirm-seed use beyond what was already spawned.
