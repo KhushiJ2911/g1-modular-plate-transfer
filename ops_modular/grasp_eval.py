@@ -10,7 +10,6 @@ from pathlib import Path
 
 import modal
 from grpclib.exceptions import StreamTerminatedError
-from modal.types import InputStatus
 
 from ops_modular.modular_sim import WEIGHTS_SHA, image, run_candidate
 
@@ -245,21 +244,10 @@ def collect(out):
         call = modal.FunctionCall.from_id(call_id)
         try:
             return call.get(timeout=0)
-        except TimeoutError as err:
-            try:
-                nodes = call.get_call_graph()
-            except (OSError, StreamTerminatedError, modal.exception.ConnectionError):
-                return None
-            for node in nodes:
-                if node.function_call_id == call_id and node.status not in (
-                    InputStatus.PENDING,
-                    InputStatus.SUCCESS,
-                ):
-                    raise RuntimeError(
-                        f"{call_id} ended with {node.status.name}. Inspect the volume before retrying."
-                    ) from err
-            return None
-        except (OSError, StreamTerminatedError, modal.exception.ConnectionError):
+        except modal.exception.FunctionTimeoutError:
+            raise
+        except (TimeoutError, OSError, StreamTerminatedError, modal.exception.ConnectionError):
+            # A preempted attempt can show FAILURE while its original call resumes.
             return None
 
     with path.open("a+") as f, concurrent.futures.ThreadPoolExecutor(12) as pool:

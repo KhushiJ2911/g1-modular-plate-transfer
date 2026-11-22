@@ -179,6 +179,23 @@ def handoff_geometry(seed, archive):
     if not outcome["terminal"]:
         raise ValueError("Incomplete action archive")
     held = truth[:, 10].astype(bool)
+    # A 30-frame secure lift could still slip near the source. Track attachment
+    # from the first loaded 5 cm rise until the plate clears the rack by 15 cm.
+    raised = held & (truth[:, 2] >= truth[0, 2] + 0.05)
+    above = np.flatnonzero(raised)
+    cleared = np.flatnonzero(raised & (np.linalg.norm(truth[:, :2] - truth[0, :2], axis=1) >= 0.15))
+    start = above[0] if len(above) else len(held)
+    stop = cleared[0] if len(cleared) else len(held)
+    empty = 0
+    longest_empty = 0
+    for attached in held[start:stop]:
+        empty = 0 if attached else empty + 1
+        longest_empty = max(longest_empty, empty)
+    outcome.update(
+        first_raised=int(above[0]) if len(above) else None,
+        first_cleared=int(cleared[0]) if len(cleared) else None,
+        longest_empty_before_clearance=longest_empty,
+    )
     lifted = np.flatnonzero(held & (truth[:, 2] > truth[0, 2] + 0.075))
     if not len(lifted):
         return dict(seed=seed, **outcome, grasp_angle=None)
