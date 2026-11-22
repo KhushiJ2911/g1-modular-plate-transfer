@@ -10,6 +10,14 @@ from torchvision.models import ResNet18_Weights, resnet18
 ACTIVE_DIMS = (0, 1, 4, 5, 6, 7, 8, 9, 10, 18)
 GRIPPER_INDEX = ACTIVE_DIMS.index(18)
 PROPRIO_DIMS = (*range(9), *range(18, 22), *range(40, 44), 44, 45)
+PROPRIO_EMBED_DIM = 128
+
+
+def validate_head_config(head_type, head_blocks):
+    if head_type not in ("mlp", "resmlp"):
+        raise ValueError("head_type must be mlp or resmlp")
+    if type(head_blocks) is not int or head_blocks < 0:
+        raise ValueError("head_blocks must be a nonnegative integer")
 
 
 def validate_gripper_config(loss="l1", weight=1.0, pos_weight=1.0, threshold=0.5):
@@ -81,28 +89,81 @@ def random_shift(images, pad=4):
     ].permute(0, 3, 1, 2)
 
 
+class ResidualBlock(nn.Module):
+    def __init__(self, fuse_skip):
+        super().__init__()
+        self.norm = nn.LayerNorm(512)
+        self.expand = nn.Linear(512, 1024)
+        self.project = nn.Linear(1024 + (PROPRIO_EMBED_DIM if fuse_skip else 0), 512)
+        self.dropout = nn.Dropout(0.1)
+        nn.init.zeros_(self.project.weight)
+        nn.init.zeros_(self.project.bias)
+
+    def forward(self, x, proprio):
+        hidden = F.gelu(self.expand(self.norm(x)))
+        if proprio is not None:
+            hidden = torch.cat((hidden, proprio), dim=-1)
+        return x + self.dropout(self.project(hidden))
+
+
+class ResidualActionHead(nn.Module):
+    def __init__(self, in_features, out_features, head_blocks, fuse_skip):
+        super().__init__()
+        self.fuse_skip = fuse_skip
+        self.input = nn.Linear(in_features, 512)
+        self.blocks = nn.ModuleList(ResidualBlock(fuse_skip) for _ in range(head_blocks))
+        self.norm = nn.LayerNorm(512)
+        self.output = nn.Linear(512, out_features)
+
+    def forward(self, fused):
+        # The proprio embedding occupies the tail of BCModel's fused features.
+        proprio = fused[..., -PROPRIO_EMBED_DIM:] if self.fuse_skip else None
+        x = self.input(fused)
+        for block in self.blocks:
+            x = block(x, proprio)
+        return self.output(self.norm(x))
+
+
 class BCModel(nn.Module):
-    def __init__(self, horizon=20, pretrained=True, proprio_dims=PROPRIO_DIMS, aux_head=False):
+    def __init__(
+        self,
+        horizon=20,
+        pretrained=True,
+        proprio_dims=PROPRIO_DIMS,
+        aux_head=False,
+        *,
+        head_type="mlp",
+        head_blocks=3,
+        fuse_skip=False,
+    ):
         super().__init__()
         if not 1 <= horizon <= 50:
             raise ValueError("horizon must be in [1, 50]")
+        validate_head_config(head_type, head_blocks)
         self.horizon = horizon
         self.proprio_dims = validate_proprio_dims(proprio_dims)
         network = resnet18(weights=ResNet18_Weights.DEFAULT if pretrained else None)
         self.backbone = nn.Sequential(*list(network.children())[:7])  # through layer3
         self.spatial = SpatialSoftmax()
         self.camera_embedding = nn.Embedding(3, 16)
-        self.proprio = nn.Sequential(nn.Linear(len(self.proprio_dims), 128), nn.GELU())
-        self.head = nn.Sequential(
-            nn.Linear(3 * (64 + 16) + 128, 512),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(512, 512),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(512, horizon * len(ACTIVE_DIMS)),
+        self.proprio = nn.Sequential(
+            nn.Linear(len(self.proprio_dims), PROPRIO_EMBED_DIM), nn.GELU()
         )
-        self.aux_head = nn.Linear(3 * (64 + 16) + 128, 9) if aux_head else None
+        head_input = 3 * (64 + 16) + PROPRIO_EMBED_DIM
+        head_output = horizon * len(ACTIVE_DIMS)
+        if head_type == "mlp":
+            self.head = nn.Sequential(
+                nn.Linear(head_input, 512),
+                nn.GELU(),
+                nn.Dropout(0.1),
+                nn.Linear(512, 512),
+                nn.GELU(),
+                nn.Dropout(0.1),
+                nn.Linear(512, head_output),
+            )
+        else:
+            self.head = ResidualActionHead(head_input, head_output, head_blocks, fuse_skip)
+        self.aux_head = nn.Linear(head_input, 9) if aux_head else None
         self.register_buffer("image_mean", torch.tensor([0.485, 0.456, 0.406])[None, :, None, None])
         self.register_buffer("image_std", torch.tensor([0.229, 0.224, 0.225])[None, :, None, None])
         self.train()
