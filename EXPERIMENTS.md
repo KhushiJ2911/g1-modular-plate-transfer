@@ -599,3 +599,11 @@ Findings:
 
 **18:05 final-config confirm result** (seeds 2600100–189): **final 24, 21, 22 = 67/90 (74%)**. Paired: vs est_v1b st10 config (66/90) gained 4, lost 4, p = 1.0; vs no-supervisor baseline (51/90) gained 20, lost 5, p = 0.004. **The est_v2 / height-guard dev gain (+6/90) did not replicate on fresh seeds (+1/90)**: like Friday's threshold result, mostly dev selection noise. The supervisor + seat cue gain over the baseline stays solid (+16). The final config is kept as pre-registered (it's not worse, and est_v2 measures better offline).
 **18:06 TEST BLOCK (user OK, once):** seeds 7310000–7310089, final vs no-supervisor baseline, harness4.
+
+**18:35 TEST BLOCK RESULT (seeds 7310000–7310089, run once, configs pre-registered, both runs verified in the logged config: final supervise=true + guard, baseline supervise=false; all 180 episodes completed, 0 policy errors; failures are all timeouts).**
+| config | runs | total | Wilson 95% |
+|---|---|---|---|
+| final: bce1 + ensembling + supervisor + seat cue 10 + est_v2 + height guard | 15, 19, 22 | **56/90 (62%)** | 52–72% |
+| baseline: bce1 + ensembling, no supervisor | 18, 19, 18 | 55/90 (61%) | 51–71% |
+- Paired (82 seeds): gained 14, lost 10, McNemar p = 0.54. **On the test block the harness gain is ~0.** Gain by seed set: dev +8 (selected on), confirm +16, test +1. Pooled over the two held-out sets: final 123/180 (68%) vs baseline 106/180 (59%), +9 points, paired gained 34 / lost 15 (p ≈ 0.01) — the honest estimate is a modest gain with large seed-set variance, and the test block alone doesn't show it.
+- Headline for the report: **bce1 + temporal ensembling ≈ 60–70% depending on seed set; the supervisor adds ~+9 points on held-out seeds pooled, not significant on the test block alone (62% vs 61%).** Metered ≈ $89.
