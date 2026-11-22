@@ -441,3 +441,13 @@ modular-astra-phase-public-96699ef0c3, two CPU containers. runs/astra_clearance_
 2026-11-22 · Astra · Held-out withdrawal guard and independent pickup/placement result
 
 On disjoint 3110060–3110119, the frozen phase-dependent recovery improved original 39/60 to 41/60, two gains and zero losses. Its directional ablation also achieved 41/60 on exactly the same successes. Each moved in five of the 60 test episodes. Recorded worker times 755.84 s for the absolute gate and 824.66 s for the directional gate; 4 CPU containers. Among the five previously diagnosed source histories, the directional change recovered 3/5 instead of 1/5 under rendered inputs. It also retained the 3001616 recovery. Keep the simpler original guard since the extra two rescues did not transfer to the separate 60. Hashes, source export and full rows are in runs/astra_directed.results.json and runs/astra_directional_export.py. Sol's full independent 3001600 public A/B has concluded at 30/30 calibrated, 26/30 original full-time FK, zero falls. The low-site combination has a separate A/B, and the signed pickup remains outside both. Read the revised bars.md reserving 1030000–1080000 for the lead and 7310000 for final-only use; worker dev plans here stay at 1000000/1010000/1020000.
+
+### 2026-11-22 — dev reads: 6b02f33 (fk_seating) 83/90 COMPLETE; sol rendered A/B; paired 180-episode fresh-block signal eval launched
+- `astra_height_6b02f33_dev` (method.modular.fk_seating:make_policy + heads 64dfe105…): **83/90**, blocks 28/30, 28/30, 27/30 (all
+  ≥ 27/30); per slot s0 10/15, s1 15/15, s2 15/15, s3 15/15, s4 14/15, s5 14/15; all failures timeouts, no falls. Sharded, non-qualifying.
+- sol rendered observation-only A/B on 30 fresh paired seeds: bd951bc 30/30 vs bd951bc+FK seating 26/30 (2 RETREAT guards, 1 SETTLE
+  timeout, 1 pre-open timeout).
+- Seed protocol (user-approved): 7310000 once at the end on the final submission; 2600000 one qualifying-format confirmation; fresh
+  "signal" blocks reserved by the lead and retired after one use.
+- Launched 23:2x IST: paired signal eval `sig1_bd951bc` and `sig1_6b02f33`, fresh blocks 1030000–1080000 (6 balanced plans = 180
+  episodes each, same seeds), astra's frozen shard apps `modular-shard-astra-{bd951bc2,6b02f33a}-64dfe105`, CPU. Results: pending.
