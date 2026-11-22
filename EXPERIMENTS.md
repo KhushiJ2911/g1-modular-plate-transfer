@@ -572,3 +572,5 @@ Findings:
 | bce1 + ensembling, no supervisor (baseline) | 19, 17, 15 | 51/90 = 57% (Wilson 46–66%) |
 - **+16 points holds on fresh seeds** (two-proportion z ≈ 2.3, p ≈ 0.02; paired per-seed test pending). Both arms score lower than on dev (79% / 71%): the dev numbers carried selection optimism and/or these seeds are harder; the gap between them is the trustworthy part. This is the first harness gain that replicated (Friday's threshold gain did not).
 - Paired per-seed (82 of 90 seeds matched in both CSVs; 8 unmatched not yet checked): best config gained 21, lost 6 vs baseline, **McNemar exact p = 0.006**.
+
+**16:45 TEST BLOCK (user: "run the test block").** First and only use of seeds 7310000–7310089 (3×30). Configs frozen beforehand, no selection on these results: final = bce1 + uniform temporal ensembling + supervisor + seat cue (10 steps); reference = bce1 + ensembling, no supervisor. App harness3 (code 0066f1a; new flags default off). Any later placement fix can't be re-measured on the test block without reusing it; it will be reported on dev/confirm only.
