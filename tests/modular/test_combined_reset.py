@@ -73,6 +73,7 @@ def _exercise(policy, seed):
     rng = np.random.default_rng(seed)
     ctl = policy.controller
     actions = []
+    last_state = None
     for phase in Phase:
         state = np.zeros(50, dtype=np.float32)
         state[:18] = rng.uniform(-0.16, 0.16, 18)
@@ -84,6 +85,7 @@ def _exercise(policy, seed):
             # Static images cannot complete a physical transfer. Invoke the real
             # entry handlers so even a prior late-release episode is represented.
             ctl.machine._move(phase, "reset test")
+            assert last_state is not None
             ctl.kin.set_state(state)
             hand, rot = ctl.kin.hand_pose("left")
             basis = pelvis_rotation(state)

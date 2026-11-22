@@ -84,7 +84,7 @@ def job_dir(name):
     return dest
 
 
-@app.function(**OPTIONS, timeout=6 * 3600, max_containers=2)
+@app.function(**OPTIONS, timeout=6 * 3600, max_containers=5)
 def qualify(
     name: str, seed_start: int, policy: str, heads: str, episodes: int = 30, smoke: bool = False
 ):
