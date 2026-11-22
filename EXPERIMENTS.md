@@ -612,3 +612,4 @@ Findings:
 - Codex #23 (Astra, wt-teacher): inventory of the privileged quantities the teacher reads per phase; noise-injection sweep on training seeds 2000000–029 (paired with v1 27/30): position 0.25–2 cm, orientation 1–4°, bias vs jitter → tolerance budget; why slot 1 fails.
 - Codex #24 (Sol, wt-est): est_v1b/est_v2 accuracy across all phases, plus a quick full-state head (plate position + orientation, target slot) trained on held-out-episode splits of the training-seed data; per-phase MAE/p90, occluded-grasp slice.
 Go/no-go: the estimator's per-phase errors (Sol) must fit inside the teacher's tolerance budget (Astra).
+- Stopped both feasibility agents (#23, #24) after ~10 min at the user's request ("if not sure, let it be"): no Modal use, no code changes. Reason recorded: an estimated-state controller can at best match the teacher with perfect state (79–90%), so reaching 90% also needs a better teacher; success odds in a day judged low.
