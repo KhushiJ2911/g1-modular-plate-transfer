@@ -8,6 +8,7 @@ from . import layout
 from .controller import ModularController
 from .kinematics import pelvis_rotation
 from .phases import SETTLE_STEPS, Phase
+from .recontact import OpenFingerContact
 from .site_seating import SupportReferencedController
 
 NEAR_FRAMES = 24
@@ -23,6 +24,7 @@ class FallbackSeatingController(SupportReferencedController):
 
     fk_height_for_motion = False
     correct_site_on_carry = False
+    hold_measured_release = False
 
     def reset(self):
         super().reset()
@@ -34,10 +36,28 @@ class FallbackSeatingController(SupportReferencedController):
         self.low_site_at_release = False
         self.supported_depths = deque(maxlen=NEAR_FRAMES)
         self.seating_state = None
+        self.release_contact = OpenFingerContact() if self.hold_measured_release else None
+        self.open_finger_contact = False
 
     def act(self, obs_state, task_state=None):
         self.seating_state = np.asarray(obs_state) if self.phase == Phase.LOWER else None
+        if self.release_contact is not None and self.phase in (
+            Phase.RELEASE,
+            Phase.SETTLE,
+            Phase.RETREAT,
+        ):
+            self.open_finger_contact = self.release_contact.update(np.asarray(obs_state))
         return super().act(obs_state, task_state)
+
+    def _action(self, state, position=None, rotation=None, base=None, close=False):
+        if self.hold_measured_release and self.phase == Phase.RELEASE and self.machine.elapsed == 1:
+            # Unload the accumulated IK error before opening. Subsequent
+            # RELEASE/SETTLE actions retain this single measured target.
+            arm = layout.LEFT_ARM_ACTION
+            self.last_raw[arm] = np.clip(
+                state[layout.LEFT_ARM], layout.ACTION_LOW[arm], layout.ACTION_HIGH[arm]
+            )
+        return super()._action(state, position, rotation, base, close)
 
     def _use_supported_handoff(self):
         return bool(self.fallback_releases or self.fallback_settles)
@@ -69,6 +89,8 @@ class FallbackSeatingController(SupportReferencedController):
         super()._enter(task, hand_world, hand_rot)
 
     def _ready_to_retreat(self, task):
+        if self.open_finger_contact:
+            return False
         if super()._ready_to_retreat(task):
             return True
         if (
@@ -79,6 +101,9 @@ class FallbackSeatingController(SupportReferencedController):
             self.fallback_settles.append({"step": self.machine.step})
             return True
         return False
+
+    def _unsafe_retreat(self, state, task):
+        return self.open_finger_contact or super()._unsafe_retreat(state, task)
 
     def _ready_to_release(self, task):
         contacts = task["contacts"]

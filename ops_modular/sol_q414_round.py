@@ -1,8 +1,10 @@
 """Frozen GPU diagnostics and paired reruns for the unopened round-four cases."""
 
 import argparse
+import hashlib
 import io
 import json
+import re
 import shutil
 import subprocess
 import tarfile
@@ -10,8 +12,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SEEDS = (1042006, 1062009, 1062038, 1072036, 1092014)
+HOLD_SEEDS = tuple(sorted((*SEEDS, 1042003, 1062001, 1062026)))
 HEAD = "64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff"
-APPS = {arm: f"modular-shard-sol-q414-{arm}" for arm in ("baseline", "candidate")}
+APPS = {arm: f"modular-shard-sol-q414-{arm}" for arm in ("baseline", "candidate", "measured")}
 ROOT = Path(__file__).resolve().parents[1]
 
 TRACE = """import json
@@ -81,20 +84,74 @@ def make_policy():
 """
 
 
-def prepare(dest, arm):
-    dest.mkdir(parents=True, exist_ok=False)
-    snapshot = subprocess.check_output(["git", "archive", "414f15a"], cwd=ROOT)
-    with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
-        archive.extractall(dest, filter="data")
-    if arm == "candidate":
+def prepare(dest, arm, integration=None):
+    trace = TRACE
+    allowed = HOLD_SEEDS if arm == "measured" else SEEDS
+    original_app = "modular-shard"
+    if arm == "measured":
+        manifest = json.loads(integration.read_text())
+        factory = "submission.policy_modular_round4:make_policy"
+        if (manifest["base"], manifest["factory"], manifest["sidecar"]) != (
+            "414f15a",
+            factory,
+            HEAD,
+        ):
+            raise ValueError("Unexpected combined integration snapshot")
+        frozen = Path(manifest["folder"])
+        for filename, digest in manifest["files"].items():
+            if hashlib.sha256((frozen / filename).read_bytes()).hexdigest() != digest:
+                raise ValueError(f"Frozen source mismatch for {filename}")
+        shutil.copytree(frozen, dest)
+        original_app = manifest["app"]
+        trace = trace.replace(
+            "from submission.policy_modular_combined", "from submission.policy_modular_round4"
+        )
+        trace = trace.replace(
+            "    return PlacementTrace(make_combined())",
+            "    policy = make_combined()\n"
+            "    policy.controller.hold_measured_release = True\n"
+            "    return PlacementTrace(policy)",
+        )
+        trace = trace.replace(
+            "        self.seen = len(c.transitions)",
+            "        if c.phase.value in ('RELEASE', 'SETTLE', 'RETREAT') and (\n"
+            "            c.machine.elapsed == 1 or c.open_finger_contact\n"
+            "        ):\n"
+            "            row = dict(step=c.machine.step - 1, phase=c.phase.value,\n"
+            "                       contact=c.open_finger_contact, open_steps=c.open_steps,\n"
+            "                       hold_error=float(abs(c.last_raw[4:11] - self.state[:7]).max()))\n"
+            '            print("SOL_HANDOFF " + json.dumps(row), flush=True)\n'
+            "        self.seen = len(c.transitions)",
+        )
+    else:
+        dest.mkdir(parents=True, exist_ok=False)
+        snapshot = subprocess.check_output(["git", "archive", "414f15a"], cwd=ROOT)
+        with tarfile.open(fileobj=io.BytesIO(snapshot)) as archive:
+            archive.extractall(dest, filter="data")
+    if arm in ("candidate", "measured"):
         path = "method/modular/fallback_seating.py"
         shutil.copyfile(ROOT / path, dest / path)
-    (dest / "submission/sol_q414_trace.py").write_text(TRACE)
+    (dest / "submission/sol_q414_trace.py").write_text(trace)
     file = dest / "ops_modular/lead_shard.py"
     source = file.read_text()
+    source, count = re.subn(
+        r"^    if (?:not 1_000_000 <= seed < 1_100_000|seed not in \([^\n]+\)):$",
+        f"    if seed not in {allowed}:",
+        source,
+        flags=re.MULTILINE,
+    )
+    if count != 1:
+        raise ValueError("Unexpected development seed guard")
+    if arm == "measured":
+        # The integration export already validates the weight digest.
+        source = re.sub(
+            r"^    if hashlib\.sha256\(Path\(heads\).*\n        raise ValueError\([^\n]+\)\n",
+            "",
+            source,
+            flags=re.MULTILINE,
+        )
     replacements = [
-        ('modal.App("modular-shard")', f'modal.App("{APPS[arm]}")'),
-        ("if not 1_000_000 <= seed < 1_100_000:", f"if seed not in {SEEDS}:"),
+        (f'modal.App("{original_app}")', f'modal.App("{APPS[arm]}")'),
         (
             '    if heads:\n        os.environ["ADV_HEADS"] = heads',
             f'    if heads != "/runs/heads/{HEAD}.npz" or hashlib.sha256(Path(heads).read_bytes()).hexdigest() != "{HEAD}":\n'
@@ -106,8 +163,9 @@ def prepare(dest, arm):
             '    lines = (dest / "eval/policy.stderr.log").read_text().splitlines()\n'
             '    phases = [json.loads(line[9:]) for line in lines if line.startswith("SOL_MOVE ")]\n'
             '    frames = [json.loads(line[10:]) for line in lines if line.startswith("SOL_PLACE ")]\n'
+            '    handoff = [json.loads(line[12:]) for line in lines if line.startswith("SOL_HANDOFF ")]\n'
             '    return {"seed": seed, "seconds": time.monotonic() - start, "gl": gl,'
-            ' "archive": str(dest / "eval"), "phases": phases, "frames": frames, **report["episodes"][0]}',
+            ' "archive": str(dest / "eval"), "phases": phases, "frames": frames, "handoff": handoff, **report["episodes"][0]}',
         ),
     ]
     for old, new in replacements:
@@ -170,11 +228,17 @@ if __name__ == "__main__":
     parser.add_argument("command", choices=("prepare", "submit", "collect"))
     parser.add_argument("arm", choices=APPS)
     parser.add_argument("path", type=Path)
-    parser.add_argument("--seeds", nargs="+", type=int, choices=SEEDS, default=SEEDS)
+    parser.add_argument("--seeds", nargs="+", type=int, choices=HOLD_SEEDS)
+    parser.add_argument("--integration", type=Path)
     args = parser.parse_args()
+    allowed = HOLD_SEEDS if args.arm == "measured" else SEEDS
+    if args.seeds and not set(args.seeds) <= set(allowed):
+        parser.error("Seed outside the chosen experiment")
     if args.command == "prepare":
-        prepare(args.path, args.arm)
+        if args.arm == "measured" and args.integration is None:
+            parser.error("The measured hold export requires Astra's integration manifest")
+        prepare(args.path, args.arm, args.integration)
     elif args.command == "submit":
-        submit(args.path, args.arm, args.seeds)
+        submit(args.path, args.arm, args.seeds or allowed)
     else:
         collect(args.path, args.arm)

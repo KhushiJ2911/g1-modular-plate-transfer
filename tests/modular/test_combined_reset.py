@@ -131,3 +131,26 @@ def test_combined_reset_equals_fresh(monkeypatch):
     ]
     np.testing.assert_array_equal(_exercise(used, 29), _exercise(fresh, 29))
     assert not differences, "\n".join(differences)
+
+
+def test_measured_factory_matches_paired_policy_after_reset(monkeypatch):
+    pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    from submission.policy_modular_round4 import make_measured_policy, make_policy
+
+    checkpoints = Path(__file__).resolve().parents[2] / "checkpoints"
+    estimator = checkpoints / "est_v1b/last.pt"
+    heads = checkpoints / "astra" / f"{HEAD}.npz"
+    if not estimator.is_file() or not heads.is_file():
+        pytest.skip("requires the frozen estimator and contact checkpoints")
+    monkeypatch.setenv("ADV_ESTIMATOR", str(estimator))
+    monkeypatch.setenv("ADV_HEADS", str(heads))
+    paired = make_policy()
+    assert paired.controller.release_contact is None
+    paired.controller.hold_measured_release = True
+    packaged = make_measured_policy()
+    assert packaged.controller.release_contact is not None
+    for seed in (17, 29):
+        paired.reset()
+        packaged.reset()
+        np.testing.assert_array_equal(_exercise(packaged, seed), _exercise(paired, seed))

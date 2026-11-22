@@ -16,3 +16,13 @@ class RoundFourController(SeatedDropMixin, RetainedPinchController):
 
 def make_policy():
     return ClearancePolicy(make_seated_policy(RoundFourController))
+
+
+class MeasuredReleaseController(RoundFourController):
+    """Unload arm tracking error when the supported plate is released."""
+
+    hold_measured_release = True
+
+
+def make_measured_policy():
+    return ClearancePolicy(make_seated_policy(MeasuredReleaseController))
