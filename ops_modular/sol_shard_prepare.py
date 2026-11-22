@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OWNED = (
     "method/modular/controller.py",
     "method/modular/observed_controller.py",
+    "method/modular/placement_release.py",
     "method/modular/robust_controller.py",
 )
 
@@ -32,14 +33,19 @@ def patch(path, replacements):
     path.write_text(source)
 
 
-def prepare(dest):
-    base = git("rev-parse", "HEAD", text=True).strip()
+def prepare(dest, reference, include_release):
+    base = git("rev-parse", reference, text=True).strip()
     dest.mkdir(parents=True, exist_ok=False)
     snapshot = dest / "snapshot"
     snapshot.mkdir()
     extract(git("archive", base), snapshot)
     git("init", "-q", root=snapshot)
-    for path in OWNED:
+    paths = (
+        ("method/modular/placement_release.py",)
+        if include_release
+        else (path for path in OWNED if not path.endswith("placement_release.py"))
+    )
+    for path in paths:
         (snapshot / path).write_bytes((ROOT / path).read_bytes())
     git("add", "-f", ".", root=snapshot)
     git(
@@ -71,7 +77,8 @@ def prepare(dest):
             (
                 '"OMP_NUM_THREADS": "1",',
                 '"OMP_NUM_THREADS": "1",\n        "LP_NUM_THREADS": "2",\n'
-                '        "SOL_PHASE_TRACE": "1",',
+                '        "SOL_PHASE_TRACE": "1",\n'
+                '        "ADV_PLACEMENT_NORMAL": "/runs/heads/normal_v1_7e99a421.npz",',
             ),
             ("timeout=3600, max_containers=200", "timeout=3600, max_containers=100"),
             (
@@ -122,7 +129,9 @@ def prepare(dest):
             call = fn.spawn(name, seed, policy, heads)
             stream.write(json.dumps([block, seed, slot, call.object_id]) + "\\n")
             stream.flush()
-            calls.append((block, seed, slot, call))""",
+            calls.append((block, seed, slot, call))
+    if os.environ.get("SOL_SHARD_LAUNCH_ONLY") == "1":
+        return""",
             ),
             (
                 '    with open(out, "w") as fh:\n        for block, seed, slot, call in calls:',
@@ -141,4 +150,7 @@ def prepare(dest):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("dest", type=Path)
-    prepare(parser.parse_args().dest.resolve())
+    parser.add_argument("--ref", default="HEAD")
+    parser.add_argument("--placement-release", action="store_true")
+    args = parser.parse_args()
+    prepare(args.dest.resolve(), args.ref, args.placement_release)

@@ -95,7 +95,9 @@ class SeatedReleaseController(CalibratedPlacementController):
             if spread < 0.12:
                 normal += tangent * min(0.9, 0.25 / max(1e-8, np.linalg.norm(tangent)))
         self.level_normal = normal / np.linalg.norm(normal)
-        self.level_pose = hand, rotation
+        error = np.cross(rotation @ self.level_normal, reference)
+        correction = error * min(1.0, 0.22 / max(1e-8, np.linalg.norm(error)))
+        self.level_pose = hand, _rotation_from_vector(correction) @ rotation
         self.level_target = reference
         self.level_step = self.machine.step
 
@@ -121,17 +123,21 @@ class SeatedReleaseController(CalibratedPlacementController):
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):
         if self.phase == Phase.LOWER and self.level_pose is not None:
-            position, original_rotation = self.level_pose
-            normal = self.hand[1] @ self.level_normal
-            error = np.cross(normal, self.level_target)
-            correction = 0.8 * error
-            if np.linalg.norm(correction) > 0.12:
-                correction *= 0.12 / np.linalg.norm(correction)
-            rotation = _rotation_from_vector(correction) @ self.hand[1]
-            if self.level_tilt is not None and self.level_tilt <= 2.0:
-                rotation = self.hand[1]
-            elif self.machine.step - self.level_step < 2:
-                rotation = _rotation_from_vector(correction) @ original_rotation
+            # At the support point, hold hand translation while correcting
+            # rotation. Higher rotation weight is local to this nudge.
+            position, rotation = self.level_pose
+            basis = pelvis_rotation(state).T
+            arm = self.last_raw[layout.LEFT_ARM_ACTION]
+            goal = self.kin.ik(
+                "left",
+                basis @ (position - state[layout.PELVIS_XYZ]),
+                basis @ rotation,
+                q_init=arm,
+                rot_weight=0.22,
+                iters=16,
+            )
+            arm += np.clip(goal - arm, -0.02, 0.02)
+            position, rotation = None, None
         return super()._action(state, position, rotation, base, close)
 
     def act(self, obs_state, task_state=None):

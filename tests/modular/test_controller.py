@@ -232,3 +232,41 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     np.testing.assert_allclose(target["plate_xyz"], displaced["plate_xyz"])
     ctl.reset()
     assert ctl.phase == Phase.APPROACH and not ctl.initial_samples
+
+
+def test_seated_release_requires_support_and_measured_leveling():
+    from method.modular.controller import _rotation_from_vector
+    from method.modular.orientation_feedback import LEFT_GRASP_NORMAL
+    from method.modular.placement_release import SeatedReleaseController
+
+    kin = FixedKinematics()
+    controller = SeatedReleaseController(kin, None, None)
+    task = {**placement(), "held": True}
+    task["contacts"]["target_rack"] = False
+    controller.machine.phase = Phase.LOWER
+    controller.machine.elapsed = 98
+    controller.machine.step = 410
+    controller.target_xyz = task["site_xyz"]
+    controller.target_rot = np.eye(3)
+    reference = controller.target_rot[:, 2]
+    tilt_axis = np.cross(LEFT_GRASP_NORMAL, reference)
+    aligned = _rotation_from_vector(
+        tilt_axis / np.linalg.norm(tilt_axis) * np.arccos(LEFT_GRASP_NORMAL @ reference)
+    )
+    tilted = _rotation_from_vector([0.17, 0, 0]) @ aligned
+    hand = np.array([0.38, 0.20, 0.78])
+    controller.hand = hand, tilted
+
+    assert not controller._ready_to_release(task)
+    assert controller.level_pose is None
+    task["contacts"]["target_rack"] = True
+    assert not controller._ready_to_release(task)
+    np.testing.assert_allclose(controller.level_pose[0], hand)
+    assert np.linalg.norm(controller.level_pose[1] @ LEFT_GRASP_NORMAL - reference) < 0.01
+
+    controller.machine.step += 16
+    assert not controller._ready_to_release(task)
+    controller.hand = hand, aligned
+    assert controller._ready_to_release(task)
+    task["contacts"]["table"] = True
+    assert not controller._ready_to_release(task)
