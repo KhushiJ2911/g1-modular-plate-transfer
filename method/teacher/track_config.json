@@ -1,0 +1,10 @@
+{
+  "window": 25,
+  "arm_weight": 1.0,
+  "gripper_weight": 0.1,
+  "arm_scale_rad": 0.2,
+  "gripper_scale": 0.6,
+  "arm_indices": [0, 1, 2, 3, 4, 5, 6],
+  "gripper_index": 44,
+  "drop_cost": null
+}
