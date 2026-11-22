@@ -594,3 +594,5 @@ Findings:
 | est_v2 | 25, 25, 27 | 77/90 (86%) |
 | est_v2 + height guard | 25, 27, 25 | 77/90 (86%) |
 - The guard and est_v2 fix the same failure (release while the plate is still ~3.5–4 cm high because the estimate understates distance): either one gives +6, and stacking them adds nothing. Proposed final: est_v2 + guard (same score, guard is a cheap safety net). Confirm on the already-once-used confirm seeds 2600100–189 (paired against the existing 66/90 and 51/90 arms) awaits user approval: the auto-mode classifier blocked the spawn because the standing rule said no confirm-seed use beyond what was already spawned.
+
+**17:40 final-config confirm (user OK).** Frozen final: bce1 + ensembling + supervisor + seat cue 10 + est_v2 + release-height guard (harness dc4c10a, app harness4). Seeds 2600100–2600189 (used once before for the st10 confirm, never for selection of this change), paired against the existing 66/90 and 51/90 arms. Test block runs once after this lands.
