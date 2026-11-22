@@ -16,12 +16,25 @@ SEATING_AND_REGRIP_DEFAULTS = {
     "seat_error_rad": 0.024,
     "regrip": False,
 }
+TILT_AND_STALL_DEFAULTS = {
+    "tilt_fix": False,
+    "tilt_fix_deg": 10.0,
+    "tilt_probe_rad": 0.02,
+    "tilt_probe_steps": 6,
+    "tilt_step_rad": 0.01,
+    "tilt_limit_rad": 0.18,
+    "stall_release": False,
+    "stall_steps": 300,
+    "stall_distance_m": 0.05,
+    "stall_tilt_deg": 18.0,
+}
 DEFAULT_CONFIG = {
     "exec_steps": 2,
     "release_distance_m": 0.035,
     "release_tilt_deg": 12.0,
     "stable_steps": 6,
     **SEATING_AND_REGRIP_DEFAULTS,
+    **TILT_AND_STALL_DEFAULTS,
     "held_threshold": 0.7,
     "held_steps": 4,
     "lost_steps": 10,
@@ -60,7 +73,7 @@ def config_from_env(environ=None):
 
 
 def validate_config(config):
-    config = SEATING_AND_REGRIP_DEFAULTS | dict(config)
+    config = SEATING_AND_REGRIP_DEFAULTS | TILT_AND_STALL_DEFAULTS | dict(config)
     if set(config) != set(DEFAULT_CONFIG):
         raise ValueError("Harness config keys must match DEFAULT_CONFIG")
     for key, value in config.items():
@@ -83,6 +96,10 @@ def validate_config(config):
         raise ValueError("Require a positive seat_error_rad")
     if config["seat_cue_only"] and not config["seat_cue"]:
         raise ValueError("seat_cue_only requires seat_cue")
+    if config["tilt_fix_deg"] > 180 or config["stall_tilt_deg"] > 180:
+        raise ValueError("Tilt thresholds must be in [0,180]")
+    if min(config["tilt_probe_rad"], config["tilt_step_rad"], config["tilt_limit_rad"]) <= 0:
+        raise ValueError("Wrist probe, step and limit must be positive")
     return config
 
 
@@ -94,6 +111,8 @@ ARM_HIGH = np.array(
     [2.6704, 2.2515, 2.618, 2.0944, 1.972219944, 1.614429951, 1.614429951] * 2, np.float32
 )
 LEFT_WRIST_PITCH = 5  # qpos and arm offset; absolute target is action[4 + 5]
+LEFT_WRIST_ACTION = slice(8, 10)  # left roll, pitch after the four base channels
+WRIST_ACTION_PER_RAD = 2 / (ARM_HIGH[4:6] - ARM_LOW[4:6])
 
 # Adapted from SWIRL-Lab's BiGym2 Move Plate Astra s1 and Opus s3 (CC BY 4.0).
 # Source links, line references and changes are in method/harness/BRIEF18.md.
@@ -108,6 +127,83 @@ def pose_hold_action(state):
     action[4:18] = 2 * (joints - ARM_LOW) / (ARM_HIGH - ARM_LOW) - 1
     action[18:] = -1  # open both grippers, zero base/yaw velocities
     return np.clip(action, -1, 1)
+
+
+class WristTiltCorrection:
+    """Compare alternating one-axis probes against a settled, unperturbed baseline."""
+
+    def __init__(self, config):
+        self.config = config
+        self.offset = np.zeros(2)  # accepted correction, radians
+        self.axis = 0
+        self.direction = [1, 1]
+        self.trial = None
+        self.since = None
+        self.filtered = 0.0
+        self.weight = 0.0
+        self.baseline = None
+        self.height = None
+        self.last_target = None
+
+    def update(self, time, tilt, held):
+        """Update from one observation and return whether to hold the base."""
+        if not held or tilt < 0:
+            self.since = self.trial = None
+            self.weight = 0.0
+            return False
+        # Normalize the exponential weights over the available fresh samples.
+        # A short window must not give its first noisy sample extra weight.
+        self.weight = 0.75 * self.weight + 1
+        self.filtered += (tilt - self.filtered) / self.weight
+        # At the goal, keep the accepted offset and resume ordinary base control.
+        # Finish an in-flight probe so that a noisy sample cannot decide its sign.
+        if self.since is None:
+            if self.filtered <= self.config["tilt_fix_deg"]:
+                return False
+            self.since = time
+        if time - self.since < self.config["tilt_probe_steps"]:
+            return True
+        i = self.axis
+        if self.trial is None:
+            if self.filtered <= self.config["tilt_fix_deg"]:
+                self.since = None
+                return False
+            self.baseline = self.filtered
+            limit = self.config["tilt_limit_rad"]
+            if self.offset[i] * self.direction[i] >= limit:
+                self.direction[i] *= -1
+            self.trial = self.offset.copy()
+            delta = self.direction[i] * self.config["tilt_probe_rad"]
+            self.trial[i] = np.clip(self.offset[i] + delta, -limit, limit)
+        else:
+            if self.filtered < self.baseline:
+                delta = self.trial[i] - self.offset[i]
+                step = self.config["tilt_step_rad"]
+                self.offset[i] += np.clip(delta, -step, step)
+            else:
+                self.direction[i] *= -1
+            self.axis = 1 - i
+            self.trial = None
+        self.since = time
+        self.weight = 0.0  # the new action has yet to execute
+        return True
+
+    def apply(self, time, tilt, held, state, actions):
+        if self.update(time, tilt, held):
+            if self.height is None:
+                self.height = pose_hold_action(state)[2]
+            actions[:, [0, 1, 3]] = 0
+            actions[:, 2] = self.height
+        else:
+            self.height = None
+
+        offset = self.offset if self.trial is None else self.trial
+        if offset.any():
+            targets = actions[:, LEFT_WRIST_ACTION]
+            targets[:] = np.clip(targets + offset * WRIST_ACTION_PER_RAD, -1, 1)
+            self.last_target = targets[-1].copy()
+        else:
+            self.last_target = None
 
 
 class ReleaseSupervisor:
@@ -127,6 +223,7 @@ class ReleaseSupervisor:
         self.hold = None
         self.settled = False
         self.place_wrist_target = None
+        self.tilt_correction = None
         self.regrip_check_after = None
         self.regrip_pose = None  # retained after the retry to enforce once per episode
         self.regrip_origin = None
@@ -136,6 +233,10 @@ class ReleaseSupervisor:
         self.phase, self.phase_since = phase, self.time
         self.streaks.clear()
         self.regrip_check_after = None
+        if phase == "PLACE" and self.config["tilt_fix"]:
+            self.tilt_correction = WristTiltCorrection(self.config)
+        else:
+            self.tilt_correction = None
         if self.log:
             print(
                 f"[harness t={self.time}] {previous}>{phase} {reason}", file=sys.stderr, flush=True
@@ -259,10 +360,25 @@ class ReleaseSupervisor:
                     seated = (
                         self.streak("seat", safe and tracking_error, elapsed) >= c["seat_steps"]
                     )
-                if stable >= c["stable_steps"] and seated:
+                stalled = (
+                    c["stall_release"]
+                    and self.time - self.phase_since > c["stall_steps"]
+                    and held
+                    and distance <= np.float32(c["stall_distance_m"])
+                    and 0 <= tilt <= c["stall_tilt_deg"]
+                )
+                strict_release = stable >= c["stable_steps"] and seated
+                if strict_release or stalled:
                     self.release_time = self.time
                     self.hold = pose_hold_action(state)
-                    self.transition("RELEASE", reason + f" stable={stable}")
+                    if (
+                        self.tilt_correction is not None
+                        and self.tilt_correction.last_target is not None
+                    ):
+                        self.hold[LEFT_WRIST_ACTION] = self.tilt_correction.last_target
+                    self.transition(
+                        "RELEASE", reason + (f" stable={stable}" if strict_release else " stall")
+                    )
                 elif distance > c["place_distance_m"]:
                     self.transition("CARRY", "left placement region")
 
@@ -293,6 +409,8 @@ class ReleaseSupervisor:
                     actions[:, :2] = velocity
                 if c["tilt_hold"] and tilt > c["release_tilt_deg"]:
                     actions[:, [0, 1, 3]] = 0  # recheck next observation; retain BC arms/height
+            if self.tilt_correction is not None:
+                self.tilt_correction.apply(self.time, tilt, held, state, actions)
             actions[:, 18] = -1 if self.phase == "APPROACH" else 1
             actions[:, 19] = -1  # bce1 is a left-hand policy; keep unused hand open
         self.time += len(actions)

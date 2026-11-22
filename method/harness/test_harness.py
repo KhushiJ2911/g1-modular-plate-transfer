@@ -16,6 +16,7 @@ from submission.harness import (
     ARM_LOW,
     DEFAULT_CONFIG,
     SEATING_AND_REGRIP_DEFAULTS,
+    TILT_AND_STALL_DEFAULTS,
     ReleaseSupervisor,
     config_from_env,
     pose_hold_action,
@@ -258,9 +259,12 @@ class SupervisorTests(unittest.TestCase):
         legacy = {
             key: value
             for key, value in self.config.items()
-            if key not in SEATING_AND_REGRIP_DEFAULTS
+            if key not in SEATING_AND_REGRIP_DEFAULTS and key not in TILT_AND_STALL_DEFAULTS
         }
         self.assertEqual(ReleaseSupervisor(legacy, log=False).config, self.config)
+        defaults = config_from_env({})
+        self.assertFalse(defaults["tilt_fix"])
+        self.assertFalse(defaults["stall_release"])
         cfg = config_from_env({"ADV_H_STABLE_STEPS": "12", "ADV_H_TEMPORAL_ENSEMBLE": "1"})
         self.assertEqual(cfg["stable_steps"], 12)
         self.assertTrue(cfg["temporal_ensemble"])
@@ -276,12 +280,187 @@ class SupervisorTests(unittest.TestCase):
             ("SEAT_ERROR_RAD", "0"),
             ("SEAT_STEPS", "0"),
             ("REGRIP", "maybe"),
+            ("TILT_FIX", "maybe"),
+            ("TILT_FIX_DEG", "181"),
+            ("TILT_PROBE_RAD", "0"),
+            ("TILT_PROBE_STEPS", "0"),
+            ("TILT_STEP_RAD", "-0.01"),
+            ("TILT_LIMIT_RAD", "nan"),
+            ("STALL_RELEASE", "maybe"),
+            ("STALL_STEPS", "0"),
+            ("STALL_DISTANCE_M", "-0.05"),
+            ("STALL_TILT_DEG", "181"),
         ):
             with self.assertRaises(ValueError):
                 config_from_env({"ADV_H_" + key: value})
         self.estimate["held"] = float("nan")
         with self.assertRaises(ValueError):
             self.step()
+
+    def test_tilt_descent_from_commanded_wrist_offsets(self):
+        # The estimator sees only |A @ offset + b|. Feed back the last executed
+        # command, with different nominal BC targets for the two rows.
+        self.actions[:, :18] = 0.3
+        self.actions[0, 8:10] = [-0.2, 0.1]
+        rad_per_unit = (ARM_HIGH[4:6] - ARM_LOW[4:6]) / 2
+        for bias, noise in ((24.0, 0.0), (-24.0, 1.4), (60.0, 0.0)):
+            with self.subTest(bias=bias, noise=noise):
+                self.supervisor = ReleaseSupervisor({**self.config, "tilt_fix": True}, log=False)
+                self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.06, 0, 0]
+                self.estimate["tilt_deg"] = abs(bias)
+                self.state[20] = 0.75
+                self.carry()
+                height = pose_hold_action(self.state)[2]
+                output = self.step()  # enter PLACE
+                self.state[20] += 0.01  # active correction keeps the original base height
+                for t in range(320):
+                    offset = (output[:, 8:10] - self.actions[:, 8:10]) * rad_per_unit
+                    np.testing.assert_allclose(offset[0], offset[-1], atol=1e-7)
+                    self.assertLessEqual(np.max(np.abs(offset)), 0.18 + 1e-7)
+                    np.testing.assert_array_equal(output[:, 4:8], self.actions[:, 4:8])
+                    np.testing.assert_array_equal(output[:, 10:18], self.actions[:, 10:18])
+                    tilt = abs(np.dot([65, -55], offset[-1]) + bias)
+                    # Deterministic, alternating observation error at the reported MAE.
+                    self.estimate["tilt_deg"] = tilt + (-1) ** t * noise
+                    if abs(bias) == 24 and t >= 270:
+                        self.assertLessEqual(tilt, 10.0)
+                    if tilt > 12:
+                        np.testing.assert_array_equal(output[:, [0, 1, 3]], 0)
+                        np.testing.assert_allclose(output[:, 2], height)
+                    output = self.step()
+                if bias == 60:  # optimum is still out of reach at the configured limits
+                    np.testing.assert_allclose(offset[-1], [-0.18, 0.18], atol=0.021)
+                    self.assertLess(tilt, 41)
+                else:
+                    self.assertTrue(
+                        (np.sign(offset[-1]) == np.sign(bias) * np.array([-1, 1])).all()
+                    )
+                self.assertEqual(self.supervisor.phase, "PLACE")
+
+    def test_tilt_probe_dwell_ema_and_corrected_release_latch(self):
+        self.supervisor = ReleaseSupervisor(
+            {**self.config, "tilt_fix": True, "place_servo": True}, log=False
+        )
+        self.estimate["tilt_deg"] = 20.0
+        self.actions[:, 8:10] = [[0.1, 0.25], [0.2, -0.1]]
+        self.place()
+        rad_per_unit = (ARM_HIGH[4:6] - ARM_LOW[4:6]) / 2
+
+        def check_offset(expected):
+            output = self.step()
+            actual = (output[:, 8:10] - self.actions[:, 8:10]) * rad_per_unit
+            np.testing.assert_allclose(actual, np.tile(expected, (2, 1)), atol=1e-7)
+            return output
+
+        check_offset([0, 0])  # age 2
+        check_offset([0, 0])
+        check_offset([0.02, 0])  # age 6: first roll probe
+        self.estimate["tilt_deg"] = 17
+        for _ in range(2):
+            check_offset([0.02, 0])
+        self.estimate["tilt_deg"] = 21  # final noisy sample; probe EMA still beats 20
+        check_offset([0.01, 0])
+        for _ in range(2):
+            check_offset([0.01, 0])
+        check_offset([0.01, 0.02])  # next axis is pitch
+        self.estimate["tilt_deg"] = 5
+        check_offset([0.01, 0.02])
+        before_release = check_offset([0.01, 0.02])
+        self.actions[:, 8:10] = -0.9
+        released = self.step()
+        self.assertEqual(self.supervisor.phase, "RELEASE")
+        hold = pose_hold_action(self.state)
+        hold[8:10] = before_release[-1, 8:10]
+        np.testing.assert_array_equal(released, np.tile(hold, (2, 1)))
+        self.state[:7] = 0.7
+        np.testing.assert_array_equal(self.step(), released)
+        self.assertEqual(self.supervisor.phase, "SETTLE")
+
+    def test_tilt_probe_interruption_limits_and_place_reentry(self):
+        self.supervisor = ReleaseSupervisor(
+            {**self.config, "tilt_fix": True, "tilt_probe_steps": 2}, log=False
+        )
+        self.estimate["tilt_deg"] = 25
+        self.actions[:, :18] = 0.4
+        self.actions[:, 8] = 0.999
+        self.place()
+        np.testing.assert_array_equal(self.step()[:, 8], 1)  # clips normalized target
+        self.estimate["held"] = 0
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.estimate.update(held=0.95, tilt_deg=10)
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.estimate["tilt_deg"] = 25
+        np.testing.assert_array_equal(self.step()[:, 8], self.actions[:, 8])  # fresh baseline
+        np.testing.assert_array_equal(self.step()[:, 8], 1)
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.1, 0, 0]
+        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.assertEqual(self.supervisor.phase, "CARRY")
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.04, 0, 0]
+        np.testing.assert_array_equal(self.step()[:, 8:10], self.actions[:, 8:10])
+        self.assertEqual(self.supervisor.phase, "PLACE")
+
+    def test_stall_release_uses_current_gates_after_300_elapsed_place_steps(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                self.setUp()
+                self.supervisor = ReleaseSupervisor(
+                    {**self.config, "stall_release": enabled, "seat_cue": True}, log=False
+                )
+                self.estimate["tilt_deg"] = 18
+                self.state[22] = 1  # quiet and seat gates never pass
+                self.place()
+                start = self.supervisor.phase_since
+                self.estimate["plate_rel"] = np.zeros(3)
+                self.estimate["target_site_rel"] = [0.05, 0, 0]
+                while self.supervisor.time - start <= 300:
+                    self.assertTrue((self.step()[:, 18] == 1).all())
+                for distance, tilt, held in (
+                    (0.051, 18, 1),
+                    (0.05, 18.1, 1),
+                    (0.05, -1, 1),
+                    (0.05, 18, 0),
+                ):
+                    self.estimate.update(target_site_rel=[distance, 0, 0], tilt_deg=tilt, held=held)
+                    self.assertTrue((self.step()[:, 18] == 1).all())
+                self.estimate["held"] = 0.95
+                released = self.step()
+                self.assertEqual(self.supervisor.phase, "RELEASE" if enabled else "PLACE")
+                if enabled:
+                    hold = np.tile(pose_hold_action(self.state), (2, 1))
+                    np.testing.assert_array_equal(released, hold)
+                    np.testing.assert_array_equal(self.step(), hold)
+                    self.assertEqual(self.supervisor.phase, "SETTLE")
+
+    def test_stall_timer_restarts_on_place_entry(self):
+        config = config_from_env(
+            {
+                "ADV_H_STALL_RELEASE": "1",
+                "ADV_H_STALL_STEPS": "4",
+                "ADV_H_TILT_FIX": "1",
+                "ADV_H_TILT_PROBE_STEPS": "2",
+                "ADV_H_HELD_STEPS": "2",
+            }
+        )
+        self.supervisor = ReleaseSupervisor(config, log=False)
+        self.estimate["tilt_deg"] = 18
+        self.place()
+        self.step()
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.10, 0, 0]
+        self.step()
+        self.assertEqual(self.supervisor.phase, "CARRY")
+        self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.04, 0, 0]
+        entry = self.supervisor.time
+        for _ in range(2):  # new PLACE ages 0, 2
+            self.assertTrue((self.step()[:, 18] == 1).all())
+        self.estimate["tilt_deg"] = 16
+        corrected = self.step()  # age 4: roll probe improved
+        self.assertTrue((corrected[:, 18] == 1).all())
+        self.assertGreater(corrected[-1, 8], self.actions[-1, 8])
+        released = self.step()
+        self.assertTrue((released[:, 18:] == -1).all())
+        self.assertEqual(self.supervisor.release_time - entry, 6)
+        np.testing.assert_array_equal(released[-1, 8:10], corrected[-1, 8:10])
+        np.testing.assert_array_equal(self.step(), released)
 
     def test_place_servo_sign_frame_clipping_and_bc_preservation(self):
         self.config.update(place_servo=True, place_vmax=0.05)
@@ -307,7 +486,10 @@ class SupervisorTests(unittest.TestCase):
         # Default-off flags preserve brief-13 actions, including PLACE base commands.
         self.actions[:, :18] = 0.3
         self.place()
-        np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.estimate["tilt_deg"] = 25
+        for _ in range(10):
+            np.testing.assert_array_equal(self.step()[:, :18], self.actions[:, :18])
+        self.estimate["tilt_deg"] = 5
         self.config.update(place_servo=True, tilt_hold=True)
         self.supervisor = ReleaseSupervisor(self.config, log=False)
         for _ in range(3):  # APPROACH -> GRASP -> CARRY; no premature base override
