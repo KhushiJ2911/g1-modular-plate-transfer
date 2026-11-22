@@ -29,6 +29,9 @@ class LockedSiteContacts:
         if len(self._site_frames) < SITE_FRAMES:
             self._site_frames.append(np.array(task["site_xyz"], dtype=float))
             self.site = np.median(self._site_frames, axis=0)
+        return self._with_site(state, task)
+
+    def _with_site(self, state, task):
         self._plate_frames.append(np.array(task["plate_xyz"], dtype=float))
         plate = np.median(self._plate_frames, axis=0)
         delta = plate - self.site
