@@ -93,7 +93,12 @@ def _episode(name: str, seed: int, gl: str, policy: str, heads: str):
         raise ValueError("Only development seeds supported")
     # A 1-episode smoke plan starting at `seed` is exactly that seed (make_plan always takes the first
     # seed); checked locally in lead_shard_run.py before spawning.
-    dest = job_dir(f"{name}-{seed}")
+    # Modal may retry a preempted input; give each attempt its own directory.
+    volume.reload()
+    attempt = 0
+    while (OUT / (f"{name}-{seed}" + (f"-r{attempt}" if attempt else ""))).exists():
+        attempt += 1
+    dest = job_dir(f"{name}-{seed}" + (f"-r{attempt}" if attempt else ""))
     args = [
         f"{CODE}/.venv/bin/advaitic-eval",
         "--policy",

@@ -5,7 +5,7 @@ import numpy as np
 from submission.head_features import head_inputs
 
 from .kinematics import pelvis_rotation
-from .refined import CorrectedTaskState, GROUP_PHASES
+from .refined import GROUP_PHASES, CorrectedTaskState
 
 PICKUP = ("APPROACH", "PREGRASP", "GRASP")
 
@@ -21,12 +21,26 @@ class PerceptionHeads(CorrectedTaskState):
         task = super().update(obs)
         state = obs["state"]
         phase = self.controller.phase.value
+        self.raw_metrics = np.r_[
+            task["plate_rel"],
+            self.held_probability,
+            task["site_distance"] < 0.052 and task["plate_xyz"][2] - task["site_xyz"][2] <= -0.012,
+        ]
         if self.network:
             w = self.weights
-            x = head_inputs(self.visual, state, task["plate_xyz"], task["site_xyz"],
-                            self.held_probability, self.first_plate)
-            x = np.clip((x-w["x_mean"])/w["x_std"], -12, 12)
-            y = np.maximum(0, x @ w["hidden_weight"] + w["hidden_bias"]) @ w["out_weight"] + w["out_bias"]
+            x = head_inputs(
+                self.visual,
+                state,
+                task["plate_xyz"],
+                task["site_xyz"],
+                self.held_probability,
+                self.first_plate,
+            )
+            x = np.clip((x - w["x_mean"]) / w["x_std"], -12, 12)
+            y = (
+                np.maximum(0, x @ w["hidden_weight"] + w["hidden_bias"]) @ w["out_weight"]
+                + w["out_bias"]
+            )
             if phase in PICKUP:
                 delta = 0.025 * y[:3]
                 task["plate_xyz"] = task["plate_xyz"] + delta

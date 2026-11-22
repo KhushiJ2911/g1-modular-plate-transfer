@@ -6,7 +6,8 @@ from pathlib import Path
 from method.modular.contact_perception import PerceivedRackContact, PerceptionHeads
 from method.modular.observed_controller import CalibratedPlacementController
 
-from .policy_modular import ModularPolicy, make_policy as make_baseline
+from .policy_modular import ModularPolicy
+from .policy_modular import make_policy as make_baseline
 
 
 class PerceptionPolicy(ModularPolicy):

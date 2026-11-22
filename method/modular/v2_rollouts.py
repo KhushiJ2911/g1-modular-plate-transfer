@@ -21,8 +21,10 @@ def collect(seed, out, factory=None):
         raise ValueError("Generation requires the reserved v2 generation range")
     policy = (factory or make_policy)()
     features = []
+    raw = []
     current = []
     if factory:
+
         def record(module, args):
             current[:] = [args[0][0].detach().cpu().numpy().copy()]
 
@@ -44,6 +46,8 @@ def collect(seed, out, factory=None):
                 task = policy.task.snapshot(obs["state"])
                 if factory:
                     features.append(current[0])
+                    if hasattr(policy.task, "raw_metrics"):
+                        raw.append(policy.task.raw_metrics)
                 else:
                     images.append(obs["rgb"].copy())
                 states.append(obs["state"].copy())
@@ -126,13 +130,16 @@ def collect(seed, out, factory=None):
     )
     np.savez_compressed(
         out,
-        **({"features": np.asarray(features, np.float16)} if factory else {"rgb": np.stack(images)}),
+        **(
+            {"features": np.asarray(features, np.float16)} if factory else {"rgb": np.stack(images)}
+        ),
         state=np.stack(states),
         step=steps,
         phase=phases,
         actions=actions,
         truth=np.array(labels, np.float32),
         baseline=np.array(baseline, np.float32),
+        raw=np.asarray(raw, np.float32),
         meta=json.dumps(meta),
     )
     return meta

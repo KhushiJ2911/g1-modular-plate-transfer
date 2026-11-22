@@ -15,11 +15,23 @@ app = modal.App("modular-astra-dagger")
 data = modal.Volume.from_name("modular-data")
 
 
-@app.function(image=image,cpu=2,memory=4096,timeout=5400,max_containers=100,
-              volumes={"/runs":volume,"/data":data},scaledown_window=5)
+@app.function(
+    image=image,
+    cpu=2,
+    memory=4096,
+    timeout=5400,
+    max_containers=100,
+    volumes={"/runs": volume, "/data": data},
+    scaledown_window=5,
+)
 def episode(seed, arm="sol", digest=""):
-    if not (3110000 <= seed < 3110300 and arm == "sol" or
-            3111000 <= seed < 3111030 and arm == "heads"):
+    return run_episode(seed, arm, digest)
+
+
+def run_episode(seed, arm, digest):
+    if not (
+        3110000 <= seed < 3110300 and arm == "sol" or 3111000 <= seed < 3111030 and arm == "heads"
+    ):
         raise ValueError("Only the predeclared training and closed-loop test blocks")
     os.environ.update(MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa", LP_NUM_THREADS="2")
     data.reload()
@@ -35,11 +47,23 @@ def episode(seed, arm="sol", digest=""):
         return json.loads(rec.read_text())
     start = time.monotonic()
     with tempfile.TemporaryDirectory() as tmp:
-        dest = Path(tmp)/"record.npz"
-        p = run_candidate(["/root/policy/bin/python","-m","method.modular.v2_rollouts",str(seed),str(dest),"--factory",arm])
+        dest = Path(tmp) / "record.npz"
+        p = run_candidate(
+            [
+                "/root/policy/bin/python",
+                "-m",
+                "method.modular.v2_rollouts",
+                str(seed),
+                str(dest),
+                "--factory",
+                arm,
+            ]
+        )
         if p.returncode:
             raise RuntimeError(p.stdout[-4000:])
-        result = dict(**json.loads(p.stdout.splitlines()[-1]), seconds=time.monotonic()-start, arm=arm)
+        result = dict(
+            **json.loads(p.stdout.splitlines()[-1]), seconds=time.monotonic() - start, arm=arm
+        )
         (folder / f"{seed}.npz").write_bytes(dest.read_bytes())
     rec.write_text(json.dumps(result))
     data.commit()
