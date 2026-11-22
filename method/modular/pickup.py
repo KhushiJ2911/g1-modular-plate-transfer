@@ -21,6 +21,7 @@ class PickupController(CalibratedPlacementController):
         self.view = SourceView()
         self.source = None
         self.hand_to_center = None
+        self._confirmed_transform = None
         self.fk_rise = 0.0
 
     def _enter(self, task, hand_world, hand_rot):
@@ -30,21 +31,20 @@ class PickupController(CalibratedPlacementController):
             self.near_samples.clear()
             self.view = SourceView()
             self.hand_to_center = None
+            self._confirmed_transform = None
             self.fk_rise = 0.0
             if self.machine.grasp_retries:
                 self.source = None
         elif self.phase == Phase.LIFT:
             self.hand_to_center = hand_rot.T @ (self.lift_origin - hand_world)
+            self._confirmed_transform = np.eye(4)
+            self._confirmed_transform[:3, :3] = hand_rot.T @ self.lift_rot
+            self._confirmed_transform[:3, 3] = self.hand_to_center
 
     @property
     def confirmed_hand_to_plate(self):
         """Map plate-frame points into the hand frame at confirmed LIFT entry."""
-        if self.hand_to_center is None:
-            return None
-        transform = np.eye(4)
-        transform[:3, :3] = self.plate_to_hand[1].T
-        transform[:3, 3] = self.hand_to_center
-        return transform
+        return None if self._confirmed_transform is None else self._confirmed_transform.copy()
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):
         # The GRASP entry is the reached pregrasp pose. Hold the arm targets

@@ -213,6 +213,11 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     transform = ctl.confirmed_hand_to_plate
     np.testing.assert_allclose(hand + rot @ transform[:3, 3], task["plate_xyz"])
     np.testing.assert_allclose(rot @ transform[:3, :3], task["plate_rot"])
+    # Placement controllers can recalibrate their working offset after CARRY.
+    rotation = ctl.plate_to_hand[1].copy()
+    ctl.plate_to_hand[1][:] = 0
+    np.testing.assert_array_equal(ctl.confirmed_hand_to_plate, transform)
+    ctl.plate_to_hand[1][:] = rotation
     # The visual and FK centers still agree within the slip tolerance, but
     # the hand has only risen 4 cm when vision would already allow CARRY.
     state[44] = 0.9
