@@ -41,6 +41,7 @@ class FKSeatingController(PickupController):
     """Replace biased vision height during placement and corroborate seating by motion."""
 
     loaded_center_bias = None
+    fk_height_for_motion = True
 
     def reset(self):
         super().reset()
@@ -48,6 +49,7 @@ class FKSeatingController(PickupController):
         self.commanded_hand_z = None
         self.lower_start_z = None
         self.measured_hand_z = None
+        self.fk_plate_z = None
 
     def set_loaded_center_bias(self, bias):
         """Set one optional calibration of measured pinch centers for this pickup method."""
@@ -67,6 +69,7 @@ class FKSeatingController(PickupController):
         state = np.asarray(obs_state)
         task = self._read_task(state, task_state)
         if self.phase in HELD_PLACEMENT and self.hand_to_center is not None:
+            self.fk_plate_z = None
             self.kin.set_state(state)
             position, rotation = self.kin.hand_pose("left")
             basis = pelvis_rotation(state)
@@ -80,11 +83,11 @@ class FKSeatingController(PickupController):
                 if self.loaded_center_bias is not None:
                     offset = offset - self.loaded_center_bias
                 fk_plate = hand + basis @ rotation @ offset
-                plate = task["plate_xyz"].copy()
-                # Keep observed lateral centering. Only height was corrupted
-                # by the loaded view in the supported, unopened failures.
-                plate[2] = fk_plate[2]
-                task = {**task, "plate_xyz": plate, "plate_rel": basis.T @ (plate - pelvis)}
+                self.fk_plate_z = float(fk_plate[2])
+                if self.fk_height_for_motion:
+                    plate = task["plate_xyz"].copy()
+                    plate[2] = self.fk_plate_z
+                    task = {**task, "plate_xyz": plate, "plate_rel": basis.T @ (plate - pelvis)}
         return super().act(state, task)
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):

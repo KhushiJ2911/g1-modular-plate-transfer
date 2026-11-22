@@ -33,6 +33,11 @@ def replay(folder):
         raise ValueError("Expected an integrator development run")
     volume.reload()
     src = Path("/runs/modular") / folder / "eval"
+    return replay_episode(src)
+
+
+def replay_episode(src):
+    """Annotate a single completed public action archive and verify the terminal outcome."""
     original = json.loads((src / "report.json").read_text())
     assert (
         original["integrity_ok"]

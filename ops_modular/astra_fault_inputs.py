@@ -39,6 +39,17 @@ def diagnose(folder, event, checkpoint):
     initial = []
     points = []
     steps = {i: "initial" for i in range(6)}
+    if event.get("audit_divergence") is not None:
+        changed = np.flatnonzero(np.max(np.abs(np.diff(actions, axis=0)), axis=1) > 1e-5)
+        hold = int(changed[-1]) + 1 if len(changed) else 0
+        for i, label in (
+            (event["audit_divergence"], "first_action_divergence"),
+            (hold - 30, "before_stationary_command"),
+            (hold, "last_command_change"),
+            (len(actions), "terminal"),
+        ):
+            if 0 <= i <= len(actions):
+                steps[int(i)] = label
     near = event.get("target_approach_step")
     release = event.get("open_at_target")
     if near is not None:

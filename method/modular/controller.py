@@ -21,6 +21,7 @@ TUCKED_HAND = np.array([0.27, 0.14, 0.19])
 # Seed the local IK solve with the elbow bent forward during the reach.
 GRASP_IK_SEED = np.array([-0.55, 0.22, 0.30, 0.80, -0.15, 0.10, 0.00])
 LIFT_M = 0.16
+LOWER_RAMP_STEPS = 125
 
 
 def _rotation_from_vector(vector):
@@ -157,6 +158,10 @@ class ModularController:
         centered = abs(error[0]) < 0.027 and abs(error[1]) < 0.022
         return seated and (centered or (retrying and np.linalg.norm(error) < 0.039))
 
+    def _release_confirmed(self, task):
+        self.placement_streak = self.placement_streak + 1 if self._ready_to_release(task) else 0
+        return self.placement_streak >= 8
+
     def _ready_to_retreat(self, task):
         return (
             self.open_steps >= SETTLE_STEPS
@@ -274,7 +279,7 @@ class ModularController:
         elif phase in (Phase.ALIGN, Phase.LOWER):
             height = 0.090
             if phase == Phase.LOWER:
-                height -= min((self.machine.elapsed + 1) / 125, 1) * 0.135
+                height -= min((self.machine.elapsed + 1) / LOWER_RAMP_STEPS, 1) * 0.135
             desired = self.target_xyz + [0, 0, height]
             # Loaded arm joints sag under constant targets. Integrate the
             # measured plate error slowly, within a bounded IK offset.
@@ -295,10 +300,7 @@ class ModularController:
             if phase == Phase.ALIGN:
                 ready = self._ready_to_lower(task, desired)
             else:
-                self.placement_streak = (
-                    self.placement_streak + 1 if self._ready_to_release(task) else 0
-                )
-                ready = self.placement_streak >= 8
+                ready = self._release_confirmed(task)
         elif phase == Phase.RELEASE:
             ready = bool(np.all(state[layout.GRIPPERS] <= 0.08))
         elif phase == Phase.SETTLE:

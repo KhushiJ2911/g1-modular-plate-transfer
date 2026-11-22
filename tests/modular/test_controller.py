@@ -410,3 +410,118 @@ def test_settle_height_fallback_keeps_freeze_and_drift_guards():
     shifted = np.r_[task["plate_xyz"] + [0, 0, 0.012], 6]
     controller.settle_samples.append(shifted)
     assert not controller._ready_to_retreat(task)
+
+
+def test_late_fk_release_requires_dwell_and_stall_when_contact_is_missing():
+    from method.modular.fallback_seating import LATE_LOWER, NEAR_FRAMES, FallbackSeatingController
+
+    controller = FallbackSeatingController(FixedKinematics())
+    task = placement()
+    task["plate_xyz"][2] += 0.02
+    task["held"] = True
+    task["contacts"]["target_rack"] = False
+    controller.target_xyz = task["site_xyz"].copy()
+    controller.fk_plate_z = 0.82
+    controller.lower_start_z = 0.91
+    controller.measured_hand_z = 0.83
+    controller.machine.elapsed = LATE_LOWER - 1
+    for _ in range(NEAR_FRAMES):
+        assert not controller._ready_to_release(task)
+    for step in range(12):
+        controller.descent.update(0.83, 0.82 - step * 0.001)
+    assert not controller._ready_to_release(task)
+
+    controller.machine.elapsed = LATE_LOWER
+    controller.near_frames = 0
+    for _ in range(NEAR_FRAMES - 1):
+        assert not controller._ready_to_release(task)
+    assert controller._ready_to_release(task)
+    assert controller.proprio_arming
+
+    # An ordinary gate regains priority and starts its own confirmation count.
+    task["plate_xyz"][2] = 0.82
+    task["contacts"]["target_rack"] = True
+    controller.placement_streak = 4
+    assert controller._ready_to_release(task)
+    assert not controller.proprio_arming
+    assert controller.placement_streak == 0
+
+
+def test_low_site_settle_waits_for_normal_gate_and_stable_plate():
+    from method.modular.fallback_seating import LATE_SETTLE, FallbackSeatingController
+
+    controller = FallbackSeatingController(FixedKinematics())
+    task = placement()
+    controller.target_xyz = task["site_xyz"] - [0, 0, 0.013]
+    controller.initial_samples = [np.array([0.48, -0.20, 0.818])]
+    controller.fk_plate_z = 0.82
+    controller.machine.phase = Phase.RELEASE
+    position, rotation = controller.kin.hand_pose("left")
+    controller._enter(task, position, rotation)
+    assert controller.low_site_at_release and controller._collect_handoff_samples()
+    assert not controller.fallback_releases
+    np.testing.assert_allclose(controller.target_xyz, [0.47, 0.2, 0.837])
+
+    task["plate_xyz"] += [0.027, 0, -0.023]
+    for _ in range(controller.settle_samples.maxlen):
+        controller.settle_samples.append(np.r_[task["plate_xyz"], task["tilt_deg"]])
+    controller.open_steps = LATE_SETTLE - 1
+    assert not controller._ready_to_retreat(task)
+    controller.open_steps = LATE_SETTLE
+    task["contacts"]["floor"] = True
+    assert not controller._ready_to_retreat(task)
+    task["contacts"]["floor"] = False
+    assert controller._ready_to_retreat(task)
+    assert controller.fallback_settles == [{"step": 0}]
+
+
+def test_stationary_release_waits_for_descent_and_consecutive_near_samples():
+    from method.modular.controller import LOWER_RAMP_STEPS
+    from method.modular.stationary_release import WINDOW, StationaryReleaseController
+
+    controller = StationaryReleaseController(FixedKinematics())
+    controller.hand_to_center = np.array([0.09, 0, 0])
+    state = np.zeros(50)
+    state[layout.PELVIS_HEIGHT] = 0.70
+    state[layout.GRIPPERS][0] = 0.9
+    controller.placement_state = state
+    task = placement()
+    task["held"] = True
+    task["plate_xyz"][2] += 0.02
+    task["contacts"]["target_rack"] = False
+    controller.target_xyz = task["site_xyz"].copy()
+    controller.machine.elapsed = LOWER_RAMP_STEPS - 1
+    for _ in range(WINDOW):
+        assert not controller._release_confirmed(task)
+
+    controller.machine.elapsed = LOWER_RAMP_STEPS
+    task["tilt_deg"] = 16
+    assert not controller._release_confirmed(task)
+    task["tilt_deg"] = 14
+    for _ in range(WINDOW - 1):
+        assert not controller._release_confirmed(task)
+    assert controller._release_confirmed(task)
+    assert controller.fallback_releases == [{"step": 0}]
+
+
+def test_stationary_release_keeps_the_nominal_confirmation_in_control():
+    from method.modular.controller import LOWER_RAMP_STEPS
+    from method.modular.stationary_release import WINDOW, StationaryReleaseController
+
+    controller = StationaryReleaseController(FixedKinematics())
+    controller.hand_to_center = np.array([0.09, 0, 0])
+    state = np.zeros(50)
+    state[layout.PELVIS_HEIGHT] = 0.70
+    state[layout.GRIPPERS][0] = 0.9
+    controller.placement_state = state
+    task = placement()
+    task["held"] = True
+    controller.target_xyz = task["site_xyz"].copy()
+    controller.machine.elapsed = LOWER_RAMP_STEPS
+    sample = controller._seating_sample(task)
+    assert sample is not None
+    controller.seating_samples.extend([sample] * WINDOW)
+    for _ in range(7):
+        assert not controller._release_confirmed(task)
+    assert controller._release_confirmed(task)
+    assert not controller.fallback_releases
