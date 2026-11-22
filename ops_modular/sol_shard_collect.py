@@ -17,11 +17,22 @@ def read_rows(path):
 
 
 def fetch(call_id):
+    call = modal.FunctionCall.from_id(call_id)
     try:
-        return modal.FunctionCall.from_id(call_id).get(timeout=0)
+        return call.get(timeout=0)
     except (modal.exception.FunctionTimeoutError, modal.exception.OutputExpiredError) as exc:
         return {"error": f"{type(exc).__name__}: {exc}"}
-    except (TimeoutError, OSError, modal.exception.TimeoutError, modal.exception.ConnectionError):
+    except (TimeoutError, modal.exception.TimeoutError):
+        # A preempted input can end in FAILURE with no published return value.
+        # Check the call graph before treating a result wait as an active job.
+        try:
+            statuses = {item.status.name for item in call.get_call_graph()}
+        except (OSError, modal.exception.Error):
+            return None
+        if statuses == {"FAILURE"}:
+            return {"error": "Modal input failed and no result was published"}
+        return None
+    except (OSError, modal.exception.ConnectionError):
         return None
     except Exception as exc:
         if type(exc).__name__ in {"StreamTerminatedError", "GRPCError"}:

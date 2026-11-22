@@ -30,6 +30,7 @@ def export(rev, head, recovery=False):
         p.write_text(t.replace(old, new))
 
     update(module, "max_containers=200", "max_containers=23, single_use_containers=True")
+    update(module, "**CPU_OPTIONS, timeout=3600", "**CPU_OPTIONS, timeout=7200")
     update(module, 'modal.App("modular-shard")', f'modal.App("{app}")')
     update(
         module,

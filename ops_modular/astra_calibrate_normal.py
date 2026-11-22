@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 
-def package(calibration, contact, output):
+def package(calibration, contact, output, mask=None):
     report = json.loads(calibration.read_text())
     fit, check = map(set, (report["fit_seeds"], report["check_seeds"]))
     if not fit or not check or fit & check or not all(3056500 <= s < 3056600 for s in fit | check):
@@ -27,6 +27,13 @@ def package(calibration, contact, output):
         raise ValueError("Expected a measured unit normal")
     with np.load(contact, allow_pickle=False) as f:
         weights = dict(f)
+    if mask is not None:
+        if hashlib.sha256(mask.read_bytes()).hexdigest() != (
+            "409e9b7f694de4cfe2ab07e60eb06435ff16394be04ddd0e7e95f8c8ee4b5cfa"
+        ):
+            raise ValueError("Expected the frozen two-camera segmenter archive")
+        with np.load(mask, allow_pickle=False) as f:
+            weights.update({k: f[k] for k in f.files if k.startswith("mask/")})
     import io
 
     stream = io.BytesIO()
@@ -43,5 +50,6 @@ if __name__ == "__main__":
     p.add_argument("calibration", type=Path)
     p.add_argument("--contact", type=Path, default=Path("checkpoints/astra/contact_v1.npz"))
     p.add_argument("--output", type=Path, default=Path("checkpoints/astra"))
+    p.add_argument("--mask", type=Path, help="Include the frozen RGB segmenter for lift capture")
     a = p.parse_args()
-    print(package(a.calibration, a.contact, a.output))
+    print(package(a.calibration, a.contact, a.output, a.mask))

@@ -13,7 +13,7 @@ app = modal.App("modular-astra-grasp-transfer")
 volume = modal.Volume.from_name("modular-runs")
 
 
-def continuation(seed, archive, calibration):
+def continuation(seed, archive, calibration, fixed_site=None):
     import numpy as np
     from bigym.loco import make
 
@@ -31,16 +31,30 @@ def continuation(seed, archive, calibration):
     try:
         ts = env.reset(seed=seed)
         truth = PrivilegedTaskState(env)
+
+        def observe(state):
+            task = truth(state)
+            if fixed_site is not None:
+                site = np.asarray(fixed_site)
+                delta = task["plate_xyz"] - site
+                task.update(
+                    site_xyz=site,
+                    target_site_rel=pelvis_rotation(state).T @ (site - state[18:21]),
+                    site_distance=float(np.linalg.norm(delta)),
+                    site_xy_distance=float(np.linalg.norm(delta[:2])),
+                )
+            return task
+
         kin = G1Kinematics()
         ctl = ModularController(kin)
-        source = truth(ts.low_dim_obs)
+        source = observe(ts.low_dim_obs)
         ctl._initialize(ts.low_dim_obs, source)
         z0 = source["plate_xyz"][2]
         consecutive = 0
         for i, action in enumerate(actions):
             ts = env.step(action)
             state = ts.low_dim_obs
-            task = truth(state)
+            task = observe(state)
             consecutive = (
                 consecutive + 1 if task["held"] and task["plate_xyz"][2] > z0 + 0.075 else 0
             )
@@ -74,7 +88,7 @@ def continuation(seed, archive, calibration):
         )
         while not ts.last():
             state = ts.low_dim_obs
-            task = truth(state)
+            task = observe(state)
             if ctl.phase in (Phase.CARRY, Phase.ALIGN, Phase.LOWER):
                 kin.set_state(state)
                 basis = pelvis_rotation(state)

@@ -18,7 +18,16 @@ def attempt_status(cid):
     c = modal.FunctionCall.from_id(cid)
     try:
         c.get(timeout=0)
+    except modal.exception.FunctionTimeoutError:
+        return "ended"
     except TimeoutError:
+        # A preempted single-episode worker can finish with no published return
+        # value. Modal then raises the same timeout as a still-running input.
+        try:
+            if {node.status.name for node in c.get_call_graph()} == {"FAILURE"}:
+                return "ended"
+        except (OSError, modal.exception.Error):
+            pass
         return "running"
     except modal.exception.ConnectionError:
         return "running"
@@ -114,8 +123,8 @@ def supervise(
             ids[s] = c.object_id
         persist()
         r = c.get()
-        if r["seed"] != s or not r["completed"]:
-            raise ValueError("Full smoke failed integrity")
+        if r["seed"] != s or not r["completed"] or r.get("policy_error"):
+            raise ValueError(f"Unusable policy smoke for {s}: {r.get('policy_error')}")
     submitted = False
     with concurrent.futures.ThreadPoolExecutor(10) as pool:
         while True:

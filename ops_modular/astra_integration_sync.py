@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -14,7 +15,7 @@ NAMES = ("astra_pickup_20139df_dev", "astra_visual_9a2eca9_dev")
 def fetch(volume, remote, local):
     try:
         data = b"".join(volume.read_file(remote))
-    except FileNotFoundError:
+    except (FileNotFoundError, modal.exception.NotFoundError):
         return None
     local.write_bytes(data)
     return json.loads(data)
@@ -23,10 +24,14 @@ def fetch(volume, remote, local):
 def main():
     assert os.environ.get("MODAL_CONFIG_PATH") == "/home/keyu/.modal_modular.toml"
     v = modal.Volume.from_name("modular-runs")
-    for n in NAMES:
+    rounds = (
+        *NAMES,
+        *(p.name.removesuffix(".decision.call") for p in RUNS.glob("astra_*.decision.call")),
+    )
+    for n in sys.argv[1:] or rounds:
         try:
             files = {Path(e.path).name for e in v.listdir("astra-integration/" + n)}
-        except FileNotFoundError:
+        except (FileNotFoundError, modal.exception.NotFoundError):
             continue
         for name in ("summary", "replays", "smoke", "hybrid"):
             f = name + ".json"
@@ -59,12 +64,16 @@ def main():
     for p in [
         RUNS / (NAMES[0] + ".remote.call"),
         RUNS / (NAMES[1] + ".pipeline.call"),
+        RUNS / (NAMES[1] + ".recovery.call"),
+        *RUNS.glob("astra_*.decision.call"),
         RUNS / "astra_dagger/supervisor.call",
     ]:
         c = modal.FunctionCall.from_id(p.read_text().strip())
         try:
             out = c.get(timeout=0)
             print(p.name, "complete", str(out)[:160])
+        except modal.exception.FunctionTimeoutError:
+            print(p.name, "worker timed out")
         except TimeoutError:
             print(p.name, "active")
         except Exception as e:
