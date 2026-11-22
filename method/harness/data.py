@@ -4,6 +4,9 @@ import numpy as np
 
 LABEL_KEYS = ("priv_plate_rel", "priv_target_site_rel", "priv_plate_tilt_deg", "priv_held")
 RESERVED_SEEDS = ((2_600_000, 2_700_000), (7_310_000, 7_320_000))
+FLYWHEEL2_FIRST_SEED = 2_950_000
+FLYWHEEL2_LAST_SEED = 2_950_239
+ESTIMATOR_PHASES = ("carry", "place", "released", "lost", "approach")
 
 
 def check_seed(seed):
@@ -25,6 +28,20 @@ def audit_files(files):
         if seed in seeds:
             raise ValueError(f"Duplicate seed {seed}: could leak across episode splits")
         seeds.add(seed)
+
+
+def flywheel2_split(seed):
+    seed = check_seed(seed)
+    if not FLYWHEEL2_FIRST_SEED <= seed <= FLYWHEEL2_LAST_SEED:
+        raise ValueError(f"Expected a Flywheel2 training seed, got {seed}")
+    return {0: "test", 1: "dev"}.get(seed % 5, "train")
+
+
+def dagger2_challenge_seed(seed):
+    seed = check_seed(seed)
+    if not 2_410_000 <= seed <= 2_410_055:
+        raise ValueError(f"Expected a DAgger2 training seed, got {seed}")
+    return seed
 
 
 def pelvis_relative(world_xyz, state):
