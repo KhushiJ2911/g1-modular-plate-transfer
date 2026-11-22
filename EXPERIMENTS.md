@@ -95,3 +95,55 @@ The recorded SHAs identify the base of the working-tree candidates. The lead's `
   Command `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 ORT_DISABLE_TELEMETRY=1 MUJOCO_GL=egl uv run --locked --offline python -m method.modular.run_privileged --policy modular --seed-start 3000000 --episodes 60 --workers 4 --out /home/keyu/advaitic/plans/modular_controller/runs/sol_mod_j_00_retry.jsonl`
 - 2026-11-22 Modal smoke (HEAD `59805e64c274126428961e1c3edcc4226b751d89` with local runner edits, seed 3000399, app `modular-sol-privileged`) — first attempt failed at uv lock freshness check before starting a rollout, and the second hit an offline project rebuild in one CPU container. With the lock frozen and the image environment reused, one CPU container completed the third attempt in 7.6 s, 512 steps, successful with M2.
   Command `modal run ops_modular/sol_rollout.py::smoke --seed 3000399 --out /home/keyu/advaitic/plans/modular_controller/runs/sol_modal_j_smoke.json`
+
+### Astra · M4 observation-only wiring and phase audit · 2026-11-22
+
+The deployed source snapshot was created on `59805e6` with Astra's candidate files present in the worktree. Lead checkpoint `e588ae9` contains those files and the measured controller. The estimator is `advaitic-runs:est_v1b/last.pt`, SHA-256 `bd8ed33c87383b3b208ba251d8fa0b6f957d9f03a35cf6c8d23a81ce9cd867cd`. The [round-2 report](../plans/modular_controller/runs/astra_report2.md) contains the error tables and reproduction commands.
+
+| Date | Command | Seeds | Outcome |
+|---|---|---|---|
+| 2026-11-22 | `modal volume get advaitic-runs est_v1b/last.pt checkpoints/est_v1b/last.pt` | — | Local checkpoint downloaded and verified. |
+| 2026-11-22 | `uv run --locked python -`, one camera-free read of the site and plate frames | 3000320 | Site pose matched the pinned dish-drainer MJCF's +90° world-x rotation. Slot site height 0.85 m. |
+| 2026-11-22 | `uv run --locked python -m pytest -q tests/modular/test_policy_modular.py` with the policy interpreter from the report | 1000000 | Two local one-episode/four-step checks, 30.53 s and 9.00 s. Both passed. The latter checked reset determinism. |
+| 2026-11-22 | `modal deploy ops_modular/modular_sim.py` | — | New app `modular-sim` v1 deployed in 92.1 s client wall. Image integrity check verified 555 upstream files. |
+| 2026-11-22 | `uv run --locked /home/keyu/.local/share/uv/tools/modal/bin/python /home/keyu/advaitic/ops/spawn.py modular-sim eval_run '[["astra-m4-smoke-v1",1000000,1,true]]'` | 1000000 | One T4, 14.92 s remote command wall. 10 steps, zero policy errors/falls, integrity OK, smoke cutoff. Full report in `modular/astra-m4-smoke-v1/eval` on `advaitic-runs`. |
+
+### 2026-11-22 — lead: first official dev evals of the observation-only modular policy (e588ae9)
+- Code: commit `e588ae9` (controller variant j + `EstimatedTaskState` + `submission/policy_modular.py`), frozen export
+  `/home/keyu/advaitic/export/modular_e588ae9`, estimator `est_v1b/last.pt` sha256 `bd8ed33c…cd867cd`.
+- Modal: dedicated account (profile `chinmaykarkar7`, `MODAL_CONFIG_PATH=~/.modal_modular.toml`), app `modular-sim`, T4, volume `advaitic-runs`.
+- Deploy: `modal deploy ops_modular/modular_sim.py` from the export (115 s).
+- Smoke: `eval_run("lead_e588ae9_smoke_1000000", 1000000, 1, smoke=True)` → 10 steps, no policy error, no fall,
+  submission sha256 `4848e1aa…`, NON_QUALIFYING (smoke).
+- Scored (predeclared, disjoint dev blocks, spawned detached): seeds 1000000 (`fc-01M80XKEBMT38XE55Y1VZ48FDS`),
+  1010000 (`fc-01M80XKF7P1VGHNJT47MTQS8D1`), 1020000 (`fc-01M80XKG3V1J96MCTQ43EPHGV5`), 30 episodes each. Results: pending.
+
+### Astra · Rendered estimator measurements · 2026-11-22
+
+All Modal jobs below used `modular-sim` v1 on the primary profile, pinned estimator `bd8ed33c…cd867cd` and the controller in `59805e6`. Lead checkpoint `e588ae9` preserves the policy and audit code. The 20 episodes contributed 11,938 paired pre-action samples. Under the privileged driver 19 reached official success, one timed out and zero fell. Pre-grasp plate error was 1.84 cm mean / 4.06 cm p95. During release the target-rack contact proxy missed 142 of 216 live contacts. See the [phase report](../plans/modular_controller/runs/astra_report2.md) for all metrics.
+
+| Date | Command | Seed | Frames | Privileged result | Wall, s |
+|---|---|---:|---:|---|---:|
+| 2026-11-22 | Local `uv run --locked results/astra-policy-env/bin/python -m method.modular.phase_errors run 3000300 OUT.jsonl.gz` (software EGL) | 3000300 | 591 | success, excluded from pooled stats | 591.28 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000300)` | 3000300 | 591 | success | 31.27 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000301)` | 3000301 | 527 | success | 29.22 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000302)` | 3000302 | 554 | success | 27.54 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000303)` | 3000303 | 566 | success | 28.70 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000304)` | 3000304 | 592 | success | 32.01 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000305)` | 3000305 | 536 | success | 28.61 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000306)` | 3000306 | 572 | success | 29.08 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000307)` | 3000307 | 529 | success | 29.09 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000308)` | 3000308 | 603 | success | 29.32 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000309)` | 3000309 | 526 | success | 26.45 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000310)` | 3000310 | 518 | success | 25.61 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000311)` | 3000311 | 1700 | timeout | 68.31 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000312)` | 3000312 | 549 | success | 27.57 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000313)` | 3000313 | 577 | success | 28.73 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000314)` | 3000314 | 471 | success | 24.29 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000315)` | 3000315 | 512 | success | 27.78 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000316)` | 3000316 | 477 | success | 25.62 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000317)` | 3000317 | 493 | success | 26.92 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000318)` | 3000318 | 533 | success | 28.95 |
+| 2026-11-22 | `modular-sim phase_episode("astra2-phase", 3000319)` | 3000319 | 512 | success | 26.72 |
+
+20 T4 invocations, pool capped at five concurrent containers. Total remote command time 601.79 s. The official smoke used one additional T4 invocation (14.92 s). Estimated execution cost across both was $0.12 before startup and billing overhead.
