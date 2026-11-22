@@ -194,3 +194,41 @@ def test_alignment_cannot_end_while_site_is_provisional():
     assert not controller._ready_to_lower(task, task["plate_xyz"])
     controller.site_contacts.locked = True
     assert controller._ready_to_lower(task, task["plate_xyz"])
+
+
+def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
+    from method.modular.pickup import WINDOW, PickupController
+
+    ctl = PickupController(FixedKinematics())
+    task = {**placement(), "plate_rot": np.eye(3), "held": True}
+    state = np.zeros(50)
+    for _ in range(WINDOW):
+        ctl.act(state, task)
+    ctl.machine.phase = Phase.GRASP
+    for _ in range(WINDOW):
+        ctl._pickup_task(state, task)
+    ctl.machine.phase = Phase.LIFT
+    hand, rot = ctl.kin.hand_pose("left")
+    ctl._enter(task, hand, rot)
+    # The visual and FK centers still agree within the slip tolerance, but
+    # the hand has only risen 4 cm when vision would already allow CARRY.
+    state[44] = 0.9
+    state[7:9] = -0.016
+    state[20] = 0.04
+    rising = {**task, "plate_xyz": task["plate_xyz"] + [0, 0, 0.09]}
+    measured = ctl._pickup_task(state, rising)
+    assert measured["held"] and not ctl._lift_ready(measured)
+    # Empty fingers trigger a bounded retry while vision still claims held.
+    state[44] = 1.0
+    state[7:9] = -0.020
+    for _ in range(10):
+        ctl.act(state, task)
+    assert ctl.phase == Phase.PREGRASP and ctl.machine.grasp_retries == 1
+    assert not ctl.near_samples and ctl.hand_to_center is None
+    displaced = {**task, "plate_xyz": task["plate_xyz"] + [0.02, -0.03, 0.004]}
+    ctl.machine.phase = Phase.GRASP
+    for _ in range(WINDOW):
+        target = ctl._pickup_task(state, displaced)
+    np.testing.assert_allclose(target["plate_xyz"], displaced["plate_xyz"])
+    ctl.reset()
+    assert ctl.phase == Phase.APPROACH and not ctl.initial_samples

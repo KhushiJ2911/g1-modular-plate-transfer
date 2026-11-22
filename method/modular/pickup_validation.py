@@ -1,0 +1,175 @@
+"""Development-only paired pickup substitution and camera-free official-action audit."""
+
+import argparse
+import json
+import os
+
+import numpy as np
+
+from .controller import ModularController
+from .observed_controller import CalibratedPlacementController
+from .phases import Phase
+from .privileged import PrivilegedTaskState
+
+
+class LiftMetrics:
+    def __init__(self, origin):
+        self.origin = origin
+        self.max_rise = 0
+        self.streak = self.longest = self.empty = 0
+        self.acquired = False
+        self.early_losses = 0
+
+    def observe(self, task):
+        rise = task["plate_xyz"][2] - self.origin
+        if task["held"]:
+            self.acquired = True
+            self.empty = 0
+            self.max_rise = max(self.max_rise, float(rise))
+        else:
+            self.empty += 1
+            if self.acquired and self.longest < 30 and self.empty == 5:
+                self.early_losses += 1
+                self.acquired = False
+        self.streak = self.streak + 1 if task["held"] and rise >= 0.05 else 0
+        self.longest = max(self.longest, self.streak)
+
+    def result(self):
+        return dict(
+            lift=self.max_rise >= 0.05, secure=self.longest >= 30, early_losses=self.early_losses
+        )
+
+
+def baseline():
+    from submission.policy_modular import make_policy
+    from submission.policy_modular_heads import PerceptionPolicy
+
+    return PerceptionPolicy(make_policy(), os.environ["ADV_HEADS"], CalibratedPlacementController)
+
+
+def hybrid(seed, variant):
+    from bigym.loco import make
+
+    from advaitic_eval.environment import (
+        make_environment,
+        observation,
+        observed_source_slot,
+        validate_actions,
+    )
+    from submission.policy_modular_heads import make_policy
+
+    policy = (baseline if variant == "base" else make_policy)()
+    ctl = policy.controller
+    env = make_environment()
+    try:
+        ts = env.reset(seed=seed)
+        policy.reset()
+        truth = PrivilegedTaskState(env)
+        metrics = LiftMetrics(truth(ts.low_dim_obs)["plate_xyz"][2])
+        slot = observed_source_slot(env)
+        handoffs = []
+        prefix = []
+        while True:
+            task = truth(ts.low_dim_obs)
+            metrics.observe(task)
+            if ts.last():
+                break
+            phase = ctl.phase
+            if phase in (Phase.APPROACH, Phase.PREGRASP, Phase.GRASP, Phase.LIFT):
+                obs = observation(ts)
+                est = policy.task.update(obs)
+                # All source pose, held and source-contact inputs are estimated.
+                # The initial destination used by CARRY comes from truth.
+                combined = {
+                    **task,
+                    **{
+                        k: est[k]
+                        for k in (
+                            "plate_xyz",
+                            "plate_rel",
+                            "plate_rot",
+                            "plate_rot_rel",
+                            "tilt_deg",
+                            "held",
+                        )
+                    },
+                    "contacts": {**task["contacts"], "source_rack": est["contacts"]["source_rack"]},
+                }
+                action = ctl.act(obs["state"], combined)
+            else:
+                action = ModularController.act(ctl, ts.low_dim_obs, task)
+            if phase != ctl.phase and ctl.phase in (Phase.LIFT, Phase.CARRY):
+                handoffs.append(
+                    dict(
+                        phase=ctl.phase.value,
+                        held=task["held"],
+                        rise=float(task["plate_xyz"][2] - metrics.origin),
+                    )
+                )
+            action = validate_actions(action)[0]
+            ts = env.step(action)
+            if prefix is not None:
+                prefix.append(action.copy())
+                if ctl.phase in (Phase.CARRY, Phase.HOLD) and not ts.last():
+                    # All subsequent observations in this hybrid are privileged.
+                    # Replay the actual prefix, verify the handoff, then omit cameras.
+                    state = ts.low_dim_obs.copy()
+                    xyz = truth(state)["plate_xyz"]
+                    env.close()
+                    env = make("move_plate", camera_keys=())
+                    ts = env.reset(seed=seed)
+                    for recorded in prefix:
+                        ts = env.step(recorded)
+                    truth = PrivilegedTaskState(env)
+                    np.testing.assert_array_equal(state, ts.low_dim_obs)
+                    np.testing.assert_array_equal(xyz, truth(ts.low_dim_obs)["plate_xyz"])
+                    prefix = None
+        return dict(
+            seed=seed,
+            variant=variant,
+            slot=slot,
+            steps=ctl.machine.step,
+            success=bool(env.episode_succeeded() and not env.episode_fell()),
+            fell=bool(env.episode_fell()),
+            **metrics.result(),
+            handoffs=handoffs,
+            transitions=ctl.transitions,
+        )
+    finally:
+        env.close()
+
+
+def audit(seed, archive):
+    from bigym.loco import make
+
+    env = make("move_plate", camera_keys=())
+    try:
+        ts = env.reset(seed=seed)
+        truth = PrivilegedTaskState(env)
+        metrics = LiftMetrics(truth(ts.low_dim_obs)["plate_xyz"][2])
+        with np.load(archive) as f:
+            for action in f["actions"]:
+                if ts.last():
+                    raise ValueError("Official replay terminated early")
+                metrics.observe(truth(ts.low_dim_obs))
+                ts = env.step(action)
+        metrics.observe(truth(ts.low_dim_obs))
+        if not ts.last():
+            raise ValueError("Official replay did not terminate")
+        return dict(
+            **metrics.result(),
+            success=bool(env.episode_succeeded() and not env.episode_fell()),
+            fell=bool(env.episode_fell()),
+        )
+    finally:
+        env.close()
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("seed", type=int)
+    p.add_argument("variant", choices=("base", "pickup", "audit"))
+    p.add_argument("--archive")
+    a = p.parse_args()
+    result = audit(a.seed, a.archive) if a.variant == "audit" else hybrid(a.seed, a.variant)
+    print(json.dumps(result))

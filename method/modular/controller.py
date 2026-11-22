@@ -135,6 +135,13 @@ class ModularController:
     def _ready_to_lower(self, task, desired):
         return np.linalg.norm(task["plate_xyz"] - desired) < 0.023 and task["tilt_deg"] < 14
 
+    def _lift_ready(self, task):
+        return (
+            task["held"] >= 0.5
+            and task["plate_xyz"][2] - self.lift_origin[2] >= 0.078
+            and not task["contacts"]["source_rack"]
+        )
+
     def _ready_to_release(self, task):
         contact = task["contacts"]
         error = task["plate_xyz"] - self.target_xyz
@@ -238,11 +245,7 @@ class ModularController:
             desired = self.lift_origin + ramp * np.array([-0.035, 0, LIFT_M])
             position, rotation = self._hand_from_plate(desired, self.lift_rot)
             close = True
-            ready = (
-                held
-                and plate[2] - self.lift_origin[2] >= 0.078
-                and not task["contacts"]["source_rack"]
-            )
+            ready = self._lift_ready(task)
         elif phase == Phase.CARRY:
             base_goal = self.target_xyz[:2] - TARGET_STANDOFF_XY
             desired = state[layout.PELVIS_XYZ] + basis @ self.carry_rel

@@ -4,16 +4,16 @@ import os
 from pathlib import Path
 
 from method.modular.contact_perception import PerceivedRackContact, PerceptionHeads
-from method.modular.observed_controller import CalibratedPlacementController
+from method.modular.pickup import PickupController
 
 from .policy_modular import ModularPolicy
 from .policy_modular import make_policy as make_baseline
 
 
 class PerceptionPolicy(ModularPolicy):
-    def __init__(self, base, checkpoint):
+    def __init__(self, base, checkpoint, controller_type=PickupController):
         self.task = base.task
-        self.controller = CalibratedPlacementController(base.controller.kin, self.task)
+        self.controller = controller_type(base.controller.kin, self.task)
         self.task = PerceptionHeads(self, checkpoint)
         self.controller.task_state_source = self.task
         self.reset()
