@@ -600,3 +600,9 @@ Budget cutoff left 13 valid full reset generation outcomes out of the 30 planned
 - Leak-test (qualifying-format, single policy process, frozen 54080e5 BEFORE reset fix): dev block 1031000 **28/30 PASS**,
   1041000 **29/30 PASS** (57/60 = 95%). The persistent-process format alone does not reproduce the 2600000 drop; 25/30 there is
   consistent with block difficulty/variance at ~93–95%. Reset fix (414f15a) kept regardless (behaviour-neutral, 81/81 actions equal).
+
+### 2026-11-23 04:2x — round 4: 414f15a (54080e5 + reset fix), QUALIFYING FORMAT (single process), 8 fresh blocks — 220/240 (91.7%)
+- Blocks: 1033000 28, 1042000 28, 1052000 28, 1062000 26 (FAIL), 1072000 27, 1082000 30, 1092000 26 (FAIL), 1034000 27 → 6/8 pass.
+  App `modular-qualify` (T4), 4 blocks per Modal account, ~16 min each.
+- Pooled single-process evidence for this policy family: 220/240 + leak tests 57/60 + 2600000 25/30 = 302/330 (91.5%).
+  Sharded fresh-process numbers (≥95%) were optimistic. Per the overnight plan → rule B: paired 528c854 comparison + one fix round.
