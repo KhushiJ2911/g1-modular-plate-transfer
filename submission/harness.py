@@ -32,6 +32,7 @@ DEFAULT_CONFIG = {
     "exec_steps": 2,
     "release_distance_m": 0.035,
     "release_tilt_deg": 12.0,
+    "release_height_guard": False,
     "stable_steps": 6,
     **SEATING_AND_REGRIP_DEFAULTS,
     **TILT_AND_STALL_DEFAULTS,
@@ -73,7 +74,12 @@ def config_from_env(environ=None):
 
 
 def validate_config(config):
-    config = SEATING_AND_REGRIP_DEFAULTS | TILT_AND_STALL_DEFAULTS | dict(config)
+    config = (
+        {"release_height_guard": DEFAULT_CONFIG["release_height_guard"]}
+        | SEATING_AND_REGRIP_DEFAULTS
+        | TILT_AND_STALL_DEFAULTS
+        | dict(config)
+    )
     if set(config) != set(DEFAULT_CONFIG):
         raise ValueError("Harness config keys must match DEFAULT_CONFIG")
     for key, value in config.items():
@@ -113,6 +119,7 @@ ARM_HIGH = np.array(
 LEFT_WRIST_PITCH = 5  # qpos and arm offset; absolute target is action[4 + 5]
 LEFT_WRIST_ACTION = slice(8, 10)  # left roll, pitch after the four base channels
 WRIST_ACTION_PER_RAD = 2 / (ARM_HIGH[4:6] - ARM_LOW[4:6])
+MAX_RELEASE_HEIGHT_M = np.float32(0.02)  # plate centre above the estimated slot
 
 # Adapted from SWIRL-Lab's BiGym2 Move Plate Astra s1 and Opus s3 (CC BY 4.0).
 # Source links, line references and changes are in method/harness/BRIEF18.md.
@@ -368,7 +375,12 @@ class ReleaseSupervisor:
                     and 0 <= tilt <= c["stall_tilt_deg"]
                 )
                 strict_release = stable >= c["stable_steps"] and seated
-                if strict_release or stalled:
+                # Estimated positions share a yaw-only pelvis frame, so their z difference
+                # is the signed world-height difference. Recheck it on the opening decision.
+                height_ok = (
+                    not c["release_height_guard"] or plate[2] - site[2] <= MAX_RELEASE_HEIGHT_M
+                )
+                if (strict_release or stalled) and height_ok:
                     self.release_time = self.time
                     self.hold = pose_hold_action(state)
                     if (

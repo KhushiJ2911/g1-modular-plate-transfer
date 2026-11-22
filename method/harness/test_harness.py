@@ -133,6 +133,49 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(self.supervisor.phase, "APPROACH")
         self.assertTrue((output[:, 18:] == -1).all())
 
+    def test_release_height_guard_vetoes_high_open_until_plate_descends(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                self.setUp()
+                config = config_from_env({"ADV_H_RELEASE_HEIGHT_GUARD": str(int(enabled))})
+                self.supervisor = ReleaseSupervisor(
+                    {**self.config, "release_height_guard": config["release_height_guard"]},
+                    log=False,
+                )
+                self.place()
+                self.estimate["target_site_rel"] = np.zeros(3, np.float32)
+                self.estimate["plate_rel"] = np.array([0, 0, 0.03], np.float32)
+                for _ in range(3):
+                    result = self.step()
+                if not enabled:
+                    self.assertEqual(self.supervisor.phase, "RELEASE")
+                    continue
+                self.assertEqual(self.supervisor.phase, "PLACE")
+                np.testing.assert_array_equal(result[:, :18], self.actions[:, :18])
+                self.assertTrue((result[:, 18] == 1).all())
+                self.estimate["plate_rel"][2] = 0.02
+                opened = self.step()
+                self.assertEqual(self.supervisor.phase, "RELEASE")
+                np.testing.assert_array_equal(self.step(), opened)
+
+    def test_height_guard_is_signed_and_applies_to_stall_release(self):
+        self.supervisor = ReleaseSupervisor(
+            {**self.config, "release_height_guard": True, "stall_release": True, "stall_steps": 2},
+            log=False,
+        )
+        self.place()
+        self.estimate["target_site_rel"] = np.zeros(3, np.float32)
+        self.estimate["plate_rel"] = np.array([0, 0, 0.04], np.float32)
+        for _ in range(4):
+            self.step()
+        self.assertEqual(self.supervisor.phase, "PLACE")
+        self.estimate["plate_rel"][2] = -0.04
+        self.step()
+        self.assertEqual(self.supervisor.phase, "RELEASE")
+        legacy = self.config.copy()
+        legacy.pop("release_height_guard")
+        self.assertFalse(ReleaseSupervisor(legacy, log=False).config["release_height_guard"])
+
     def test_grasp_requires_observed_closure(self):
         self.state[44] = 0
         for _ in range(4):
