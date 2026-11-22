@@ -14,6 +14,9 @@ WINDOW = 6
 class PickupController(CalibratedPlacementController):
     """Stop at two camera viewpoints and verify attachment before moving the base."""
 
+    use_wrist_localization = True
+    use_lift_xy_fallback = True
+
     def reset(self):
         super().reset()
         self.initial_samples = []
@@ -74,7 +77,7 @@ class PickupController(CalibratedPlacementController):
                 self.source = initial.copy()
                 self.source[:2] = (initial[:2] + near[:2]) / 2
 
-            if "left_wrist_rgb" in task:
+            if self.use_wrist_localization and "left_wrist_rgb" in task:
                 basis = pelvis_rotation(state)
                 self.kin.set_state(state)
                 pos, rot = self.kin.hand_pose("left")
@@ -122,7 +125,12 @@ class PickupController(CalibratedPlacementController):
                 consistent = np.linalg.norm(residual) < 0.060
                 # Before reopening a confirmed pinch, use the independent height
                 # gates to resolve a depth disagreement when xy still agrees.
-                if pinched and not consistent and self.lost_streak >= 9:
+                if (
+                    self.use_lift_xy_fallback
+                    and pinched
+                    and not consistent
+                    and self.lost_streak >= 9
+                ):
                     consistent = np.linalg.norm(residual[:2]) < 0.060 and self._lift_ready(
                         {**task, "held": True}
                     )
