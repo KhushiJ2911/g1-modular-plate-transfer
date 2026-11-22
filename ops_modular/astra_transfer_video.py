@@ -128,11 +128,17 @@ def film(directory, destination, label):
     volumes={"/runs": volume, "/records": records},
 )
 def clip(seed, arm, folder):
-    if (
-        not 3001600 <= seed < 3001750
-        or arm not in ("base", "fk")
-        or not re.fullmatch(rf"/runs/modular/sol_fk_full_{arm}-{seed}(-r[0-9]+)?/eval", folder)
-    ):
+    paired = arm in ("base", "fk") and re.fullmatch(
+        rf"/runs/modular/sol_fk_full_{arm}(?:_retry)?-{seed}(-r[0-9]+)?/eval", folder
+    )
+    recovery = (
+        seed == 3001616
+        and arm == "clearance"
+        and re.fullmatch(
+            r"/runs/modular/astra_phasegen_96699ef0c3_fk-3001616(-r[0-9]+)?/eval", folder
+        )
+    )
+    if not (3001600 <= seed < 3001750 and (paired or recovery)):
         raise ValueError("Expected a fresh, paired generation archive")
     records.reload()
     volume.reload()
@@ -143,7 +149,11 @@ def clip(seed, arm, folder):
         return json.loads(stem.with_suffix(".json").read_text())
     with tempfile.TemporaryDirectory() as tmp:
         f = str(Path(tmp) / "episode.gif")
-        title = "Calibrated placement" if arm == "base" else "Wrist-based seating"
+        title = {
+            "base": "Calibrated placement",
+            "fk": "Wrist-based seating",
+            "clearance": "Wrist-based seating with open-hand base withdrawal",
+        }[arm]
         src = (
             "import json\nfrom pathlib import Path\n"
             + inspect.getsource(film)

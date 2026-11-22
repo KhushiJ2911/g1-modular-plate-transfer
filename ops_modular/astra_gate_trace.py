@@ -122,6 +122,7 @@ def trace(name, folder, head):
     candidates = {
         "bd951bc": "astra_calibrated_bd951bc_dev",
         "6b02f33": "astra_height_6b02f33_dev",
+        "b5a9d72": "astra_lowsite_b5a9d72_dev",
     }
     if name != candidates[sha] or not re.fullmatch(
         re.escape(name) + r"-10[0-9]{5}(-r[0-9]+)?", folder

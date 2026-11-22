@@ -96,7 +96,7 @@ def audit(seed, arm, folder):
     if (
         not 3001600 <= seed < 3001750
         or arm not in ("base", "fk")
-        or not re.fullmatch(rf"/runs/modular/sol_fk_full_{arm}-{seed}(?:-r[0-9]+)?/eval", folder)
+        or not re.fullmatch(rf"/runs/modular/sol_fk_full_{arm}(?:_retry)?-{seed}(?:-r[0-9]+)?/eval", folder)
     ):
         raise ValueError("Expected the paired generation block")
     records.reload()

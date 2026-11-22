@@ -8,6 +8,7 @@ pick it. Results are dev-only and non-qualifying; they are aggregated per block 
 """
 
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -20,7 +21,7 @@ from advaitic_eval.protocol import make_plan  # noqa: E402
 
 def main():
     name, kind, out, policy, heads, *starts = sys.argv[1:]
-    fn = modal.Function.from_name("modular-shard", f"episode_{kind}")
+    fn = modal.Function.from_name(os.environ.get("SHARD_APP", "modular-shard"), f"episode_{kind}")
     jobs = [(int(s), e.seed, e.source_slot) for s in starts for e in make_plan(30, int(s))]
     assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)
     print(f"{name}: {len(jobs)} episodes on {kind}", flush=True)
