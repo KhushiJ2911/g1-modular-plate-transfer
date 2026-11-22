@@ -22,7 +22,8 @@ def measure(folder, output, episode_index=0):
         raise ValueError("Expected a completed episode with its original evaluator index")
     actions = folder / f"episode_{episode_index:03}.actions.npz"
     with np.load(actions, allow_pickle=False) as f:
-        commands = f["actions"][:, 18]
+        issued = f["actions"]
+        commands = issued[:, 18]
     snapshots = []
     original = PrivilegedSensors.snapshot
 
@@ -109,6 +110,26 @@ def measure(folder, output, episode_index=0):
         r["reacquired_after_open"] = bool(
             cleared and any(s["held"] for s in frames[cleared["step"] + 1 :])
         )
+        after = frames[release : opening_end + 1]
+        first_return = next(
+            (s for s in after if cleared and s["step"] > cleared["step"] and s["held"]), None
+        )
+        r["first_pad_return"] = first_return
+        r["terminal_pad_contact"] = bool(frames[-1]["held"])
+        r["contact_frames_while_commanded_open"] = sum(
+            s["held"] for s in after if s["step"] < opening_end
+        )
+        moving = (
+            np.flatnonzero(np.linalg.norm(issued[release:opening_end, :2], axis=1) > 1e-5) + release
+        )
+        if len(moving):
+            r["open_base_motion"] = {
+                "commands": int(len(moving)),
+                "first": frames[int(moving[0])],
+                "last": frames[int(moving[-1])],
+            }
+        else:
+            r["open_base_motion"] = None
     output.write_text(json.dumps(r))
 
 
