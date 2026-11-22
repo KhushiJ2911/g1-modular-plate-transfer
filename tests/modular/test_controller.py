@@ -525,3 +525,56 @@ def test_stationary_release_keeps_the_nominal_confirmation_in_control():
         assert not controller._release_confirmed(task)
     assert controller._release_confirmed(task)
     assert not controller.fallback_releases
+
+
+def test_supported_release_uses_rigid_lateral_position_after_visual_drift():
+    from method.modular.fallback_seating import LATE_LOWER, NEAR_FRAMES, FallbackSeatingController
+
+    controller = FallbackSeatingController(FixedKinematics())
+    state = np.zeros(50)
+    state[layout.PELVIS_HEIGHT] = 0.70
+    state[layout.GRIPPERS][0] = 0.9
+    controller.seating_state = state
+    controller.hand_to_center = np.array([0.09, 0, 0])
+    controller.fk_plate_z = 0.82
+    controller.lower_start_z = 0.93
+    controller.measured_hand_z = 0.82
+    controller.machine.elapsed = LATE_LOWER
+    task = placement()
+    task["held"] = True
+    controller.target_xyz = task["site_xyz"].copy()
+    task["plate_xyz"][1] += 0.052
+    delta = task["plate_xyz"] - controller.target_xyz
+
+    for _ in range(NEAR_FRAMES - 1):
+        assert not controller._supported_seat(task, delta)
+    assert controller._supported_seat(task, delta)
+    task["contacts"]["target_rack"] = False
+    assert not controller._supported_seat(task, delta)
+    assert not controller.supported_depths
+
+
+def test_supported_high_release_requires_evidence_of_resisted_descent():
+    from method.modular.fallback_seating import LATE_LOWER, NEAR_FRAMES, FallbackSeatingController
+
+    controller = FallbackSeatingController(FixedKinematics())
+    state = np.zeros(50)
+    state[layout.GRIPPERS][0] = 0.9
+    controller.seating_state = state
+    controller.fk_plate_z = 0.85
+    controller.lower_start_z = 0.96
+    controller.measured_hand_z = 0.85
+    controller.commanded_hand_z = 0.846
+    controller.machine.elapsed = LATE_LOWER
+    task = placement()
+    task["held"] = True
+    task["plate_xyz"][2] = 0.846
+    controller.target_xyz = task["site_xyz"].copy()
+    delta = task["plate_xyz"] - controller.target_xyz
+
+    for _ in range(NEAR_FRAMES):
+        assert not controller._supported_seat(task, delta)
+    controller.commanded_hand_z = 0.836
+    assert controller._supported_seat(task, delta)
+    task["contacts"]["floor"] = True
+    assert not controller._supported_seat(task, delta)

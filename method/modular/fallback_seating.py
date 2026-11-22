@@ -1,8 +1,12 @@
 """Conservative late release recovery for the calibrated plate controller."""
 
+from collections import deque
+
 import numpy as np
 
+from . import layout
 from .controller import ModularController
+from .kinematics import pelvis_rotation
 from .phases import SETTLE_STEPS, Phase
 from .site_seating import SupportReferencedController
 
@@ -28,6 +32,12 @@ class FallbackSeatingController(SupportReferencedController):
         self.fallback_releases = []
         self.fallback_settles = []
         self.low_site_at_release = False
+        self.supported_depths = deque(maxlen=NEAR_FRAMES)
+        self.seating_state = None
+
+    def act(self, obs_state, task_state=None):
+        self.seating_state = np.asarray(obs_state) if self.phase == Phase.LOWER else None
+        return super().act(obs_state, task_state)
 
     def _use_supported_handoff(self):
         return bool(self.fallback_releases or self.fallback_settles)
@@ -40,6 +50,7 @@ class FallbackSeatingController(SupportReferencedController):
             self.near_frames = 0
             self.stall_step = None
             self.proprio_arming = False
+            self.supported_depths.clear()
         elif self.phase == Phase.RELEASE and self.proprio_arming:
             self._correct_low_site()
             plate = task["plate_xyz"].copy()
@@ -82,6 +93,7 @@ class FallbackSeatingController(SupportReferencedController):
         self.near_frames = self.near_frames + 1 if near else 0
         if self.descent.seated():
             self.stall_step = self.machine.step
+        supported = self._supported_seat(task, delta)
 
         if ModularController._ready_to_release(self, task):
             if self.proprio_arming:
@@ -92,8 +104,62 @@ class FallbackSeatingController(SupportReferencedController):
             return True
 
         regular_gate_in_progress = self.placement_streak and not self.proprio_arming
-        self.proprio_arming = not regular_gate_in_progress and self._ready_for_fallback(task, delta)
+        self.proprio_arming = not regular_gate_in_progress and (
+            self._ready_for_fallback(task, delta) or supported
+        )
         return self.proprio_arming
+
+    def _supported_seat(self, task, delta):
+        """Corroborate continuous rack contact with rigid-grasp or load geometry."""
+        state = self.seating_state
+        contacts = task["contacts"]
+        if (
+            state is None
+            or self.fk_plate_z is None
+            or self.lower_start_z is None
+            or not task["held"]
+            or not contacts["target_rack"]
+            or contacts["table"]
+            or contacts["floor"]
+            or state[layout.GRIPPERS][0] < 0.8
+            or np.mean(state[layout.LEFT_FINGERS]) < -0.0185
+            or task["tilt_deg"] > 12
+            or not -0.060 <= delta[2] <= 0.016
+            or self.lower_start_z - self.measured_hand_z < 0.065
+        ):
+            self.supported_depths.clear()
+            return False
+
+        near = np.linalg.norm(delta[:2]) <= 0.037
+        if not near:
+            # Wrist occlusion can move the CNN center laterally after seating.
+            hand, rot = self.kin.hand_pose("left")
+            offset = self.hand_to_center
+            if self.loaded_center_bias is not None:
+                offset = offset - self.loaded_center_bias
+            rigid = state[layout.PELVIS_XYZ] + pelvis_rotation(state) @ (hand + rot @ offset)
+            near = (
+                np.linalg.norm(rigid[:2] - self.target_xyz[:2]) <= 0.040
+                and np.linalg.norm(rigid[:2] - task["plate_xyz"][:2]) <= 0.060
+            )
+        reference = self._source_site_height()
+        if reference is None:
+            reference = self.target_xyz[2]
+        depth = self.fk_plate_z - reference
+        if not (near and -0.065 <= depth <= 0.010):
+            self.supported_depths.clear()
+            return False
+        self.supported_depths.append(float(delta[2]))
+        if self.machine.elapsed < LATE_LOWER or len(self.supported_depths) < NEAR_FRAMES:
+            return False
+
+        # If the rigid center rides high, require a stationary visible plate
+        # and the measured hand to be resisting the commanded descent.
+        return depth <= -0.016 or (
+            self.commanded_hand_z is not None
+            and self.measured_hand_z - self.commanded_hand_z >= 0.012
+            and np.ptp(self.supported_depths) <= 0.012
+        )
 
     def _ready_for_fallback(self, task, delta):
         if (
