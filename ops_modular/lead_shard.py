@@ -135,10 +135,3 @@ def episode_gpu(name: str, seed: int):
 @app.function(**CPU_OPTIONS, timeout=3600, max_containers=200)
 def episode_cpu(name: str, seed: int):
     return _episode(name, seed, "osmesa")
-
-
-@app.function(image=image, timeout=600)
-def plan(episodes: int, seed_start: int):
-    from advaitic_eval.protocol import make_plan
-
-    return [(e.seed, e.source_slot) for e in make_plan(episodes, seed_start)]
