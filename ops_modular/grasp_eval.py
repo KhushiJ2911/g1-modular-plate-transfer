@@ -18,7 +18,9 @@ if modal.is_local():
         Path(__file__).with_name("modular_sim.py"), "/root/ops_modular/modular_sim.py"
     )
 
-APP = "modular-grasp-feedback"
+APP = os.environ.get("GRASP_EVAL_APP", "modular-grasp-feedback")
+if not APP.startswith("modular-grasp-"):
+    raise ValueError("Use a dedicated pickup app")
 app = modal.App(APP)
 runs = modal.Volume.from_name("modular-runs")
 data = modal.Volume.from_name("modular-data")
@@ -120,6 +122,37 @@ def episode(seed: int, arm: str):
     else:
         result = json.loads(run([POLICY_PYTHON, "-m", EVAL, str(seed), arm]).splitlines()[-1])
     return {**result, "seconds": time.monotonic() - start}
+
+
+@app.function(
+    image=image,
+    cpu=2,
+    memory=4096,
+    max_containers=16,
+    volumes={"/runs": runs, "/data": data},
+    timeout=5400,
+    scaledown_window=10,
+)
+def pickup_trace(seed: int):
+    documented_failures = {1010018, 1010029, 1010033, 1020026, 1020043}
+    if seed not in documented_failures and not 3000500 <= seed < 3002000:
+        raise ValueError("Expected a development diagnostic seed")
+    os.environ.update(
+        MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa", LP_NUM_THREADS="2", ADV_HEADS=str(HEADS)
+    )
+    if hashlib.sha256(HEADS.read_bytes()).hexdigest() != HEAD_SHA:
+        raise ValueError("Unexpected perception head weights")
+    out = Path("/runs/grasp-validation") / f"{APP}-{seed}.npz"
+    if out.exists():
+        raise FileExistsError(out)
+    start = time.monotonic()
+    result = json.loads(
+        run([POLICY_PYTHON, "-m", "method.modular.pickup_trace", str(seed), str(out)]).splitlines()[
+            -1
+        ]
+    )
+    runs.commit()
+    return dict(**result, seconds=time.monotonic() - start, archive=str(out), variant="trace")
 
 
 @app.local_entrypoint()
