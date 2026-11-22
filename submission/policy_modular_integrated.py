@@ -57,3 +57,19 @@ def make_visual_release():
     policy = PerceptionPolicy(make_baseline(), checkpoint, PickupAndRelease)
     policy.controller.normal_source = SeatedNormal(policy.task, checkpoint)
     return policy
+
+
+def make_visual_geometry():
+    """Apply continuous position corrections while calibrating orientation on its original inputs."""
+    from method.modular.placement_release import SeatedNormal
+
+    class RawSeatedNormal(SeatedNormal):
+        def measure(self, state, task, hand, rotation):
+            return super().measure(state, self.adapter.snapshot(state), hand, rotation)
+
+    policy = make_visual_release()
+    checkpoint = os.environ["ADV_HEADS"]
+    policy.controller.normal_source = RawSeatedNormal(policy.task, checkpoint)
+    policy.task = PlacementEstimate(policy.task, policy.controller, checkpoint, ("site", "plate"))
+    policy.controller.task_state_source = policy.task
+    return policy

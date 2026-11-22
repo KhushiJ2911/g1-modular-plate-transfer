@@ -43,7 +43,16 @@ def summarize(path, seed_start, expected, prefix="sol_rb", variants=VARIANTS):
             and row.get("source_slot") == row.get("planned_slot")
         }
         seen[variant] = good
+        lifted = [
+            row for row in good.values() if any(phase["to"] == "CARRY" for phase in row["phases"])
+        ]
+        opened = [
+            row for row in good.values() if any(phase["to"] == "RELEASE" for phase in row["phases"])
+        ]
         reports[variant] = {
+            "entered_carry": len(lifted),
+            "entered_release": len(opened),
+            "success_after_carry": sum(row["success"] for row in lifted),
             "complete": len(good),
             "successes": sum(row["success"] for row in good.values()),
             "successes_by_slot": dict(

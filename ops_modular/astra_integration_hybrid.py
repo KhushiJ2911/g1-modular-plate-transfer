@@ -26,6 +26,7 @@ def episode(seed, arm):
         "plate": "submission.policy_modular_integrated:make_plate",
         "both": "submission.policy_modular_integrated:make_policy",
         "visual": "submission.policy_modular_integrated:make_visual_release",
+        "geometry": "submission.policy_modular_integrated:make_visual_geometry",
     }[arm]
     mod, name = factory.split(":")
     p = getattr(importlib.import_module(mod), name)()
@@ -86,6 +87,6 @@ def episode(seed, arm):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("seed", type=int)
-    p.add_argument("arm", choices=["base", "site", "plate", "both", "visual"])
+    p.add_argument("arm", choices=["base", "site", "plate", "both", "visual", "geometry"])
     a = p.parse_args()
     print(json.dumps(episode(a.seed, a.arm)))
