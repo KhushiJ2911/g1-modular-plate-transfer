@@ -93,7 +93,11 @@ class FKSeatingController(PickupController):
         return super()._action(state, position, rotation, base, close)
 
     def _ready_to_release(self, task):
-        if self.hand_to_center is None or self.measured_hand_z is None:
+        if (
+            self.hand_to_center is None
+            or self.measured_hand_z is None
+            or self.lower_start_z is None
+        ):
             return super()._ready_to_release(task)
         delta = task["plate_xyz"] - self.target_xyz
         contacts = task["contacts"]

@@ -330,3 +330,43 @@ def test_loaded_grasp_normal_begins_at_carry_and_persists_across_reset():
     np.testing.assert_array_equal(controller.level_normal, measured)
     with pytest.raises(ValueError, match="hand-frame normal"):
         controller.set_loaded_grasp_normal(np.zeros(3))
+
+
+def test_seating_stall_requires_a_descending_command_not_static_sag():
+    from method.modular.fk_seating import DescentMonitor
+
+    monitor = DescentMonitor()
+    for _ in range(12):
+        monitor.update(0.8, 0.775)
+    assert not monitor.seated()
+    for step in range(12):
+        monitor.update(0.8 - 0.001 * step, 0.775 - 0.001 * step)
+    assert not monitor.seated()
+    for step in range(12):
+        monitor.update(0.8, 0.775 - 0.001 * step)
+    assert monitor.seated()
+
+
+def test_fk_release_tolerates_low_site_only_with_seating_evidence():
+    from method.modular.fk_seating import FKSeatingController
+
+    controller = FKSeatingController(FixedKinematics())
+    task = {**placement(), "held": True}
+    task["plate_xyz"][2] = task["site_xyz"][2] - 0.009
+    controller.hand_to_center = np.zeros(3)
+    controller.lower_start_z = 0.91
+    controller.measured_hand_z = 0.8
+    controller.machine.elapsed = 110
+    controller.target_xyz = task["site_xyz"]
+    assert not controller._ready_to_release(task)
+
+    task["contacts"]["target_rack"] = False
+    for step in range(12):
+        controller.descent.update(0.8, 0.775 - 0.001 * step)
+    assert controller._ready_to_release(task)
+
+    task["plate_xyz"][1] += 0.05
+    assert not controller._ready_to_release(task)
+    task["plate_xyz"][1] -= 0.05
+    task["tilt_deg"] = 13
+    assert not controller._ready_to_release(task)

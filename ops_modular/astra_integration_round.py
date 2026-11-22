@@ -14,18 +14,6 @@ records = modal.Volume.from_name("modular-runs")
 official = modal.Volume.from_name("advaitic-runs")
 
 
-def graph_failures(cid):
-    """Statuses belong to individual calls, including detached children of a scheduler."""
-    graph = modal.FunctionCall.from_id(cid).get_call_graph()
-    statuses = {}
-    while graph:
-        node = graph.pop()
-        statuses.setdefault(node.function_call_id, set()).add(node.status.name)
-        graph.extend(node.children)
-    failed = {"FAILURE", "INIT_FAILURE", "TIMEOUT", "TERMINATED"}
-    return {key for key, values in statuses.items() if values <= failed}
-
-
 def attempt_status(cid):
     c = modal.FunctionCall.from_id(cid)
     try:
@@ -36,7 +24,7 @@ def attempt_status(cid):
         return "running"
     except modal.exception.ConnectionError:
         return "running"
-    except Exception:
+    except (modal.exception.ExecutionError, modal.exception.NotFoundError, RuntimeError, ValueError):
         return "ended"
     return "success"
 
@@ -131,7 +119,6 @@ def supervise(
         if r["seed"] != s or not r["completed"] or r.get("policy_error"):
             raise ValueError(f"Unusable policy smoke for {s}: {r.get('policy_error')}")
     submitted = False
-    last_graph_check = 0.0
     with concurrent.futures.ThreadPoolExecutor(10) as pool:
         while True:
             if hybrid_pending:
@@ -199,21 +186,14 @@ def supervise(
                 persist()
             elif submitted:
                 pending = [s for s in ids if s not in seen]
-                failures = set()
-                if pending and time.monotonic() - last_graph_check >= 300:
-                    # All new shards belong to this supervisor's graph. Query
-                    # it once per window instead of once for every queued shard.
-                    last_graph_check = time.monotonic()
-                    try:
-                        failures = graph_failures(ids[pending[-1]])
-                    except (OSError, modal.exception.Error):
-                        pass
+                # A preempted attempt can appear failed in the graph even
+                # while its original future resumes on a new container.
                 failed = [
                     s
                     for s, status in zip(
                         pending, pool.map(attempt_status, [ids[s] for s in pending]), strict=True
                     )
-                    if status == "ended" or ids[s] in failures
+                    if status == "ended"
                 ]
                 if failed:
                     # A worker may have committed a report just before timing

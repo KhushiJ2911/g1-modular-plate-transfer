@@ -3,6 +3,14 @@
 import numpy as np
 
 PLACE = ("CARRY", "ALIGN", "LOWER", "RELEASE", "SETTLE", "RETREAT")
+HELD_PLACEMENT = ("CARRY", "ALIGN", "LOWER")
+
+
+def grasp_center_rel(kin, state, offset, bias):
+    """Propagate the observed pinch center in the pelvis frame while the grasp is loaded."""
+    kin.set_state(state)
+    hand, rot = kin.hand_pose("left")
+    return hand + rot @ (offset - bias)
 
 
 def site_features(vision, rel):
@@ -55,6 +63,21 @@ class PlacementEstimate:
             d = predict(self.weights, "plate", x)
             task["plate_rel"] = task["plate_rel"] + d
             task["plate_xyz"] = task["plate_xyz"] + basis @ d
+        if (
+            "pinch" in self.groups
+            and self.controller.phase.value in HELD_PLACEMENT
+            and task["held"]
+            and obs["state"][44] >= 0.8
+            and self.controller.hand_to_center is not None
+        ):
+            state = obs["state"]
+            task["plate_rel"] = grasp_center_rel(
+                self.controller.kin,
+                state,
+                self.controller.hand_to_center,
+                self.weights["pinch_center_bias"],
+            )
+            task["plate_xyz"] = state[18:21] + basis @ task["plate_rel"]
         delta = task["plate_xyz"] - task["site_xyz"]
         task["site_distance"] = float(np.linalg.norm(delta))
         task["site_xy_distance"] = float(np.linalg.norm(delta[:2]))

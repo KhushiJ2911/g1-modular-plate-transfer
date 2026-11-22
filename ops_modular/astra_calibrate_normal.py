@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 
-def package(calibration, contact, output, mask=None, plate=None):
+def package(calibration, contact, output, mask=None, plate=None, pinch=None):
     report = json.loads(calibration.read_text())
     fit, check = map(set, (report["fit_seeds"], report["check_seeds"]))
     if not fit or not check or fit & check or not all(3056500 <= s < 3056600 for s in fit | check):
@@ -27,6 +27,20 @@ def package(calibration, contact, output, mask=None, plate=None):
         raise ValueError("Expected a measured unit normal")
     with np.load(contact, allow_pickle=False) as f:
         weights = dict(f)
+    if pinch is not None:
+        p = json.loads(pinch.read_text())
+        training = {e["seed"] for e in p["episodes"] if e["split"] == "leave_one_out"}
+        checks = {e["seed"] for e in p["episodes"] if e["split"] == "check"}
+        bias = np.asarray(p["biases"]["pinch"], dtype=np.float64)
+        if (
+            training != fit
+            or checks != check
+            or p["training_choice"] != "pinch_calibrated"
+            or bias.shape != (3,)
+            or not np.isfinite(bias).all()
+        ):
+            raise ValueError("Unexpected common pinch calibration")
+        weights["pinch_center_bias"] = bias
     if plate is not None:
         if hashlib.sha256(plate.read_bytes()).hexdigest() != (
             "0f4053833b6aac4f187d95bb17f0daa3d3a81d2c4e461ee320b3f6b3f17ffcad"
@@ -59,5 +73,6 @@ if __name__ == "__main__":
     p.add_argument("--output", type=Path, default=Path("checkpoints/astra"))
     p.add_argument("--mask", type=Path, help="Include the frozen RGB segmenter for lift capture")
     p.add_argument("--plate", type=Path, help="Include the frozen continuous plate XYZ correction")
+    p.add_argument("--pinch", type=Path, help="Include the 12-grasp pinch center calibration")
     a = p.parse_args()
-    print(package(a.calibration, a.contact, a.output, a.mask, a.plate))
+    print(package(a.calibration, a.contact, a.output, a.mask, a.plate, a.pinch))

@@ -160,6 +160,8 @@ def schedule(seeds, smoke):
     ):
         raise ValueError("Smoke did not measure both placement feedback arms")
     folder = Path("/runs/astra-integration/plate-transfer")
+    records.reload()
+    folder.mkdir(parents=True, exist_ok=True)
     if (folder / "calls.json").exists():
         raise ValueError("Existing placement feedback experiment")
     calls = {f"{seeds[0]}_{k}": v for k, v in smoke.items()}

@@ -12,13 +12,14 @@ import modal
 
 from ops_modular.modular_sim import image
 
-APP = "modular-sol-height-hybrid"
+APP = "modular-sol-height-hybrid-v4"
 CHECKPOINT = "64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff"
 app = modal.App(APP)
-volume = modal.Volume.from_name("advaitic-runs")
+volume = modal.Volume.from_name("modular-runs")
+weights = modal.Volume.from_name("advaitic-runs")
 
 
-def scenario(seed, archive, normal, mode, plate_bias, site_bias):
+def scenario(seed, archive, normal, mode, plate_bias, site_bias, hide_rack_contact=False):
     import numpy as np
     from bigym.loco import make
 
@@ -63,6 +64,9 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
             ts = env.step(a)
             state = ts.low_dim_obs
             physical = truth(state)
+            if a[18] < 0:
+                # Mirror the pickup controller discard on a missed grasp.
+                offset = None
             if (
                 offset is None
                 and a[18] > 0
@@ -80,7 +84,9 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
                 policy.machine.step = prefix
                 break
         if offset is None or secure_frames < 12 or ts.last():
-            raise ValueError(f"Archive for {seed} did not reach a secure public lift by step {prefix}")
+            raise ValueError(
+                f"Archive for {seed} did not reach a secure public lift by step {prefix}"
+            )
 
         hand, rotation = hand_world(state)
         nominal = align_normal(physical["plate_rot"], rotation @ LEFT_GRASP_NORMAL)
@@ -92,6 +98,7 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
         policy._enter(physical, hand, rotation)
         opening, supported_steps, proprio_steps = None, 0, 0
         heights = []
+        windows = []
         while not ts.last():
             state = ts.low_dim_obs
             physical = truth(state)
@@ -106,6 +113,8 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
                 "plate_rel": basis.T @ (plate - state[layout.PELVIS_XYZ]),
                 "site_xyz": target,
             }
+            if hide_rack_contact and phase == Phase.LOWER:
+                task["contacts"] = {**physical["contacts"], "target_rack": False}
             if phase == Phase.LOWER:
                 supported_steps += bool(physical["contacts"]["target_rack"] and physical["held"])
                 if mode == "fk":
@@ -115,6 +124,20 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
             if phase == Phase.LOWER:
                 if mode == "fk":
                     proprio_steps += bool(policy.descent.seated())
+                    if hide_rack_contact and policy.machine.step % 6 == 0:
+                        samples = np.array(policy.descent.samples)
+                        if len(samples) == policy.descent.samples.maxlen:
+                            before = np.median(samples[:3], axis=0)
+                            after = np.median(samples[-3:], axis=0)
+                            windows.append(
+                                {
+                                    "step": policy.machine.step,
+                                    "support": physical["contacts"]["target_rack"],
+                                    "measured_mm": float(1000 * (before[0] - after[0])),
+                                    "commanded_mm": float(1000 * (before[1] - after[1])),
+                                    "deflection_mm": float(1000 * (after[0] - after[1])),
+                                }
+                            )
                 if a[18] < 0:
                     opening = dict(
                         step=policy.machine.step,
@@ -129,6 +152,7 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
             arm=mode,
             plate_bias=plate_bias,
             site_bias=site_bias,
+            hide_rack_contact=hide_rack_contact,
             success=bool(env.episode_succeeded() and not env.episode_fell()),
             fell=bool(env.episode_fell()),
             transitions=policy.transitions,
@@ -136,6 +160,7 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
             supported_lower_steps=supported_steps,
             proprio_seating_steps=proprio_steps,
             fk_error_median_cm=float(100 * np.median(heights)) if heights else None,
+            **({"windows": windows} if hide_rack_contact else {}),
         )
     finally:
         env.close()
@@ -147,9 +172,9 @@ def scenario(seed, archive, normal, mode, plate_bias, site_bias):
     memory=1792,
     timeout=600,
     max_containers=12,
-    volumes={"/runs": volume},
+    volumes={"/runs": volume, "/weights": weights},
 )
-def episode(seed, archive, include_site_bias):
+def episode(seed, archive, include_site_bias, proprio_only=False):
     if not 3_000_700 <= seed < 3_000_750:
         raise ValueError("Use the predeclared public-prefix development range")
     if not Path(archive).is_relative_to("/runs/grasp-validation") or Path(archive).name != "eval":
@@ -163,18 +188,21 @@ def episode(seed, archive, include_site_bias):
         or report["episodes"][0]["seed"] != seed
     ):
         raise ValueError("Archive integrity or seed mismatch")
-    checkpoint = Path("/runs/heads") / f"{CHECKPOINT}.npz"
+    checkpoint = Path("/weights/heads") / f"{CHECKPOINT}.npz"
     if hashlib.sha256(checkpoint.read_bytes()).hexdigest() != CHECKPOINT:
         raise ValueError("Wrong loaded grasp calibration")
-    normal = [-0.25436843862225744, -0.967107356788533, 0.00024057924249259576]
     biases = [(0.0, 0.0), (0.020, 0.0)]
     if include_site_bias:
         biases.append((0.0, -0.020))
     grid = [(mode, p, s) for p, s in biases for mode in ("base", "fk")]
+    if proprio_only:
+        grid = [("base", 0.020, 0.0, True), ("fk", 0.020, 0.0, True)]
     source = (
-        "from pathlib import Path\nimport json\n"
+        "from pathlib import Path\nimport json\nimport numpy as np\n"
         + inspect.getsource(scenario)
-        + f"\nprint(json.dumps([scenario({seed}, {archive!r}, {normal!r}, *case) for case in {grid!r}]))"
+        + f"\nwith np.load({str(checkpoint)!r}, allow_pickle=False) as weights:\n"
+        + '    normal = weights["loaded_normal"]\n'
+        + f"print(json.dumps([scenario({seed}, {archive!r}, normal, *case) for case in {grid!r}]))"
     )
     started = time.monotonic()
     result = subprocess.run(
