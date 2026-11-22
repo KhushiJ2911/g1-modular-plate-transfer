@@ -24,6 +24,11 @@ def main():
     fn = modal.Function.from_name(os.environ.get("SHARD_APP", "modular-shard"), f"episode_{kind}")
     jobs = [(int(s), e.seed, e.source_slot) for s in starts for e in make_plan(30, int(s))]
     assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)
+    # Optional SLICE="i/n": run only every n-th planned episode (offset i), so one round can be split
+    # across several launchers (e.g. GPU + CPU, or two Modal accounts) without overlap.
+    if os.environ.get("SLICE"):
+        i, n = map(int, os.environ["SLICE"].split("/"))
+        jobs = jobs[i::n]
     print(f"{name}: {len(jobs)} episodes on {kind}", flush=True)
     calls = [(block, seed, slot, fn.spawn(name, seed, policy, heads)) for block, seed, slot in jobs]
     rows = []
