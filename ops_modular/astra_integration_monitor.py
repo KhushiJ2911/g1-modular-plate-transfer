@@ -42,9 +42,10 @@ def monitor(name, manifest, folder):
                 try:
                     c.get(timeout=0)
                 except TimeoutError:
-                    c.cancel()
+                    c.cancel(terminate_containers=True)
                     return call_id
-                except modal.exception.ExecutionError:
+                except Exception:
+                    # A canceled or failed invocation has no active worker to stop.
                     pass
                 return None
 

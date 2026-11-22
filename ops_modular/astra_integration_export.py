@@ -9,10 +9,12 @@ import tarfile
 from pathlib import Path
 
 
-def export(rev, head):
+def export(rev, head, recovery=False):
     digest = hashlib.sha256(head.read_bytes()).hexdigest()
     sha = subprocess.check_output(["git", "rev-parse", rev + "^{commit}"], text=True).strip()
     app = "modular-shard-astra-" + sha[:8] + "-" + digest[:8]
+    if recovery:
+        app += "-recovery"
     root = Path("results/astra_integration") / app
     root.mkdir(exist_ok=False, parents=True)
     archive = subprocess.check_output(["git", "archive", "--format=tar", sha])
@@ -27,7 +29,7 @@ def export(rev, head):
             raise ValueError(f"Unexpected release infrastructure in {p}: {old}")
         p.write_text(t.replace(old, new))
 
-    update(module, "max_containers=200", "max_containers=30")
+    update(module, "max_containers=200", "max_containers=23, single_use_containers=True")
     update(module, 'modal.App("modular-shard")', f'modal.App("{app}")')
     update(
         module,
@@ -60,5 +62,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("revision")
     p.add_argument("checkpoint", type=Path)
+    p.add_argument("--recovery", action="store_true")
     a = p.parse_args()
-    print(export(a.revision, a.checkpoint))
+    print(export(a.revision, a.checkpoint, a.recovery))
