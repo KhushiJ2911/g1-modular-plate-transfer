@@ -461,3 +461,19 @@ Findings:
 - **bce5 pipeline** (subagent-built `ops/chain_bce5.sh`; verified the BC loss is per-element masked: `model.py:144-181`, `dataset.py:118-124, 296`; only ACTIVE_DIMS 0,1,4–10,18 are trained, the right arm 11–17 is a fixed mean pose, so the labels on it only shift that default by ≤ 0.025). Sanity OK; uploading; then **bce5a** = bce1 recipe (from v1b, 6k) + dagger3_track @0.67, **bce5b** = from bce1, 3k steps, same data; promote → smoke → 3 dev evals each.
 
 **Plan for the long-term fix written:** `/home/keyu/advaitic/plans/modular_controller/plan.md` (modular perception + IK feedback controller; milestones M0–M6 with go/no-go numbers).
+
+**Harness ablations (dev 1000000, 3 × 30, T4, est_v1b; all bce1 unless noted) — first real numbers:**
+
+| config | exec steps/call | ensemble | supervisor | runs | total |
+|---|---|---|---|---|---|
+| bce1 reference | 10 | no | — | 19, 17, 21 | 57/90 = 63% |
+| h_pass | 2 | no | off | 1, 4, 4 | **9/90 = 10%** |
+| h_full | 2 | no | on | 6, 7, 6 | 19/90 = 21% |
+| h_exec10 | 10 | no | on | 11, 15, 11 | 37/90 = 41% |
+| h_bce4b (bce4b) | 2 | no | on | 2, 2, 3 | 7/90 = 8% |
+| **h_ens** | 2 | **yes** | on | 22, 22, 21 | **65/90 = 72%** (vs bce1 z ≈ 1.3, p ≈ 0.2) |
+
+- **Re-planning bce1 every 2 steps without smoothing collapses it (63% → 10%).** bce1 was trained/run with 10-step chunk execution; switching between inconsistent fresh chunks every 2 steps breaks it. **ACT-style temporal ensembling** (the BC code's existing raw-chunk/logit ensemble, decay 0.01) removes the problem.
+- h_ens is the best result so far but confounded (cadence + ensemble + supervisor). Supervisor at exec 10 hurts (63 → 41%), possibly because its gates are only checked every 10 steps / the arm-hold fires on stale observations. Missing control launched: **e_pass** (exec 2 + ensemble, supervisor OFF), plus **e_servo** (h_ens + placement servo) and **e10_ens** (exec 10 + ensemble, no supervisor).
+- **Modal concurrency cap ~10 GPU containers** (observed 11:05): 27 evals + 48 teacher shards + A100 SmolVLA resume + smoke calls were submitted; only 10 ran, the rest queued silently (servo smoke timed out at 20 min; SmolVLA log frozen). Cancelled the 12 queued release-gate sweep calls (h_rd025/h_rd050/h_tilt8/h_settle150) to free slots for the critical path; to be relaunched on top of the best config.
+- Servo smoke on h_ens config: PASS (load 5.0 s, 0.015 s/call).
