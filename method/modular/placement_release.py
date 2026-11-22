@@ -1,5 +1,6 @@
 """Level a seated plate with FK before unloading the fingers."""
 
+import json
 import os
 from collections import deque
 from pathlib import Path
@@ -273,6 +274,7 @@ class GuardedClearanceController(SeatedReleaseController):
                 self.kin.set_state(state)
                 hand, rotation = self.kin.hand_pose("left")
                 basis = pelvis_rotation(state)
+                started, finished = self.clearance.start is not None, self.clearance.finished
                 self.clearance_pose = self.clearance.update(
                     state,
                     {**task_state, "site_xyz": self.target_xyz, "site_rot": self.target_rot},
@@ -280,9 +282,40 @@ class GuardedClearanceController(SeatedReleaseController):
                     state[layout.PELVIS_XYZ] + basis @ hand,
                     basis @ rotation,
                 )
+                if os.environ.get("SOL_PHASE_TRACE") == "1":
+                    if not started and self.clearance.start is not None:
+                        print(
+                            "SOL_PLACEMENT " + json.dumps({"clearance_started": self.machine.step})
+                        )
+                    if not finished and self.clearance.finished:
+                        print(
+                            "SOL_PLACEMENT "
+                            + json.dumps(
+                                {
+                                    "clearance_finished": self.machine.step,
+                                    "travel": self.clearance.travel,
+                                }
+                            )
+                        )
         return super().act(obs_state, task_state)
 
     def _action(self, state, position=None, rotation=None, base=None, close=False):
         if self.phase == Phase.SETTLE and self.clearance_pose is not None:
             position, rotation = self.clearance_pose
         return super()._action(state, position, rotation, base, close)
+
+
+def make_guarded_release():
+    """Development factory for the integrated release with guarded clearance."""
+    from method.modular.pickup import PickupController
+    from submission.policy_modular import make_policy as make_baseline
+    from submission.policy_modular_heads import PerceptionPolicy
+
+    class GuardedPickup(GuardedClearanceController, PickupController):
+        def __init__(self, kin, source):
+            super().__init__(kin, source, normal_source=None)
+
+    checkpoint = os.environ["ADV_HEADS"]
+    policy = PerceptionPolicy(make_baseline(), checkpoint, GuardedPickup)
+    policy.controller.normal_source = SeatedNormal(policy.task, checkpoint)
+    return _with_phase_trace(policy)

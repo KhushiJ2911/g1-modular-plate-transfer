@@ -83,10 +83,13 @@ def prepare(dest, reference, include_release):
             ("timeout=3600, max_containers=200", "timeout=3600, max_containers=100"),
             (
                 '    return {"seed": seed, "seconds": time.monotonic() - start, "gl": gl, **report["episodes"][0]}',
-                '    trace = [json.loads(line.removeprefix("SOL_PHASE ")) for line in '
-                '(dest / "eval/policy.stderr.log").read_text().splitlines() if line.startswith("SOL_PHASE ")]\n'
+                '    lines = (dest / "eval/policy.stderr.log").read_text().splitlines()\n'
+                '    trace = [json.loads(line.removeprefix("SOL_PHASE ")) for line in lines '
+                'if line.startswith("SOL_PHASE ")]\n'
+                '    placement = [json.loads(line.removeprefix("SOL_PLACEMENT ")) for line in lines '
+                'if line.startswith("SOL_PLACEMENT ")]\n'
                 f'    return {{"seed": seed, "seconds": time.monotonic() - start, "gl": gl, '
-                f'"snapshot": "{commit}", "phases": trace, **report["episodes"][0]}}',
+                f'"snapshot": "{commit}", "phases": trace, "placement": placement, **report["episodes"][0]}}',
             ),
         ],
     )
