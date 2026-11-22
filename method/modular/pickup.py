@@ -118,7 +118,15 @@ class PickupController(CalibratedPlacementController):
                 self.fk_rise = rigid[2] - self.lift_origin[2]
                 # Fingers slipping shut or a plate that stays behind for ten
                 # consecutive observations trips the phase machine's bounded retry.
-                held = pinched and np.linalg.norm(rigid - plate) < 0.060
+                residual = rigid - plate
+                consistent = np.linalg.norm(residual) < 0.060
+                # Before reopening a confirmed pinch, use the independent height
+                # gates to resolve a depth disagreement when xy still agrees.
+                if pinched and not consistent and self.lost_streak >= 9:
+                    consistent = np.linalg.norm(residual[:2]) < 0.060 and self._lift_ready(
+                        {**task, "held": True}
+                    )
+                held = pinched and consistent
             task = {**task, "held": bool(held)}
 
         if phase in (Phase.APPROACH, Phase.PREGRASP, Phase.GRASP) and self.source is not None:

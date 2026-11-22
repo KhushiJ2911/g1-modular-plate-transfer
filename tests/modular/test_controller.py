@@ -226,6 +226,17 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     rising = {**task, "plate_xyz": task["plate_xyz"] + [0, 0, 0.09]}
     measured = ctl._pickup_task(state, rising)
     assert measured["held"] and not ctl._lift_ready(measured)
+    # Just before a retry, separately verified rises can resolve a depth
+    # disagreement. A still-supported plate or lateral separation cannot.
+    state[20] = 0.12
+    ctl.lost_streak = 9
+    rising = {**rising, "plate_xyz": task["plate_xyz"] + [0.052, 0, 0.08]}
+    assert ctl._pickup_task(state, rising)["held"]
+    supported = {**rising, "contacts": {**rising["contacts"], "source_rack": True}}
+    assert not ctl._pickup_task(state, supported)["held"]
+    displaced = {**rising, "plate_xyz": task["plate_xyz"] + [0.065, 0, 0.08]}
+    assert not ctl._pickup_task(state, displaced)["held"]
+    ctl.lost_streak = 0
     # Empty fingers trigger a bounded retry while vision still claims held.
     state[44] = 1.0
     state[7:9] = -0.020
