@@ -161,7 +161,12 @@ def audit(name, folder, event, checkpoint):
         Path("/records/astra-integration") / name / "fault_inputs" / (str(event["seed"]) + ".json")
     )
     if dest.exists():
-        return json.loads(dest.read_text())
+        existing = json.loads(dest.read_text())
+        observed = {p["event"] for p in existing["points"]}
+        if (not event.get("open_at_target") or "open+0" in observed) and (
+            event.get("target_approach_step") is None or "arriving" in observed
+        ):
+            return existing
     dest.parent.mkdir(exist_ok=True, parents=True)
     t = time.monotonic()
     args = repr((f"/runs/modular/{folder}/eval", event, checkpoint))
@@ -207,7 +212,9 @@ def monitor(name, checkpoint, smoke_name, smoke_id):
             journal = folder / "fault_calls.json"
             if journal.exists():
                 ids.update({int(k): v for k, v in json.loads(journal.read_text()).items()})
-            failures = [r for r in summary["rows"] if not r["success"] and not r.get("policy_error")]
+            failures = [
+                r for r in summary["rows"] if not r["success"] and not r.get("policy_error")
+            ]
             for row in failures:
                 seed = row["seed"]
                 event = events.get(str(seed))

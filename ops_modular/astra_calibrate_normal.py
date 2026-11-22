@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 
 
-def package(calibration, contact, output, mask=None):
+def package(calibration, contact, output, mask=None, plate=None):
     report = json.loads(calibration.read_text())
     fit, check = map(set, (report["fit_seeds"], report["check_seeds"]))
     if not fit or not check or fit & check or not all(3056500 <= s < 3056600 for s in fit | check):
@@ -27,6 +27,13 @@ def package(calibration, contact, output, mask=None):
         raise ValueError("Expected a measured unit normal")
     with np.load(contact, allow_pickle=False) as f:
         weights = dict(f)
+    if plate is not None:
+        if hashlib.sha256(plate.read_bytes()).hexdigest() != (
+            "0f4053833b6aac4f187d95bb17f0daa3d3a81d2c4e461ee320b3f6b3f17ffcad"
+        ):
+            raise ValueError("Expected the DAgger placement weights")
+        with np.load(plate, allow_pickle=False) as f:
+            weights.update({k: f[k] for k in f.files if k.startswith("plate_")})
     if mask is not None:
         if hashlib.sha256(mask.read_bytes()).hexdigest() != (
             "409e9b7f694de4cfe2ab07e60eb06435ff16394be04ddd0e7e95f8c8ee4b5cfa"
@@ -51,5 +58,6 @@ if __name__ == "__main__":
     p.add_argument("--contact", type=Path, default=Path("checkpoints/astra/contact_v1.npz"))
     p.add_argument("--output", type=Path, default=Path("checkpoints/astra"))
     p.add_argument("--mask", type=Path, help="Include the frozen RGB segmenter for lift capture")
+    p.add_argument("--plate", type=Path, help="Include the frozen continuous plate XYZ correction")
     a = p.parse_args()
-    print(package(a.calibration, a.contact, a.output, a.mask))
+    print(package(a.calibration, a.contact, a.output, a.mask, a.plate))
