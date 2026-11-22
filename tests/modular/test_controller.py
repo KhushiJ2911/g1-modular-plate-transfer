@@ -345,6 +345,9 @@ def test_seating_stall_requires_a_descending_command_not_static_sag():
     for step in range(12):
         monitor.update(0.8, 0.775 - 0.001 * step)
     assert monitor.seated()
+    for step in range(12):
+        monitor.update(0.8, 0.845 - 0.0002 * step)
+    assert monitor.seated()
 
 
 def test_fk_release_tolerates_low_site_only_with_seating_evidence():

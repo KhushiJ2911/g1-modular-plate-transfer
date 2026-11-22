@@ -62,7 +62,8 @@ def report():
             continue
         old, new = p["v1b"][phase], p["heads"][phase]
         fields = [
-            f"{old[k]:.2f} → {new[k]:.2f}" for k in ("bias_cm", "noise_cm", "xy_mae_cm", "z_mae_cm", "p95_cm")
+            f"{old[k]:.2f} → {new[k]:.2f}"
+            for k in ("bias_cm", "noise_cm", "xy_mae_cm", "z_mae_cm", "p95_cm")
         ]
         fields += [
             f"{old[k]['fp']}/{old[k]['fn']} → {new[k]['fp']}/{new[k]['fn']}"

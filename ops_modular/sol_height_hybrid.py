@@ -12,7 +12,7 @@ import modal
 
 from ops_modular.modular_sim import image
 
-APP = "modular-sol-height-hybrid-v4"
+APP = "modular-sol-height-hybrid-v5"
 CHECKPOINT = "64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff"
 app = modal.App(APP)
 volume = modal.Volume.from_name("modular-runs")

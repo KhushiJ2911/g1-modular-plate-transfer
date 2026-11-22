@@ -27,13 +27,13 @@ class DescentMonitor:
         samples = np.asarray(self.samples)
         before, after = np.median(samples[:3], axis=0), np.median(samples[-3:], axis=0)
         measured_descent, commanded_descent = before - after
-        arm_deflection = after[0] - after[1]
-        # A persistent gap alone can be load sag. Require new downward
-        # commands and a measured hand that has stopped following them.
+        lag_increase = commanded_descent - measured_descent
+        # The unloaded IK target can have a large fixed Cartesian error.
+        # Compare changes so that bias and static sag cancel.
         return (
-            commanded_descent >= 0.006
-            and abs(measured_descent) <= 0.003
-            and arm_deflection >= 0.008
+            commanded_descent >= 0.0012
+            and -0.0025 <= measured_descent <= 0.003
+            and lag_increase >= max(0.0007, 0.35 * commanded_descent)
         )
 
 
