@@ -9,7 +9,7 @@ import numpy as np
 CONTACTS = ("source_rack", "target_rack", "table", "floor")
 
 
-def collect(seed, out):
+def collect(seed, out, factory=None):
     from bigym.loco import make
 
     from advaitic_eval.environment import make_environment, observation
@@ -19,7 +19,14 @@ def collect(seed, out):
 
     if not 3_100_000 <= seed < 3_200_000:
         raise ValueError("Generation requires the reserved v2 generation range")
-    policy = make_policy()
+    policy = (factory or make_policy)()
+    features = []
+    current = []
+    if factory:
+        def record(module, args):
+            current[:] = [args[0][0].detach().cpu().numpy().copy()]
+
+        policy.task.estimator.model.head[0].register_forward_pre_hook(record)
     env = make_environment()
     actions, phases, steps, images, states, baseline = [], [], [], [], [], []
     try:
@@ -31,11 +38,14 @@ def collect(seed, out):
             phase = policy.controller.phase.value
             step = len(actions)
             action = policy(obs)
-            if step == 0:
+            if step < (6 if factory else 1):
                 target = policy.controller.target_xyz.copy()
             if step == 0 or phase != prior or step % (90 if phase == "HOLD" else 6) == 0:
                 task = policy.task.snapshot(obs["state"])
-                images.append(obs["rgb"].copy())
+                if factory:
+                    features.append(current[0])
+                else:
+                    images.append(obs["rgb"].copy())
                 states.append(obs["state"].copy())
                 steps.append(step)
                 phases.append(phase)
@@ -116,7 +126,7 @@ def collect(seed, out):
     )
     np.savez_compressed(
         out,
-        rgb=np.stack(images),
+        **({"features": np.asarray(features, np.float16)} if factory else {"rgb": np.stack(images)}),
         state=np.stack(states),
         step=steps,
         phase=phases,
@@ -132,5 +142,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("seed", type=int)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--factory", choices=["sol", "heads"])
     a = parser.parse_args()
-    print(json.dumps(collect(a.seed, a.output)))
+    factory = None
+    if a.factory == "sol":
+        from submission.policy_modular_grasp import make_policy as factory
+    elif a.factory == "heads":
+        from submission.policy_modular_heads import make_policy as factory
+    print(json.dumps(collect(a.seed, a.output, factory)))

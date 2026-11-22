@@ -1,7 +1,7 @@
 """Launch a sharded DEV evaluation: official balanced plans, one container per episode.
 
 Usage (Modal's python, dedicated account):
-  MODAL_CONFIG_PATH=~/.modal_modular.toml python ops_modular/lead_shard_run.py NAME {cpu|gpu} OUT.jsonl 1000000 1010000 1020000
+  MODAL_CONFIG_PATH=~/.modal_modular.toml python ops_modular/lead_shard_run.py NAME {cpu|gpu} OUT.jsonl module:factory HEADS_PATH_OR_"" 1000000 1010000 1020000
 
 Each seed_start contributes one balanced 30-episode plan (5 per source slot), exactly as advaitic-eval would
 pick it. Results are dev-only and non-qualifying; they are aggregated per block and per slot.
@@ -19,12 +19,12 @@ from advaitic_eval.protocol import make_plan  # noqa: E402
 
 
 def main():
-    name, kind, out, *starts = sys.argv[1:]
+    name, kind, out, policy, heads, *starts = sys.argv[1:]
     fn = modal.Function.from_name("modular-shard", f"episode_{kind}")
     jobs = [(int(s), e.seed, e.source_slot) for s in starts for e in make_plan(30, int(s))]
     assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)
     print(f"{name}: {len(jobs)} episodes on {kind}", flush=True)
-    calls = [(block, seed, slot, fn.spawn(name, seed)) for block, seed, slot in jobs]
+    calls = [(block, seed, slot, fn.spawn(name, seed, policy, heads)) for block, seed, slot in jobs]
     rows = []
     with open(out, "w") as fh:
         for block, seed, slot, call in calls:

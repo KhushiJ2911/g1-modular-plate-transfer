@@ -84,10 +84,11 @@ def job_dir(name):
     return dest
 
 
+POLICY = "submission.policy_modular:make_policy"
 CPU_OPTIONS = dict(image=image, cpu=2, memory=4096, volumes={"/runs": volume}, scaledown_window=10)
 
 
-def _episode(name: str, seed: int, gl: str):
+def _episode(name: str, seed: int, gl: str, policy: str, heads: str):
     if not 1_000_000 <= seed < 1_100_000:
         raise ValueError("Only development seeds supported")
     # A 1-episode smoke plan starting at `seed` is exactly that seed (make_plan always takes the first
@@ -96,7 +97,7 @@ def _episode(name: str, seed: int, gl: str):
     args = [
         f"{CODE}/.venv/bin/advaitic-eval",
         "--policy",
-        "submission.policy_modular:make_policy",
+        policy,
         "--policy-python",
         "/root/policy/bin/python",
         "--method",
@@ -112,6 +113,8 @@ def _episode(name: str, seed: int, gl: str):
         str(dest / "eval"),
     ]
     os.environ["MUJOCO_GL"] = gl
+    if heads:
+        os.environ["ADV_HEADS"] = heads
     if gl == "osmesa":
         os.environ["PYOPENGL_PLATFORM"] = "osmesa"
     start = time.monotonic()
@@ -128,10 +131,10 @@ def _episode(name: str, seed: int, gl: str):
 
 
 @app.function(**OPTIONS, timeout=1800, max_containers=2)
-def episode_gpu(name: str, seed: int):
-    return _episode(name, seed, "egl")
+def episode_gpu(name: str, seed: int, policy: str = POLICY, heads: str = ""):
+    return _episode(name, seed, "egl", policy, heads)
 
 
 @app.function(**CPU_OPTIONS, timeout=3600, max_containers=200)
-def episode_cpu(name: str, seed: int):
-    return _episode(name, seed, "osmesa")
+def episode_cpu(name: str, seed: int, policy: str = POLICY, heads: str = ""):
+    return _episode(name, seed, "osmesa", policy, heads)
