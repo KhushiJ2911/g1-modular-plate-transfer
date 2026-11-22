@@ -210,6 +210,9 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     ctl.machine.phase = Phase.LIFT
     hand, rot = ctl.kin.hand_pose("left")
     ctl._enter(task, hand, rot)
+    transform = ctl.confirmed_hand_to_plate
+    np.testing.assert_allclose(hand + rot @ transform[:3, 3], task["plate_xyz"])
+    np.testing.assert_allclose(rot @ transform[:3, :3], task["plate_rot"])
     # The visual and FK centers still agree within the slip tolerance, but
     # the hand has only risen 4 cm when vision would already allow CARRY.
     state[44] = 0.9
@@ -224,7 +227,7 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     for _ in range(10):
         ctl.act(state, task)
     assert ctl.phase == Phase.PREGRASP and ctl.machine.grasp_retries == 1
-    assert not ctl.near_samples and ctl.hand_to_center is None
+    assert not ctl.near_samples and ctl.confirmed_hand_to_plate is None
     displaced = {**task, "plate_xyz": task["plate_xyz"] + [0.02, -0.03, 0.004]}
     ctl.machine.phase = Phase.GRASP
     for _ in range(WINDOW):
@@ -294,3 +297,4 @@ def test_wrist_face_recovers_the_sign_of_the_source_lean():
         estimated = view.update(rgb, hand, np.eye(3), center + [0, 0.032, 0], 10)
     np.testing.assert_allclose(estimated[:2], center[:2], atol=0.006)
     np.testing.assert_allclose(view.rotation[:, 2], normal, atol=0.02)
+    assert view.face_iou > 0.9 and len(view.faces) == 3

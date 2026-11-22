@@ -75,7 +75,7 @@ def _tilted_face(rgb, hand, rotation, source):
     i = np.argmax(iou)
     if iou[i] < 0.75 or LEAN[i] >= np.deg2rad(-12):
         return None
-    return np.r_[centers[i, :2], LEAN[i]]
+    return np.r_[centers[i, :2], LEAN[i], iou[i]]
 
 
 class SourceView:
@@ -83,6 +83,7 @@ class SourceView:
         self.rims = []
         self.faces = []
         self.rotation = None
+        self.face_iou = None
 
     def update(self, rgb, hand, rotation, source, visual_tilt):
         face = _tilted_face(rgb, hand, rotation, source)
@@ -94,7 +95,7 @@ class SourceView:
                 self.rims.append(y)
         source = source.copy()
         if len(self.faces) >= 3:
-            x, y, angle = np.median(self.faces, axis=0)
+            x, y, angle, self.face_iou = np.median(self.faces, axis=0)
             source[:2] = x, y
             c, s = np.cos(angle), np.sin(angle)
             self.rotation = np.array([[1.0, 0.0, 0.0], [0.0, s, -c], [0.0, c, s]])

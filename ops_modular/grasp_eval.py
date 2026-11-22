@@ -169,6 +169,8 @@ def archived_handoff(seed: int, arm: str, archive: str):
     folder = Path(archive)
     if folder.parent.parent != Path("/runs/grasp-validation") or folder.name != "eval":
         raise ValueError("Expected a pickup validation archive")
+    runs.reload()
+    os.environ.update(MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa")
     row = json.loads((folder / "report.json").read_text())["episodes"][0]
     if row["seed"] != seed:
         raise ValueError("Archive seed mismatch")

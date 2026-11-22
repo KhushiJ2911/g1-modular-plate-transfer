@@ -183,7 +183,7 @@ def handoff_geometry(seed, archive):
     if not len(lifted):
         return dict(seed=seed, **outcome, grasp_angle=None)
     kin = G1Kinematics()
-    offsets, errors = [], []
+    offsets, normals, errors = [], [], []
     # One half-second of loaded geometry immediately after the first lift.
     for step in lifted[lifted < lifted[0] + 25][::3]:
         state = states[step]
@@ -194,15 +194,21 @@ def handoff_geometry(seed, archive):
         hand = state[18:21] + basis @ pos
         offsets.append(rot.T @ (truth[step, :3] - hand))
         normal = rot.T @ truth[step, 6:9]
+        normals.append(normal)
         errors.append(np.rad2deg(np.arccos(np.clip(normal @ LEFT_GRASP_NORMAL, -1, 1))))
     opened = np.flatnonzero((np.arange(len(actions)) > lifted[0]) & (actions[:, 18] < 0))
     event = opened[0] if len(opened) else -1
+    local_normal = np.mean(normals, axis=0)
+    released = np.flatnonzero(~held[event:]) if len(opened) else []
     return dict(
         seed=seed,
         **outcome,
         grasp_angle=float(np.median(errors)),
+        normal_in_hand=(local_normal / np.linalg.norm(local_normal)).tolist(),
         center_in_hand=np.median(offsets, axis=0).tolist(),
         opened=bool(len(opened)),
+        frames_to_physical_release=int(released[0]) if len(released) else None,
+        reacquired_after_open=bool(len(released) and held[event + released[0] + 1 :].any()),
         held_at_open_or_end=bool(held[event]),
         on_rack_at_open_or_end=bool(truth[event, 12]),
         tilt_at_open_or_end=float(truth[event, 9]),
