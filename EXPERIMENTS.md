@@ -606,3 +606,8 @@ Budget cutoff left 13 valid full reset generation outcomes out of the 30 planned
   App `modular-qualify` (T4), 4 blocks per Modal account, ~16 min each.
 - Pooled single-process evidence for this policy family: 220/240 + leak tests 57/60 + 2600000 25/30 = 302/330 (91.5%).
   Sharded fresh-process numbers (≥95%) were optimistic. Per the overnight plan → rule B: paired 528c854 comparison + one fix round.
+- Leak test 2: the 20 round-4 single-process failures re-run in FRESH processes (GPU, `modular-shard-lead-414f15a`): **7/20** pass
+  (1092004 1092007 1052014 1072006 1072021 1034011 1034020) → most failures are reproducible hard seeds, not cross-episode state;
+  no failure at episode index 0 across 8 blocks is consistent with chance (~0.7 expected). True single-process rate ≈ 92%.
+  Round-4 buckets (20): 9 on rack never released, 6 grasp lost, 3 hovering, 1 never reached target, 1 released tilted. Fix round started
+  (sol: release/hover; astra-grasp: grasp; astra: integrate), validation on NEW fresh blocks in qualifying format.
