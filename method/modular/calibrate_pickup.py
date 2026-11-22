@@ -2,15 +2,62 @@
 
 import argparse
 import json
+from pathlib import Path
 
 import mujoco
 import numpy as np
 
 from .kinematics import G1Kinematics, pelvis_rotation
+from .orientation_feedback import LEFT_GRASP_NORMAL
 from .phases import Phase
 from .pickup import PickupController
 from .pickup_vision import rim_lateral
 from .privileged import PrivilegedTaskState
+
+
+def measure_handoff(plan, trace_dir):
+    """Fit one normal per pickup method, weighting successful grasps equally."""
+    groups = {"fit": [], "check": []}
+    skipped = []
+    for seed, slot, split in json.loads(Path(plan).read_text()):
+        with np.load(Path(trace_dir) / f"{seed}.npz") as trace:
+            summary = json.loads(str(trace["summary"]))
+            rows = json.loads(str(trace["rows"]))
+        if summary["seed"] != seed:
+            raise ValueError("Trace seed mismatch")
+        carry = summary["carry"]
+        origin = rows[0]["truth"][2]
+        normals = [
+            np.asarray(r["rotation"]).T @ r["normal"]
+            for r in rows
+            if carry is not None
+            and carry - 9 <= r["step"] <= carry
+            and r["phase"] == "LIFT"
+            and r["held"]
+            and r["truth"][2] > origin + 0.05
+        ]
+        if not summary["secure"] or len(normals) != 10:
+            skipped.append(seed)
+            continue
+        normal = np.mean(normals, axis=0)
+        groups[split].append((seed, slot, normal / np.linalg.norm(normal)))
+    if not groups["fit"] or not groups["check"]:
+        raise ValueError("Both calibration and independent check grasps are required")
+    fitted = np.mean([n for _, _, n in groups["fit"]], axis=0)
+    fitted /= np.linalg.norm(fitted)
+    check = np.array([n for _, _, n in groups["check"]])
+
+    def angles(normal):
+        return np.rad2deg(np.arccos(np.clip(check @ normal, -1, 1)))
+
+    return dict(
+        fitted=fitted.tolist(),
+        fit_seeds=[s for s, _, _ in groups["fit"]],
+        check_seeds=[s for s, _, _ in groups["check"]],
+        skipped=skipped,
+        previous_errors_deg=angles(LEFT_GRASP_NORMAL).tolist(),
+        fitted_errors_deg=angles(fitted).tolist(),
+    )
 
 
 def measure(start, count, vary_tilt=False):
