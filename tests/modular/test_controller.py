@@ -232,3 +232,20 @@ def test_pickup_slip_requires_fresh_pregrasp_and_fresh_measurement():
     np.testing.assert_allclose(target["plate_xyz"], displaced["plate_xyz"])
     ctl.reset()
     assert ctl.phase == Phase.APPROACH and not ctl.initial_samples
+
+
+def test_wrist_rim_requires_a_continuous_highlight_and_moves_laterally():
+    from method.modular.pickup import rim_lateral
+
+    wrist = np.zeros((3, 84, 84), dtype=np.uint8)
+    pos = np.array([0.4, 0.23, 0.85])
+    rotation = np.eye(3)
+    assert rim_lateral(wrist, pos, rotation, 0.816) is None
+    wrist[:, 20:25, 40] = 255
+    assert rim_lateral(wrist, pos, rotation, 0.816) is None
+    wrist[:, 16:49, 40] = 240
+    y = rim_lateral(wrist, pos, rotation, 0.816)
+    right = np.roll(wrist, 5, axis=2)
+    shifted = rim_lateral(right, pos, rotation, 0.816)
+    # The wrist image's horizontal axis points toward the robot's right.
+    assert 0.006 < y - shifted < 0.009

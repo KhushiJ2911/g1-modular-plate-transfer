@@ -142,9 +142,9 @@ def pickup_trace(seed: int):
     )
     if hashlib.sha256(HEADS.read_bytes()).hexdigest() != HEAD_SHA:
         raise ValueError("Unexpected perception head weights")
-    out = Path("/runs/grasp-validation") / f"{APP}-{seed}.npz"
-    if out.exists():
-        raise FileExistsError(out)
+    parent = Path("/runs/grasp-validation")
+    parent.mkdir(exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix=f"trace-{seed}-", dir=parent)) / "trace.npz"
     start = time.monotonic()
     result = json.loads(
         run([POLICY_PYTHON, "-m", "method.modular.pickup_trace", str(seed), str(out)]).splitlines()[
@@ -156,27 +156,34 @@ def pickup_trace(seed: int):
 
 
 @app.local_entrypoint()
-def sweep(start: int, out: str, mode: str = "hybrid", smoke: bool = False):
+def sweep(
+    start: int, out: str, mode: str = "hybrid", smoke: bool = False, candidate_only: bool = False
+):
     from advaitic_eval.protocol import make_plan
 
     arms = {"hybrid": ("base", "pickup"), "obs": ("obs_base", "obs_pickup")}[mode]
+    if candidate_only:
+        arms = arms[-1:]
     jobs = [(e.seed, arm) for e in make_plan(30, start) for arm in arms]
     if smoke:
-        jobs = jobs[:2]
+        jobs = jobs[: len(arms)]
     path = Path(out)
     fn = modal.Function.from_name(APP, "episode")
     with (
         concurrent.futures.ThreadPoolExecutor(8) as pool,
-        path.with_suffix(".calls").open("x") as manifest,
+        path.with_suffix(".calls").open("a+") as manifest,
     ):
+        manifest.seek(0)
+        existing = [(seed, arm) for seed, arm, _ in map(json.loads, manifest)]
+        if len(existing) != len(set(existing)) or not set(existing) <= set(jobs):
+            raise ValueError("Call manifest does not match the plan")
+        missing = [job for job in jobs if job not in existing]
 
         def spawn(job):
             seed, arm = job
             return seed, arm, fn.spawn(seed, arm).object_id
 
-        calls = []
-        for record in pool.map(spawn, jobs):
-            calls.append(record)
+        for record in pool.map(spawn, missing):
             manifest.write(json.dumps(record) + "\n")
             manifest.flush()
     collect(str(path))
