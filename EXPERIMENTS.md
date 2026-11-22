@@ -559,3 +559,8 @@ Findings:
 - Flywheel chain died mid-filter when the laptop slept (71 files written) → restarted (chain_flywheel2d). Laptop seat 0.020 eval also died, no report. Metered $81.31.
 
 **16:00 confirm block (user-approved, one shot).** Final config frozen before looking: bce1 + uniform temporal ensembling (decay 0) + estimator-gated supervisor + seat cue (0.024 rad, 10 steps). Fresh seeds in the confirmation block, never used: 2600100–2600189 (3×30; block 2600000–2600029 was used once on Fri for the threshold check). Paired baseline on the same seeds: bce1 + ensembling, no supervisor (ADV_H_SUPERVISE=0). App harness3. Flywheel bce6c/d evals follow when the chain finishes (dev only).
+
+**16:10 placement push (3 h plan, user: bce1 stays the final checkpoint; Modal cap $105 total; test block untouched).**
+- Codex #21 (Astra, wt-harness): placement-failure diagnosis on s2_st10 r1–3 (19 failures) + t_fix r1–2 (why the tilt fix hurt), extended replay logging true vs estimated distance/tilt near the rack, then one evidence-backed placement fix behind a flag.
+- Codex #22 (Sol, new worktree wt-est / branch est2): estimator accuracy audit near the rack, binned by distance/tilt/phase/occlusion, plus gate-decision accuracy; if errors are large, est_v2 trained on Modal (≤ $8).
+- 15-minute cron check (job 819ea167): collect, commit Codex work, deploy to a fresh app, smoke, stacked 3×30 dev evals, log.
