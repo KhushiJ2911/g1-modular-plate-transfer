@@ -564,3 +564,10 @@ Findings:
 - Codex #21 (Astra, wt-harness): placement-failure diagnosis on s2_st10 r1–3 (19 failures) + t_fix r1–2 (why the tilt fix hurt), extended replay logging true vs estimated distance/tilt near the rack, then one evidence-backed placement fix behind a flag.
 - Codex #22 (Sol, new worktree wt-est / branch est2): estimator accuracy audit near the rack, binned by distance/tilt/phase/occlusion, plus gate-decision accuracy; if errors are large, est_v2 trained on Modal (≤ $8).
 - 15-minute cron check (job 819ea167): collect, commit Codex work, deploy to a fresh app, smoke, stacked 3×30 dev evals, log.
+
+**16:35 confirm block result (seeds 2600100–2600189, never used, config frozen beforehand).**
+| config | runs | total |
+|---|---|---|
+| **bce1 + ensembling + supervisor + seat cue (10 steps)** | 24, 22, 20 | **66/90 = 73%** (Wilson 63–81%) |
+| bce1 + ensembling, no supervisor (baseline) | 19, 17, 15 | 51/90 = 57% (Wilson 46–66%) |
+- **+16 points holds on fresh seeds** (two-proportion z ≈ 2.3, p ≈ 0.02; paired per-seed test pending). Both arms score lower than on dev (79% / 71%): the dev numbers carried selection optimism and/or these seeds are harder; the gap between them is the trustworthy part. This is the first harness gain that replicated (Friday's threshold gain did not).
