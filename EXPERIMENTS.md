@@ -571,3 +571,4 @@ Findings:
 | **bce1 + ensembling + supervisor + seat cue (10 steps)** | 24, 22, 20 | **66/90 = 73%** (Wilson 63–81%) |
 | bce1 + ensembling, no supervisor (baseline) | 19, 17, 15 | 51/90 = 57% (Wilson 46–66%) |
 - **+16 points holds on fresh seeds** (two-proportion z ≈ 2.3, p ≈ 0.02; paired per-seed test pending). Both arms score lower than on dev (79% / 71%): the dev numbers carried selection optimism and/or these seeds are harder; the gap between them is the trustworthy part. This is the first harness gain that replicated (Friday's threshold gain did not).
+- Paired per-seed (82 of 90 seeds matched in both CSVs; 8 unmatched not yet checked): best config gained 21, lost 6 vs baseline, **McNemar exact p = 0.006**.
