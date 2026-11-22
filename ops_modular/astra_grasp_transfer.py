@@ -13,7 +13,7 @@ app = modal.App("modular-astra-grasp-transfer")
 volume = modal.Volume.from_name("modular-runs")
 
 
-def continuation(seed, archive, calibration, fixed_site=None):
+def continuation(seed, archive, calibration, fixed_site=None, observe_plate=None):
     import numpy as np
     from bigym.loco import make
 
@@ -28,6 +28,7 @@ def continuation(seed, archive, calibration, fixed_site=None):
     with np.load(Path(archive) / "episode_000.actions.npz") as f:
         actions = f["actions"]
     env = make("move_plate", camera_keys=())
+    perception = None
     try:
         ts = env.reset(seed=seed)
         truth = PrivilegedTaskState(env)
@@ -80,6 +81,9 @@ def continuation(seed, archive, calibration, fixed_site=None):
         ctl.machine.phase = Phase.LIFT
         ctl._enter({**task, "plate_rot": nominal}, hand, hand_rot)
         ctl.machine.phase = Phase.CARRY
+        if observe_plate is not None:
+            perception = observe_plate(env)
+            task = perception(state, task, Phase.CARRY)
         ctl._enter(task, hand, hand_rot)
         n = np.asarray(calibration) if calibration is not None else LEFT_GRASP_NORMAL
         n = n / np.linalg.norm(n)
@@ -89,6 +93,8 @@ def continuation(seed, archive, calibration, fixed_site=None):
         while not ts.last():
             state = ts.low_dim_obs
             task = observe(state)
+            if perception is not None and ctl.phase != Phase.HOLD:
+                task = perception(state, task, ctl.phase)
             if ctl.phase in (Phase.CARRY, Phase.ALIGN, Phase.LOWER):
                 kin.set_state(state)
                 basis = pelvis_rotation(state)
@@ -105,8 +111,11 @@ def continuation(seed, archive, calibration, fixed_site=None):
             fell=bool(env.episode_fell()),
             termination=env.episode_termination(),
             transitions=ctl.transitions,
+            **({"position_errors": perception.stats()} if perception is not None else {}),
         )
     finally:
+        if perception is not None:
+            perception.close()
         env.close()
 
 
@@ -131,7 +140,14 @@ def compare(seed, archive, vector, name):
         raise ValueError("Use a fresh full public-pickup archive")
     if name not in ("v1", "signed"):
         raise ValueError(name)
-    report = json.loads((Path(archive) / "report.json").read_text())
+    volume.reload()
+    report_path = Path(archive) / "report.json"
+    for _ in range(5):
+        if report_path.is_file():
+            break
+        time.sleep(8)
+        volume.reload()
+    report = json.loads(report_path.read_text())
     ep = report["episodes"][0]
     if (
         not report["integrity_ok"]

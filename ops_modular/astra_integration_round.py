@@ -110,7 +110,7 @@ def supervise(
             raise ValueError("Only a failed supervisor with an empty call journal can restart")
     identity.write_text(json.dumps(candidate))
     hybrid_pending = (fold / "hybrid_calls.json").is_file() and not (fold / "hybrid.json").is_file()
-    fn.autoscaler.update(max_containers=15 if hybrid_pending else 23)
+    fn.autoscaler.update(max_containers=15 if hybrid_pending else 17)
     persist()
     if smoke and not existing:
         s = plan[0]["seed"]
@@ -132,7 +132,7 @@ def supervise(
                 records.reload()
                 if (fold / "hybrid.json").is_file():
                     hybrid_pending = False
-                    fn.autoscaler.update(max_containers=23)
+                    fn.autoscaler.update(max_containers=17)
             rows = score.remote(name, [(r["block"], r["seed"], r["slot"]) for r in plan])
             summary = count(rows, plan)
             seen = {r["seed"] for r in rows}

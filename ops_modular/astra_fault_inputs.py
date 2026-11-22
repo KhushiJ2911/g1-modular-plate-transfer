@@ -207,7 +207,7 @@ def monitor(name, checkpoint, smoke_name, smoke_id):
             journal = folder / "fault_calls.json"
             if journal.exists():
                 ids.update({int(k): v for k, v in json.loads(journal.read_text()).items()})
-            failures = [r for r in summary["rows"] if not r["success"] and not r["policy_error"]]
+            failures = [r for r in summary["rows"] if not r["success"] and not r.get("policy_error")]
             for row in failures:
                 seed = row["seed"]
                 event = events.get(str(seed))
