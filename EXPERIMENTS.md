@@ -522,3 +522,22 @@ Findings:
 **13:10–13:30.** s_seat (bce1 + uniform ensembling + supervisor + seat cue): only **r1 ran the new code: 24/30**; r2/r3 (22, 21) ran on stale containers = supervisor + uniform ensembling without seat cue (verified from the logged harness config). **s_regrip: 8, 9/30 (new code) → regrip harmful, dropped.** e_x1 (exec 1 + ensembling) r2: 20/30. Collector made parallel (7 s for 21 reports). Cap raised again by the user (no hard stop; spend where it buys information). Reruns on fresh `advaitic-sim-harness2`: s2_seat ×3, s2_seatonly ×3, seat sweep (seat_error_rad 0.016 / 0.032, seat_steps 10) ×3 each; laptop: seat_error_rad 0.020 (1 run).
 - **Failure replay of s_seat r1 (6 failures):** 2× on the rack 2.9–7.9 cm but **tilted 23–25°** (tilt gate 12° never opens → holds to timeout), 1× hovering 5.7 cm / 14° without rack contact, 1× released at 5.6 cm / 12.5° unsettled, 1× drop in carry, 1× no grasp. Buckets: A1 D1 2 D2 1 E2 (vs e_pass r1: A1 D1 4 D2 2 E1). → **plate tilt at placement** is the largest remaining bucket.
 - **Codex #20 (gpt-6.2-astra, fast):** observation-only tilt correction by extremum seeking on the left wrist roll/pitch with the estimator's tilt (teacher's step/limit constants, not its privileged geometry), plus a stall-release fallback (PLACE > 300 steps, dist ≤ 5 cm, tilt ≤ 18°).
+
+**13:50 results (fresh harness2 containers; all bce1 + uniform temporal ensembling (decay 0, exec 2) + estimator-gated release supervisor unless noted; dev 1000000, 30 eps/run).**
+
+| config | runs | total |
+|---|---|---|
+| ensembling only, no supervisor (e_pass, e10_ens, e_d000) | 22,22,20 / 21,19,23 / 22,21,22 | 192/270 = 71% |
+| + seat cue (0.024 rad, 5 steps) | s_seat r1 24 + s2_seat 23, 23, 21 | 91/120 = 76% |
+| + seat cue 0.016 rad | 23, 20, 23 | 66/90 = 73% |
+| + seat cue 0.032 rad | 22, 22, 24 | 68/90 = 76% |
+| **+ seat cue, 10 steps** | **23, 24, 24** | **71/90 = 79%** |
+| seat cue replacing estimator gates (seat_cue_only) | 14, 18, 9 | 41/90 = 46% |
+| multi-checkpoint bce1+bce3a / bce1+bce4b (no supervisor) | 20,20,22 / 20,22,21 | 62/90, 63/90 |
+| exec 1 + ensembling | 21, 20, 21 | 62/90 = 69% |
+| regrip (on s_seat config) | 8, ·, 9 | dropped |
+| bce7r (resmlp head) + ensembling | 16 (r1) | |
+
+- Seat-cue family pooled 296/390 = 76% vs ensembling-only 71% (z ≈ 1.4, p ≈ 0.17): consistent across 5 variants, not individually significant. The estimator gates are necessary (cue alone 46%). Checkpoint ensembling and exec 1 give nothing on top of temporal ensembling.
+- Collector bug: 45 simultaneous `modal volume get` calls time out and report finished runs as pending → rate-limited to 8 parallel with retry.
+- Spawned: s3_st10_e032, s3_st15 (stacking); tilt-fix t_fix / t_stall / t_both (on seat 0.032/5) on harness3. Flywheel rerun with unreadable-file skipping. Metered $79.70.
