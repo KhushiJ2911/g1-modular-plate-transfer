@@ -480,3 +480,17 @@ Findings:
 
 **Teacher ceiling ablation (paired seeds 2900000+; GPU cap starved some shards: tv1 100/120 attempts, tret 0, twait/tboth 120):** on the 100 common seeds, v1 **79/100**, `--max-wait 200` **79/100** (0 discordant), `--guarded-retreat --max-wait 200` **81/100** (2 vs 0 discordant, n.s.). knocked_after_release stays 9–10 in every variant; place_position 5–7; grasp_miss 2. **The existing teacher flags do not raise the ceiling** (the guarded retreat does not prevent the post-release knock). Track dropped; the post-release arm freeze lives in the harness (SETTLE) instead.
 - SmolVLA v2 finished 15k steps (resumed from 10k after the outage; queued ~20 min behind the GPU cap), lr_check smoke OK, 3 dev evals spawned 11:20.
+
+**Ensemble round (dev 3 × 30, T4): the whole harness gain is temporal ensembling.**
+
+| config (bce1) | exec | ensemble | supervisor | servo | runs | total |
+|---|---|---|---|---|---|---|
+| bce1 reference | 10 | no | — | — | 19, 17, 21 | 57/90 = 63% |
+| **e_pass** | 2 | yes | off | off | 22, 22, 20 | **64/90 = 71%** |
+| **e10_ens** | 10 | yes | off | off | 21, 19, 23 | **63/90 = 70%** |
+| h_ens | 2 | yes | on | off | 22, 22, 21 | 65/90 = 72% |
+| e_servo | 2 | yes | on | on | 21, 21, 22 | 64/90 = 71% |
+
+- Pooled over the four ensembling configs: 256/360 = 71% vs bce1 57/90 = 63%. **Estimator-gated release supervisor: +1/90 (n.s.); placement servo: −1/90 (n.s.).** The supervisor, as configured, does not move success; failure replays (e_pass r1 vs h_ens r1, running) will show why.
+- Ensembling works at both exec 2 and exec 10 (the BC code's existing raw-chunk/logit ensemble, decay 0.01, used by none of our previous evals).
+- **Budget:** metered $59.91 at 11:40 → overnight cap ($64.94) leaves ~$5.0; committed: SmolVLA v2 evals (running), bce5a/b training + 6 evals. Further sweeps moved to the **laptop** (free; NVIDIA EGL = Modal rendering; one eval at a time, `ADV_THROTTLE=1`; main checkout's advaitic-eval with `--policy-root` = wt-harness): ensemble decay 0.05, decay 0.1, bce4b + ensembling (1 × 30 each, `ops/laptop_eval_queue.sh`, results in `results/laptop/`). Local smoke (policy_smoke.py) PASS.
