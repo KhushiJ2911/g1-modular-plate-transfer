@@ -27,6 +27,7 @@ def export(rev, head):
             raise ValueError(f"Unexpected release infrastructure in {p}: {old}")
         p.write_text(t.replace(old, new))
 
+    update(module, "max_containers=200", "max_containers=30")
     update(module, 'modal.App("modular-shard")', f'modal.App("{app}")')
     update(
         module,
