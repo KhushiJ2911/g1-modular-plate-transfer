@@ -47,7 +47,16 @@ class Estimator:
     def __init__(self, checkpoint, device=None):
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         saved = torch.load(checkpoint, map_location="cpu", weights_only=False)
-        if saved["version"] != 1 or tuple(saved["config"]["proprio_dims"]) != PROPRIO_DIMS:
+        self.v2 = None
+        if tuple(saved["config"]["proprio_dims"]) != PROPRIO_DIMS:
+            raise ValueError("Unsupported estimator proprioception")
+        if saved["version"] == 2:
+            from .estimator_v2 import EstimatorV2
+
+            self.v2 = EstimatorV2(saved, self.device)
+            self.model = self.v2.model
+            return
+        if saved["version"] != 1:
             raise ValueError("Unsupported estimator checkpoint")
         self.model = PlateEstimator(pretrained=False)
         self.model.load_state_dict(saved["model"])
@@ -61,8 +70,14 @@ class Estimator:
             if (self.stats[f"{name}_std"] <= 0).any():
                 raise ValueError("Estimator standard deviations must be positive")
 
+    def reset(self):
+        if self.v2 is not None:
+            self.v2.reset()
+
     @torch.inference_mode()
     def __call__(self, obs):
+        if self.v2 is not None:
+            return self.v2(obs)
         rgb = np.asarray(obs["rgb"])
         state = np.asarray(obs["state"], np.float32)
         if rgb.shape != (3, 3, 84, 84) or rgb.dtype != np.uint8 or state.shape != (50,):

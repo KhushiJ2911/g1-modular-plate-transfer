@@ -21,6 +21,8 @@ class EstimatedTaskState:
         self.reset()
 
     def reset(self):
+        if hasattr(self.estimator, "reset"):
+            self.estimator.reset()
         self._state = None
         self._task = None
         self._source = None
@@ -44,7 +46,9 @@ class EstimatedTaskState:
         radians = np.deg2rad(90.0 - tilt)
         c, s = np.cos(radians), np.sin(radians)
         plate_rot = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
-        if held:
+        if "plate_rot_rel" in prediction:
+            plate_rot = basis @ prediction["plate_rot_rel"]
+        elif held:
             self.kin.set_state(state)
             hand_rot = basis @ self.kin.hand_pose("left")[1]
             if self._plate_in_hand is None:
@@ -70,6 +74,8 @@ class EstimatedTaskState:
             "table": bool(lower_edge <= site[2] - 0.17 + 0.006),
             "floor": bool(lower_edge <= 0.006),
         }
+        if "contacts" in prediction:
+            contacts = prediction["contacts"].copy()
         self._state = state.copy()
         self._task = {
             "plate_rel": plate_rel,
