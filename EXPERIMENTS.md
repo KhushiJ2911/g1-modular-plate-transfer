@@ -541,3 +541,19 @@ Findings:
 - Seat-cue family pooled 296/390 = 76% vs ensembling-only 71% (z ≈ 1.4, p ≈ 0.17): consistent across 5 variants, not individually significant. The estimator gates are necessary (cue alone 46%). Checkpoint ensembling and exec 1 give nothing on top of temporal ensembling.
 - Collector bug: 45 simultaneous `modal volume get` calls time out and report finished runs as pending → rate-limited to 8 parallel with retry.
 - Spawned: s3_st10_e032, s3_st15 (stacking); tilt-fix t_fix / t_stall / t_both (on seat 0.032/5) on harness3. Flywheel rerun with unreadable-file skipping. Metered $79.70.
+
+**15:50 results (laptop was closed 13:57–15:45; Modal evals finished, local chains died).** All bce1 + uniform ensembling + supervisor + seat cue; dev 1000000, 30 eps/run.
+
+| config | runs | total |
+|---|---|---|
+| seat 10 steps (s2_st10, previous best) | 23, 24, 24 | 71/90 = 79% |
+| seat 10 steps + 0.032 rad | 23, 22, 25 | 70/90 = 78% |
+| seat 15 steps | 23, 22, 24 | 69/90 = 77% |
+| seat 0.032 + stall release | 23, 23, 24 | 70/90 = 78% |
+| seat 0.032 + tilt fix + stall release | 23, 23, 23 | 69/90 = 77% |
+| seat 0.032 + tilt fix (extremum seeking) | 20, 21, 23 | 64/90 = 71% |
+| bce7r (resmlp head) + ensembling | 16, 16, 14 | 46/90 = 51% |
+| bce7m (mlp control) + ensembling | 12, 9, 15 | 36/90 = 40% |
+
+- Plateau: every seat-cue stacking variant lands in 77–79%, within run-to-run noise (±2/30). Tilt fix alone hurts (−4 vs its 0.032 base, 68/90); stall release is neutral. The bce7 retrains are both far below bce1 (~65/90 with ensembling), so the residual head is moot; the bce7 recipe itself regressed.
+- Flywheel chain died mid-filter when the laptop slept (71 files written) → restarted (chain_flywheel2d). Laptop seat 0.020 eval also died, no report. Metered $81.31.
