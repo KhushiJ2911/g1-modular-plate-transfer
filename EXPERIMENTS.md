@@ -192,3 +192,23 @@ On the dedicated account deploy `modal deploy -m ops_modular.astra_refine_sim`. 
 | Both heads | 3 | 2 / 2 | 0 |
 
 Combined model is a no-go for promotion. Full per-seed results and replay evidence are linked from `runs/astra_findings.md`. At adapter digest ef87f233a748c13bbe2a6dce4a4669b1a659526b7cf39411cd1caae1b17a0ae7, targeted Ruff lint and format checks passed. The new refinement and existing kinematics tests passed 9/9.
+
+### Modular controller · 2026-11-22 · Astra, v2 rendered data and GPU estimator
+
+- Dedicated Modal config `MODAL_CONFIG_PATH=/home/keyu/.modal_modular.toml` for all CLI/SDK calls. App `modular-astra-v2-data`, T4 EGL, one episode per container invocation, six-container cap shared with other jobs. Deployed `modal deploy -m ops_modular.astra_v2_data` from the 24a3a23 v1b inference sources plus the collector. `astra_v2_jobs.py spawn smoke gpu 3100000 1`, followed by `collect`, gave 91 labeled frames from 1700 recorded actions in 78.2 s, timeout, no fall, exact privileged-replay state match. Spawned five detached shards using start/count 3100001/59, 3100060/60, 3100120/60, 3100180/60 and 3100240/60, each with `spawn gen_$start gpu $start $count`; `collect` retrieves their existing call results. All SDK scripts run through `uv run --locked /home/keyu/.local/share/uv/tools/modal/bin/python`.
+- Prepared the disclosed teacher mix with `uv run --locked python -m method.modular.v2_teacher /home/keyu/advaitic/data/teacher_v1_dart0 results/est_v2_teacher --count 60` and `modal volume put modular-data results/est_v2_teacher /est_v2/teacher`. The 60 derived staging files were cleared after the volume listing verified 60 objects; their hashes and lengths are preserved in `runs/astra_v2/teacher_manifest.json`. Source teacher archives are retained.
+- Final rendered ablation result for the two `2818804ae9bea7a0655c0a0dfc90840f455026c2` manifests above. All 516 planned rollouts completed. For seeds 3000400–3000459, truth 60/60, orientation 5/60, contacts 24/60, pickup XYZ 44/60, later XYZ 52/60, destination 54/60, held 59/60, all estimates 7/60. For seeds 3000400–3000411, tilt-only 0/12 and destination/contact locking improved 5/12 to 10/12. The pilot and extension used 21 and 56 successful calls, 6,017.0 and 15,984.1 aggregate container-seconds, and 62.7 and 66.3 min launch-to-collection. Maximum concurrent T4 workers was configured at 16 and reduced during shared scheduling. The original commands apply, with `sol_ablation_pilot_recovery_calls.jsonl` and `sol_ablation_main_recovery_calls.jsonl` used at final collection.
+- Final filter follow-up result, `24a3a2334fe73f335402e8b144530a65da9d6bb5` with local variants, app `modular-sol-inputs-orientation`, seeds 3000400–3000407. Damped orientation 2/8, no signed feedback 1/8, observation contact filter 7/8, combined filters 3/8. Matched baselines were 1/8 for each comparison. Nine successful calls, 1,799.9 aggregate container-seconds, 23.9 min launch-to-collection. Use the launch command above and collect with `sol_orientation_fix_recovery_calls.jsonl`.
+
+### 2026-11-22 — lead: sharded dev eval of e588ae9 (observation-only, est_v1b) — 18/88 (20%), stopped
+- Tool: `ops_modular/lead_shard.py` (app `modular-shard`, dedicated account) + `lead_shard_run.py`: each seed of the official
+  balanced plans for blocks 1000000/1010000/1020000 run as a full-length 1-episode `--smoke` evaluator run (non-qualifying, dev only).
+- CPU (MUJOCO_GL=osmesa, 2 vCPU, ~89 containers, ~11 min/episode): **18/88** success; per slot s0 1/14, s1 1/15, s2 5/15,
+  s3 2/15, s4 3/15, s5 6/14. All failures `timeout`, no falls. Stopped with 2 episodes outstanding (cannot change the conclusion).
+- GPU parity: the cancelled single-container T4 runs (`lead_e588ae9_dev_*`) completed 21 episodes: 4/21; CPU and GPU agree on
+  12/13 overlapping seeds → CPU rendering is not the cause.
+- Camera-free privileged replay of 28 failures (`plans/modular_controller/runs/replay_lead_e588ae9_c90/`): 19/28 carried the plate
+  to within ~1 cm xy of the target and held it until timeout (12 touching the rack, 7 hovering 7–14 cm above); 7/28 grasp lost
+  after 9–28 held steps; 2 other.
+- sol's input-substitution ablation (privileged J on 60 fresh seeds, one estimated input group at a time): estimated orientation
+  −55 successes (37 first fail in LOWER), contacts −36, pickup xyz −16, others ≤ 8.
