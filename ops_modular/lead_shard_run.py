@@ -22,6 +22,7 @@ def main():
     name, kind, out, *starts = sys.argv[1:]
     fn = modal.Function.from_name("modular-shard", f"episode_{kind}")
     jobs = [(int(s), e.seed, e.source_slot) for s in starts for e in make_plan(30, int(s))]
+    assert all(make_plan(30, seed)[0].seed == seed for _, seed, _ in jobs)
     print(f"{name}: {len(jobs)} episodes on {kind}", flush=True)
     calls = [(block, seed, slot, fn.spawn(name, seed)) for block, seed, slot in jobs]
     rows = []

@@ -90,10 +90,8 @@ CPU_OPTIONS = dict(image=image, cpu=2, memory=4096, volumes={"/runs": volume}, s
 def _episode(name: str, seed: int, gl: str):
     if not 1_000_000 <= seed < 1_100_000:
         raise ValueError("Only development seeds supported")
-    from advaitic_eval.protocol import make_plan
-
-    # A 1-episode smoke plan starting at `seed` is exactly that seed.
-    assert make_plan(30, seed)[0].seed == seed
+    # A 1-episode smoke plan starting at `seed` is exactly that seed (make_plan always takes the first
+    # seed); checked locally in lead_shard_run.py before spawning.
     dest = job_dir(f"{name}-{seed}")
     args = [
         f"{CODE}/.venv/bin/advaitic-eval",
