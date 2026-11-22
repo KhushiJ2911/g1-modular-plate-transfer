@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import modal
+
 from ops_modular.modular_sim import image
 
 app = modal.App("modular-astra-loaded-wrist")
@@ -14,13 +15,25 @@ data = modal.Volume.from_name("modular-data")
 
 def gather():
     import numpy as np
+
     from method.modular.kinematics import G1Kinematics
 
     kin = G1Kinematics()
-    sample = {key: [] for key in (
-        "seed", "phase", "rgb", "head_rgb", "normal", "center", "estimated_center",
-        "torso_pos", "torso_rot", "finger",
-    )}
+    sample = {
+        key: []
+        for key in (
+            "seed",
+            "phase",
+            "rgb",
+            "head_rgb",
+            "normal",
+            "center",
+            "estimated_center",
+            "torso_pos",
+            "torso_rot",
+            "finger",
+        )
+    }
     for path in sorted(Path("/data/est_v2/onpolicy").glob("*.npz")):
         seed = int(path.stem)
         if not 3100000 <= seed < 3100300:
@@ -29,7 +42,9 @@ def gather():
             truth, phase, state, baseline = f["truth"], f["phase"], f["state"], f["baseline"]
             photos = None
             for name in ("CARRY", "ALIGN", "LOWER"):
-                indices = np.flatnonzero((phase == name) & (truth[:, 7] > 0.5) & (state[:, 44] > 0.8))
+                indices = np.flatnonzero(
+                    (phase == name) & (truth[:, 7] > 0.5) & (state[:, 44] > 0.8)
+                )
                 if len(indices) == 0:
                     continue
                 if photos is None:
@@ -50,13 +65,21 @@ def gather():
                     sample["finger"].append(state[i, 7:9])
     dest = Path("/data/astra-integration/loaded_views.npz")
     np.savez_compressed(dest, **sample)
-    return dict(seeds=len(set(sample["seed"])), images=len(sample["seed"]), bytes=dest.stat().st_size)
+    return dict(
+        seeds=len(set(sample["seed"])), images=len(sample["seed"]), bytes=dest.stat().st_size
+    )
 
 
 @app.function(image=image, cpu=1, memory=2048, timeout=1800, volumes={"/data": data})
 def extract():
-    cmd = "import json\nfrom pathlib import Path\n" + inspect.getsource(gather) + "\nprint(json.dumps(gather()))"
-    p = subprocess.run(["/root/policy/bin/python", "-c", cmd], cwd="/root/code", capture_output=True, text=True)
+    cmd = (
+        "import json\nfrom pathlib import Path\n"
+        + inspect.getsource(gather)
+        + "\nprint(json.dumps(gather()))"
+    )
+    p = subprocess.run(
+        ["/root/policy/bin/python", "-c", cmd], cwd="/root/code", capture_output=True, text=True
+    )
     if p.returncode:
         raise ValueError(p.stderr[-2000:])
     data.commit()

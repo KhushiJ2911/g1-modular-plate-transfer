@@ -48,7 +48,9 @@ def count(rows, plan):
 @app.function(
     cpu=0.125, memory=512, timeout=86400, volumes={"/records": records, "/runs": official}
 )
-def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smoke=False):
+def supervise(
+    name, app_name, policy, head, plan, existing, keep, prior="", smoke=False, recover_empty=""
+):
     if not re.fullmatch("astra_[a-z0-9_]+", name) or not app_name.startswith(
         "modular-shard-astra-"
     ):
@@ -72,7 +74,6 @@ def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smok
     fn = modal.Function.from_name(app_name, "episode_cpu")
     # Shared slots for the supervisor, score reader, DAgger and diagnostics are
     # reserved separately. At most one official development round is active.
-    fn.autoscaler.update(max_containers=23)
     replay = modal.Function.from_name("modular-astra-integration-replay", "replay")
     replay.autoscaler.update(max_containers=2)
     by_seed = {r["seed"]: r for r in plan}
@@ -89,18 +90,28 @@ def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smok
         (fold / "replays.json").write_text(json.dumps(replays))
         records.commit()
 
+    identity = fold / "candidate.json"
+    candidate = dict(app=app_name, policy=policy, checkpoint=head, plan=plan)
     if journal.exists():
-        raise ValueError("A supervisor already owns this journal")
+        if not identity.is_file() or json.loads(identity.read_text()) != candidate:
+            raise ValueError("Another candidate already owns this journal")
+        if not recover_empty:
+            return {"status": "already supervised", "run": name}
+        if json.loads(journal.read_text()) or attempt_status(recover_empty) != "ended":
+            raise ValueError("Only a failed supervisor with an empty call journal can restart")
+    identity.write_text(json.dumps(candidate))
+    hybrid_pending = (fold / "hybrid_calls.json").is_file() and not (fold / "hybrid.json").is_file()
+    fn.autoscaler.update(max_containers=15 if hybrid_pending else 23)
     persist()
     if smoke and not existing:
         s = plan[0]["seed"]
         reserved = fold / "official_smoke.call"
-        c = (
-            modal.FunctionCall.from_id(reserved.read_text().strip())
-            if reserved.exists()
-            else fn.spawn(name, s, policy, head)
-        )
-        ids[s] = c.object_id
+        if reserved.exists():
+            ids[s] = reserved.read_text().strip()
+            c = modal.FunctionCall.from_id(ids[s])
+        else:
+            c = fn.spawn(name, s, policy, head)
+            ids[s] = c.object_id
         persist()
         r = c.get()
         if r["seed"] != s or not r["completed"]:
@@ -108,6 +119,11 @@ def supervise(name, app_name, policy, head, plan, existing, keep, prior="", smok
     submitted = False
     with concurrent.futures.ThreadPoolExecutor(10) as pool:
         while True:
+            if hybrid_pending:
+                records.reload()
+                if (fold / "hybrid.json").is_file():
+                    hybrid_pending = False
+                    fn.autoscaler.update(max_containers=23)
             rows = score.remote(name, [(r["block"], r["seed"], r["slot"]) for r in plan])
             summary = count(rows, plan)
             seen = {r["seed"] for r in rows}
