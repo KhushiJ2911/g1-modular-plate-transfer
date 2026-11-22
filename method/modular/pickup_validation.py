@@ -95,6 +95,8 @@ def hybrid(seed, variant):
                     },
                     "contacts": {**task["contacts"], "source_rack": est["contacts"]["source_rack"]},
                 }
+                if "left_wrist_rgb" in est:
+                    combined["left_wrist_rgb"] = est["left_wrist_rgb"]
                 action = ctl.act(obs["state"], combined)
             else:
                 action = ModularController.act(ctl, ts.low_dim_obs, task)

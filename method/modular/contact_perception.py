@@ -53,6 +53,8 @@ class PerceptionHeads(CorrectedTaskState):
             # slides around -16 mm; closure alone can report an empty pinch.
             if state[44] < 0.8 or np.mean(state[7:9]) < -0.0185:
                 self.held_probability = 0.0
+        if phase == "GRASP":
+            task["left_wrist_rgb"] = obs["rgb"][2]
         task["held"] = self.held_probability >= 0.5
         return task
 
