@@ -127,7 +127,7 @@ def _episode(name: str, seed: int, gl: str):
     return {"seed": seed, "seconds": time.monotonic() - start, "gl": gl, **report["episodes"][0]}
 
 
-@app.function(**OPTIONS, timeout=1800, max_containers=60)
+@app.function(**OPTIONS, timeout=1800, max_containers=2)
 def episode_gpu(name: str, seed: int):
     return _episode(name, seed, "egl")
 
