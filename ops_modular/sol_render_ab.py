@@ -230,6 +230,8 @@ def summarize(path):
             "valid_episodes": len(rows),
             "matched_successes": len(wins),
             "matched_falls": sum(rows[s]["fell"] for s in seeds),
+            "returned_worker_seconds": sum(r.get("seconds") or 0.0 for r in rows.values()),
+            "matched_by_slot": {slot: sum(slots[s] == slot for s in seeds) for slot in range(6)},
             "policy_errors": {s: rows[s]["policy_error"] for s in seeds if rows[s]["policy_error"]},
             "release_entries": sum(
                 any(p["to"] == "RELEASE" for p in rows[s]["phases"]) for s in seeds
@@ -240,7 +242,7 @@ def summarize(path):
                     for s in losses
                 )
             ),
-            "success_by_slot": dict(Counter(slots[s] for s in wins)),
+            "success_by_slot": {slot: sum(slots[s] == slot for s in wins) for slot in range(6)},
         }
         outcomes[arm] = wins
     result["fk_rescues"] = sorted(outcomes["fk"] - outcomes["base"])
