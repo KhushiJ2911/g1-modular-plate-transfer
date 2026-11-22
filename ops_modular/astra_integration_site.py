@@ -16,7 +16,7 @@ if modal.is_local():
     )
 
 
-@app.function(image=image, gpu="T4", volumes={"/data": data}, timeout=1500)
+@app.function(image=image, cpu=2, volumes={"/data": data}, timeout=1500)
 def fit():
     import sys
 
@@ -63,7 +63,7 @@ def fit():
     weights = {}
 
     def tensor(x):
-        return torch.as_tensor(x, device="cuda", dtype=torch.float64)
+        return torch.as_tensor(x, device="cpu", dtype=torch.float64)
 
     for group, splits in columns.items():
 
@@ -83,7 +83,7 @@ def fit():
         for penalty in (0.1, 1.0, 10.0):
             coef = (
                 torch.linalg.solve(
-                    gram + len(x) * penalty * torch.eye(len(mean), device="cuda"), X.T @ Y
+                    gram + len(x) * penalty * torch.eye(len(mean), device="cpu"), X.T @ Y
                 )
                 .cpu()
                 .numpy()

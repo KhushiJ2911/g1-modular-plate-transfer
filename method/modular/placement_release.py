@@ -78,7 +78,7 @@ class SeatedReleaseController(CalibratedPlacementController):
         basis = pelvis_rotation(state)
         hand = state[layout.PELVIS_XYZ] + basis @ position
         hand_rot = basis @ rotation
-        if visual["held"] and state[layout.GRIPPERS][0] >= 0.65:
+        if self.normal_source is not None and visual["held"] and state[layout.GRIPPERS][0] >= 0.65:
             self.normals.append(self.normal_source.measure(state, visual, hand, hand_rot))
         self.heights.append(hand[2])
         self.hand = hand, hand_rot
@@ -154,12 +154,16 @@ def make_previous_heads():
     return _with_phase_trace(make_policy())
 
 
-def make_policy():
+def _make_policy(*, visual_calibration):
     from submission.policy_modular_heads import make_policy as make_heads
 
     baseline = make_heads()
     default = Path(__file__).resolve().parents[2] / "checkpoints/astra/normal_v1.npz"
-    normal = SeatedNormal(baseline.task, os.environ.get("ADV_PLACEMENT_NORMAL") or default)
+    normal = (
+        SeatedNormal(baseline.task, os.environ.get("ADV_PLACEMENT_NORMAL") or default)
+        if visual_calibration
+        else None
+    )
 
     class PlacementPolicy(type(baseline)):
         def __init__(self):
@@ -169,3 +173,11 @@ def make_policy():
             self.reset()
 
     return _with_phase_trace(PlacementPolicy())
+
+
+def make_policy():
+    return _make_policy(visual_calibration=True)
+
+
+def make_fk_policy():
+    return _make_policy(visual_calibration=False)

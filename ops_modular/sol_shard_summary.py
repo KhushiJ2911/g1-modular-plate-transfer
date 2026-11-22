@@ -10,7 +10,7 @@ from advaitic_eval.protocol import make_plan
 VARIANTS = ("previous", "pickup", "rigid", "late_site", "seating")
 
 
-def summarize(path, seed_start, expected):
+def summarize(path, seed_start, expected, prefix="sol_rb", variants=VARIANTS):
     if expected not in (6, 12, 18, 24, 30):
         raise ValueError("Expected an equal number of episodes per slot")
     counts = Counter()
@@ -21,8 +21,8 @@ def summarize(path, seed_start, expected):
             plan[episode.seed] = episode.source_slot
     seen = {}
     reports = {}
-    for variant in VARIANTS:
-        file = path / f"sol_rb_{variant}.jsonl"
+    for variant in variants:
+        file = path / f"{prefix}_{variant}.jsonl"
         rows = [json.loads(line) for line in file.read_text().splitlines()] if file.exists() else []
         if len({row["seed"] for row in rows}) != len(rows):
             raise ValueError(f"Duplicate seed in {file}")
@@ -55,7 +55,7 @@ def summarize(path, seed_start, expected):
     builds = {row["snapshot"] for rows in seen.values() for row in rows.values()}
     if len(builds) > 1:
         raise ValueError("Mixed snapshots")
-    for previous, current in zip(VARIANTS, VARIANTS[1:], strict=False):
+    for previous, current in zip(variants, variants[1:], strict=False):
         left, right = seen[previous], seen[current]
         paired = left.keys() & right.keys()
         old = {s for s in paired if left[s]["success"]}
@@ -88,5 +88,11 @@ if __name__ == "__main__":
     parser.add_argument("path", type=Path)
     parser.add_argument("--start", type=int, default=3_000_460)
     parser.add_argument("--expected", type=int, default=30)
+    parser.add_argument("--prefix", default="sol_rb")
+    parser.add_argument("--variants", nargs="+", default=VARIANTS)
     args = parser.parse_args()
-    print(json.dumps(summarize(args.path, args.start, args.expected), indent=2))
+    print(
+        json.dumps(
+            summarize(args.path, args.start, args.expected, args.prefix, args.variants), indent=2
+        )
+    )
