@@ -15,6 +15,7 @@ from submission.harness import (
     ARM_HIGH,
     ARM_LOW,
     DEFAULT_CONFIG,
+    SEATING_AND_REGRIP_DEFAULTS,
     ReleaseSupervisor,
     config_from_env,
     pose_hold_action,
@@ -164,7 +165,102 @@ class SupervisorTests(unittest.TestCase):
             self.assertEqual(out.dtype, np.float32)
             self.assertLessEqual(np.abs(out).max(), 1)
 
+    def test_seat_cue_requires_persistent_error_against_last_executed_target(self):
+        cfg = config_from_env({"ADV_H_SEAT_CUE": "1"})
+        self.supervisor = ReleaseSupervisor({**cfg, "held_steps": 2, "stable_steps": 4}, log=False)
+        self.state[5] = 0.3
+        self.actions[:, 9] = pose_hold_action(self.state)[9]
+        self.actions[0, 9] += 0.2  # only the last row precedes the next observation
+        self.place()
+        self.state[3] = 0.3  # elbow error alone is insufficient
+        for _ in range(5):
+            self.assertTrue((self.step()[:, 18] == 1).all())
+        self.state[5] -= 0.035
+        for _ in range(3):  # 4 elapsed control steps after the first positive observation
+            self.assertTrue((self.step()[:, 18] == 1).all())
+        self.state[5] += 0.035
+        self.step()  # one matching observation clears the seat streak
+        self.state[5] -= 0.035
+        for _ in range(3):
+            self.assertTrue((self.step()[:, 18] == 1).all())
+        self.assertTrue((self.step()[:, 18] == -1).all())
+        self.assertEqual(self.supervisor.phase, "RELEASE")
+
+    def test_seat_only_bypasses_strict_distance_and_tilt_inside_place_region(self):
+        for only in (False, True):
+            with self.subTest(only=only):
+                self.supervisor = ReleaseSupervisor(
+                    {**self.config, "seat_cue": True, "seat_cue_only": only}, log=False
+                )
+                self.place()
+                self.state[5] = 0.07  # zero action commands zero radians on wrist pitch
+                self.estimate["target_site_rel"] = self.estimate["plate_rel"] + [0.05, 0, 0]
+                self.estimate["tilt_deg"] = 20
+                self.state[27] = 0.5  # wrist pitch velocity prevents release in both modes
+                for _ in range(5):
+                    self.assertTrue((self.step()[:, 18] == 1).all())
+                self.state[27] = 0
+                for _ in range(4):
+                    self.step()
+                self.assertEqual(self.supervisor.release_time is not None, only)
+
+    def test_regrip_timing_advance_frame_and_once_per_episode(self):
+        # Exercise each of Astra's two independent shallow-pinch tests.
+        for fingers in ([0.003, 0.003], [0.005, -0.03]):
+            with self.subTest(fingers=fingers):
+                self.setUp()
+                self.supervisor = ReleaseSupervisor(
+                    {**self.config, "regrip": True, "grasp_timeout_steps": 100}, log=False
+                )
+                self.actions = np.repeat(self.actions[:1], 7, axis=0)
+                self.state[7:9] = fingers
+                self.state[21] = np.pi / 2
+                self.carry()
+                chunks = [self.step()]
+                self.assertEqual(self.supervisor.phase, "REGRIP")
+                start = self.supervisor.phase_since
+                latched = pose_hold_action(self.state)
+                self.estimate["held"] = 0.0  # intentional opening bypasses lost-plate recovery
+                while (age := self.supervisor.time - start) < 100:
+                    if age >= 35:
+                        self.state[18] = 0.035  # measured base reached its target
+                    chunks.append(self.step())
+                trace = np.concatenate(chunks)
+                grip = 2 * np.clip((np.arange(len(trace)) - 60) / 25, 0, 1) - 1
+                np.testing.assert_allclose(trace[:, 18], grip)
+                np.testing.assert_allclose(trace[:, 0], 0, atol=1e-7)
+                np.testing.assert_allclose(trace[10:35, 1], -0.075)
+                np.testing.assert_array_equal(np.r_[trace[:10, 1], trace[35:, 1]], 0)
+                np.testing.assert_array_equal(
+                    trace[:, 2:18], np.tile(latched[2:18], (len(trace), 1))
+                )
+                self.step()
+                self.assertEqual(self.supervisor.phase, "GRASP")
+                self.estimate["held"] = 0.95
+                for _ in range(8):
+                    self.assertTrue((self.step()[:, 18] == 1).all())
+                self.assertEqual(self.supervisor.phase, "CARRY")
+                self.supervisor.reset()
+                self.assertIsNone(self.supervisor.regrip_pose)
+
+    def test_regrip_skips_good_pinch_and_is_default_off(self):
+        for enabled, fingers in ((True, [0.01, -0.01]), (False, [0, 0])):
+            with self.subTest(enabled=enabled):
+                config = config_from_env({"ADV_H_REGRIP": "1"} if enabled else {})
+                self.supervisor = ReleaseSupervisor({**config, "held_steps": 2}, log=False)
+                self.state[7:9] = fingers
+                self.carry()
+                for _ in range(12):
+                    self.assertTrue((self.step()[:, 18] == 1).all())
+                self.assertEqual(self.supervisor.phase, "CARRY")
+
     def test_env_and_invalid_values(self):
+        legacy = {
+            key: value
+            for key, value in self.config.items()
+            if key not in SEATING_AND_REGRIP_DEFAULTS
+        }
+        self.assertEqual(ReleaseSupervisor(legacy, log=False).config, self.config)
         cfg = config_from_env({"ADV_H_STABLE_STEPS": "12", "ADV_H_TEMPORAL_ENSEMBLE": "1"})
         self.assertEqual(cfg["stable_steps"], 12)
         self.assertTrue(cfg["temporal_ensemble"])
@@ -176,6 +272,10 @@ class SupervisorTests(unittest.TestCase):
             ("PLACE_KP", "-1"),
             ("PLACE_VMAX", "nan"),
             ("PLACE_SERVO", "maybe"),
+            ("SEAT_CUE_ONLY", "1"),
+            ("SEAT_ERROR_RAD", "0"),
+            ("SEAT_STEPS", "0"),
+            ("REGRIP", "maybe"),
         ):
             with self.assertRaises(ValueError):
                 config_from_env({"ADV_H_" + key: value})
