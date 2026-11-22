@@ -1,21 +1,29 @@
 """Extra placement-event measurements in the same pass as the lead's failure replay."""
 
+import csv
 import json
 import runpy
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
 
 
-def measure(folder, output):
+def measure(folder, output, episode_index=0):
     import bigym.loco
 
     sys.path.insert(0, "/home/keyu/advaitic/wt-teacher")
     from method.teacher.diagnostics import PrivilegedSensors
 
-    with np.load(folder / "episode_000.actions.npz") as f:
-        commands = f["actions"][:, 18]
+    report = json.loads((folder / "report.json").read_text())
+    official = report["episodes"][episode_index]
+    if official["episode"] != episode_index or not official["completed"]:
+        raise ValueError("Expected a completed episode with its original evaluator index")
+    actions = folder / f"episode_{episode_index:03}.actions.npz"
+    with np.load(actions, allow_pickle=False) as f:
+        issued = f["actions"]
+        commands = issued[:, 18]
     snapshots = []
     original = PrivilegedSensors.snapshot
 
@@ -44,12 +52,27 @@ def measure(folder, output):
 
     PrivilegedSensors.snapshot = observe
     bigym.loco.make = capture
-    sys.argv = ["/root/analysis/replay_eval.py", str(folder), str(output)]
+    previous_args = sys.argv
     try:
-        runpy.run_path(sys.argv[0], run_name="__main__")
+        # The upstream analysis iterates every CSV row. Give it the original
+        # row and archive for this episode so successes need no extra replay.
+        with tempfile.TemporaryDirectory() as d:
+            selected = Path(d)
+            with (folder / "episodes.csv").open(newline="") as stream:
+                rows = [r for r in csv.DictReader(stream) if int(r["episode"]) == episode_index]
+            if len(rows) != 1 or any(
+                int(rows[0][key]) != official[key] for key in ("seed", "source_slot", "steps")
+            ):
+                raise ValueError("Official report and episode CSV differ")
+            with (selected / "episodes.csv").open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
+                writer.writeheader()
+                writer.writerows(rows)
+            (selected / actions.name).symlink_to(actions.resolve())
+            sys.argv = ["/root/analysis/replay_eval.py", str(selected), str(output)]
+            runpy.run_path(sys.argv[0], run_name="__main__")
         r = json.loads(output.read_text())
         env = envs[0]
-        official = json.loads((folder / "report.json").read_text())["episodes"][0]
         if (
             len(commands) != official["steps"]
             or bool(env.episode_succeeded()) != official["success"]
@@ -62,6 +85,7 @@ def measure(folder, output):
             env.close()
         PrivilegedSensors.snapshot = original
         bigym.loco.make = factory
+        sys.argv = previous_args
     assert snapshots[0]["step"] == 0 and len(snapshots) == len(commands) + 2
     # replay_eval repeats the final snapshot for its endpoint summary.
     frames = snapshots[:-1]
@@ -86,8 +110,28 @@ def measure(folder, output):
         r["reacquired_after_open"] = bool(
             cleared and any(s["held"] for s in frames[cleared["step"] + 1 :])
         )
+        after = frames[release : opening_end + 1]
+        first_return = next(
+            (s for s in after if cleared and s["step"] > cleared["step"] and s["held"]), None
+        )
+        r["first_pad_return"] = first_return
+        r["terminal_pad_contact"] = bool(frames[-1]["held"])
+        r["contact_frames_while_commanded_open"] = sum(
+            s["held"] for s in after if s["step"] < opening_end
+        )
+        moving = (
+            np.flatnonzero(np.linalg.norm(issued[release:opening_end, :2], axis=1) > 1e-5) + release
+        )
+        if len(moving):
+            r["open_base_motion"] = {
+                "commands": int(len(moving)),
+                "first": frames[int(moving[0])],
+                "last": frames[int(moving[-1])],
+            }
+        else:
+            r["open_base_motion"] = None
     output.write_text(json.dumps(r))
 
 
 if __name__ == "__main__":
-    measure(Path(sys.argv[1]), Path(sys.argv[2]))
+    measure(Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3]) if len(sys.argv) > 3 else 0)

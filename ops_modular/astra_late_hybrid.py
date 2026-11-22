@@ -124,6 +124,7 @@ def run(seed, directory, rendered, phase_aware=False, trace_motion=False):
                 action = motion.apply(action, state, kin, task, site, SITE_ROTATION, age)
                 if motion.elapsed == 1 and "start_step" not in result:
                     result["start_step"] = t
+                    result["withdrawal_axis"] = motion.axis.tolist()
                     result["start_true_tilt"] = labels(state)["tilt_deg"]
                 if trace_motion and motion.elapsed:
                     physical = labels(state)
@@ -175,14 +176,17 @@ def trial(seed, arm, archive, rendered, phase_aware=False, trace_motion=False):
         if arm != "sol" or not 3110180 <= seed < 3110240:
             raise ValueError("Expected the historical generation cohort")
         data.reload()
-    elif not (
-        3001600 <= seed < 3001750
-        and arm in ("base", "fk")
-        and re.fullmatch(
-            rf"/runs/modular/sol_fk_full_{arm}(?:_retry)?-{seed}(?:-r[0-9]+)?/eval", archive
-        )
-    ):
-        raise ValueError("Expected the paired current generation cohort")
+    else:
+        if 3001600 <= seed < 3001750 and arm in ("base", "fk"):
+            cohort = "sol_fk_full_" + arm
+        elif 3002200 <= seed < 3002350 and arm == "base":
+            cohort = "sol_fallback_full_base"
+        else:
+            raise ValueError("Expected a declared generation arm and seed")
+        if not re.fullmatch(
+            rf"/runs/modular/{cohort}(?:_retry)?-{seed}(?:-r[0-9]+)?/eval", archive
+        ):
+            raise ValueError("Archive does not match the paired generation arm")
     volume.reload()
     records.reload()
     folder = Path("/records/astra-integration") / (

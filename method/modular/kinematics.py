@@ -61,9 +61,6 @@ class G1Kinematics:
             )
         self.model = spec.compile()
         self.data = mujoco.MjData(self.model)
-        # Effective standing torso pitch, calibrated once at standoff in the
-        # seed 3000100 open-hand rollout (15 mm vertical error at 0.34 m).
-        self.data.joint("waist_pitch_joint").qpos[0] = 0.045
         self._sites = {s: self.model.site(f"{s}_end_effector").id for s in SIDES}
         self._qpos = {}
         self._dofs = {}
@@ -85,6 +82,14 @@ class G1Kinematics:
             )
             fingers = [self.model.joint(f"{side}_dex1_finger_joint_{j}").id for j in (1, 2)]
             self._fingers[side] = self.model.jnt_qposadr[fingers]
+        self.reset()
+
+    def reset(self):
+        """Restore the local robot's standing reference with empty FK/IK scratch data."""
+        mujoco.mj_resetData(self.model, self.data)
+        # Effective standing torso pitch, calibrated once at standoff in the
+        # seed 3000100 open-hand rollout (15 mm vertical error at 0.34 m).
+        self.data.joint("waist_pitch_joint").qpos[0] = 0.045
         self._forward()
 
     def _forward(self):

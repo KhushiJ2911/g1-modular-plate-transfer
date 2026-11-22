@@ -128,6 +128,11 @@ def trace(name, folder, head):
         re.escape(name) + r"-10[0-9]{5}(-r[0-9]+)?", folder
     ):
         raise ValueError("Unexpected frozen run directory")
+    return trace_archive(name, folder, head)
+
+
+def trace_archive(name, folder, head):
+    """Compare a public policy's actual decisions against the archived action sequence."""
     path = Path(head)
     if (
         path.parent != Path("/runs/heads")
