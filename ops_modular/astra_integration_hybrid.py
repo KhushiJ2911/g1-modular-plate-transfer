@@ -18,7 +18,7 @@ def episode(seed, arm):
     from method.modular.input_ablation import _first_failure
     from method.modular.privileged import PrivilegedTaskState
 
-    if not 3000800 <= seed < 3001000:
+    if not (3000800 <= seed < 3001000 or 3001100 <= seed < 3001160):
         raise ValueError("Fresh integration hybrid seeds only")
     factory = {
         "base": "submission.policy_modular_heads:make_policy",
@@ -27,6 +27,7 @@ def episode(seed, arm):
         "both": "submission.policy_modular_integrated:make_policy",
         "visual": "submission.policy_modular_integrated:make_visual_release",
         "geometry": "submission.policy_modular_integrated:make_visual_geometry",
+        "mask": "submission.policy_modular_silhouette:make_policy",
     }[arm]
     mod, name = factory.split(":")
     p = getattr(importlib.import_module(mod), name)()
@@ -87,6 +88,6 @@ def episode(seed, arm):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("seed", type=int)
-    p.add_argument("arm", choices=["base", "site", "plate", "both", "visual", "geometry"])
+    p.add_argument("arm", choices=["base", "site", "plate", "both", "visual", "geometry", "mask"])
     a = p.parse_args()
     print(json.dumps(episode(a.seed, a.arm)))

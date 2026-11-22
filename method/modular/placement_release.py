@@ -11,7 +11,6 @@ from . import layout
 from .controller import _rotation_from_vector
 from .kinematics import pelvis_rotation
 from .observed_controller import CalibratedPlacementController
-from .orientation_feedback import LEFT_GRASP_NORMAL
 from .phases import Phase
 from .refined import inputs
 from .robust_controller import _with_phase_trace
@@ -86,7 +85,7 @@ class SeatedReleaseController(CalibratedPlacementController):
 
     def _start_leveling(self, reference):
         hand, rotation = self.hand
-        normal = LEFT_GRASP_NORMAL.copy()
+        normal = self.orientation.loaded_normal.copy()
         if len(self.normals) == self.normals.maxlen:
             measured = np.median(self.normals, axis=0)
             # Limit corrections to plausible grasp variation and keep the

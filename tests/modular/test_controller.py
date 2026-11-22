@@ -303,3 +303,30 @@ def test_post_open_clearance_requires_recontact_and_stops_on_plate_motion():
         clearance.update(pose, displaced, step, hand, rotation)
     assert clearance.finished
     assert clearance.update(pose, task, 16, hand, rotation) is None
+
+
+def test_loaded_grasp_normal_begins_at_carry_and_persists_across_reset():
+    from method.modular.orientation_feedback import LEFT_GRASP_NORMAL
+    from method.modular.placement_release import SeatedReleaseController
+
+    kin = FixedKinematics()
+    controller = SeatedReleaseController(kin, None, None)
+    baseline = SeatedReleaseController(kin, None, None)
+    state = np.zeros(50)
+    state[layout.GRIPPERS] = 0.9
+    task = {**placement(), "plate_rot": np.eye(3)}
+    measured = np.array([0.0, -1.0, 0.0])
+    controller.set_loaded_grasp_normal(measured)
+    controller.reset()
+    for phase in (Phase.GRASP, Phase.LIFT):
+        pre_carry = controller.orientation.update(state, task, phase)
+        np.testing.assert_allclose(pre_carry["plate_rot"][:, 2], LEFT_GRASP_NORMAL)
+    carried = controller.orientation.update(state, task, Phase.CARRY)
+    np.testing.assert_array_equal(carried["plate_rot"][:, 2], measured)
+    baseline_pose = baseline.orientation.update(state, task, Phase.CARRY)
+    np.testing.assert_allclose(baseline_pose["plate_rot"][:, 2], LEFT_GRASP_NORMAL)
+    controller.hand = kin.hand_pose("left")
+    controller._start_leveling(measured)
+    np.testing.assert_array_equal(controller.level_normal, measured)
+    with pytest.raises(ValueError, match="hand-frame normal"):
+        controller.set_loaded_grasp_normal(np.zeros(3))

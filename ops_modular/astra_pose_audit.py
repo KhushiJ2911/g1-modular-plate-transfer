@@ -27,7 +27,9 @@ def measure(folder, split, learned, limit):
 
         torch.set_num_threads(1)
         model = PlateMask().eval()
-        model.load_state_dict(torch.load(folder / "mask_v1/weights.pt", weights_only=True))
+        model.load_state_dict(
+            torch.load(folder / "mask_v1/weights.pt", map_location="cpu", weights_only=True)
+        )
     kin = G1Kinematics()
 
     def deg(a, b):
@@ -138,6 +140,12 @@ def measure(folder, split, learned, limit):
             prior=stats([r["base"] for r in subset]),
             bounded=stats([r["phases"][phase]["bounded_deg"] for r in subset]),
             direct=stats([r["phases"][phase]["direct_deg"] for r in subset]),
+            frame_prior=stats(
+                [v["raw_deg"] for r in subset for v in r["phases"][phase]["observations"]]
+            ),
+            frame_registered=stats(
+                [v["frame_deg"] for r in subset for v in r["phases"][phase]["observations"]]
+            ),
         )
     return dict(split=split, learned=learned, summary=summary, rows=rows)
 
