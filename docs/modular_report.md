@@ -1,6 +1,6 @@
 # Modular G1 plate transfer
 
-The controller converts camera and robot observations into a continuous estimate of the plate and destination. It uses that estimate to pick up, carry, seat and release the plate with geometric feedback. The lead froze commit `54080e586a9c892d7a903b99be316564328a4f77` and factory `submission.policy_modular_combined:make_policy`. All four fresh development blocks had already reached 27 successes apiece at freeze. The uninterrupted qualifying confirmation is in progress.
+The controller converts camera and robot observations into a continuous estimate of the plate and destination. It uses that estimate to pick up, carry, seat and release the plate with geometric feedback. The one-time confirmation of frozen `54080e5` finished at **25/30 (FAIL)** on seed start `2600000`. On subsequent qualifying-format development blocks, `876a00f` achieved **222/240 with all eight blocks passing**. The lead designated it as the safe candidate, using `submission.policy_modular_round4:make_measured_policy`. The reviewer result is TBD.
 
 ## Observations, actions and control
 
@@ -10,7 +10,7 @@ The policy receives three CHW `uint8` RGB views (head, right wrist and left wris
 
 - **APPROACH → PREGRASP → GRASP → LIFT.** Drive the pelvis to a geometric standoff. Sample the source while stationary at reset and pregrasp. Reach relative to the estimated plate with damped least-squares IK and verify the pinch and lift with finger measurements and FK. Phase timeouts and grasp retries are bounded.
 - **CARRY → ALIGN → LOWER.** Track the destination standoff, center over the locked site, then descend with bounded position and orientation feedback. The combined candidate tries ordinary release confirmation first. A late fallback uses FK height, descent stall or rack contact, and the stationary source support height when the locked site is low.
-- **RELEASE → SETTLE → RETREAT → HOLD.** Open both grippers and hold joint targets during settling. The ordinary retreat gate requires 75 measured-open steps, rack support and pose checks. If the open hand stalls after settling or guarded retreat, the clearance wrapper can withdraw the base a bounded distance while monitoring plate displacement, tilt and support.
+- **RELEASE → SETTLE → RETREAT → HOLD.** Open both grippers and hold joint targets during settling. The round-six factory captures the measured left-arm pose at opening and holds it through settling. Retreat along the approach normal requires settled-pose checks and no detected open-finger contact. The ordinary settle gate requires 75 measured-open steps, rack support and pose checks. After a settle timeout or guarded retreat, the clearance wrapper can withdraw the base a bounded distance while monitoring plate displacement, tilt and support.
 
 The output is one 20-value action in `[-1,1]`: pelvis planar velocity, height target and yaw rate; seven absolute joint targets per arm; and two gripper commands. FK and IK use a separate fixed-robot MuJoCo model driven by measured joints. Inference uses public observations and fixed geometry. Simulator truth supplied training labels and guided controller development on generation seeds. Archived action sequences supported retrospective diagnostics and matched-prefix intervention tests. [Layout and controller](../method/modular/controller.py) · [Runtime and interface provenance](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23)
 
@@ -40,25 +40,44 @@ The early sharded totals had outstanding calls. The 72-seed intersection include
 
 [Common-seed joins](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23) · [Round-one fresh signal](../EXPERIMENTS.md#2026-11-23-0051--paired-180-episode-fresh-block-signal-eval-blocks-10300001080000-retired-after-this-use) · [Round-two fresh signal](../EXPERIMENTS.md#2026-11-23-023x--round-2-fresh-block-signal-528c854-methodmodularbase_clearance--112113120-9394)
 
-## Failure modes and evaluation limits
+## Qualifying-format results
+
+Each development block below ran the unmodified balanced evaluator in one persistent policy process for 30 episodes. The evaluator resets the environment and policy before each episode. The round-four comparison used the same eight blocks for both policies. Rounds five and six used different fresh blocks, so their totals measure performance on separate cohorts.
+
+| Development round | Frozen controller | Successes | Blocks passing |
+| --- | --- | ---: | ---: |
+| 4 | `414f15a`, combined placement and clearance with explicit reset cleanup | 220/240 (91.7%) | 6/8 |
+| 4, paired comparison | `528c854`, calibrated controller with guarded base clearance | 214/240 (89.2%) | 3/8 as logged |
+| 5 | `99e72f6`, retained-pinch guard, sustained rack-contact release and seating-drop detection | 220/240 (91.7%) | 6/8 |
+| 6 | `876a00f`, round-five controller with measured-arm hold at opening | 222/240 (92.5%) | 8/8 |
+
+Round-six start seeds were `1037000`, `1044000`, `1054000`, `1064000`, `1074000`, `1084000`, `1094000` and `1038000`. In that order, the eight blocks finished with 30, 27, 27, 28, 27, 29, 27 and 27 successes. The `528c854` entry reports 3/8 passing, and its listed scores put four blocks at the 27-success threshold or above. The table preserves the reported pass count pending a check of the original block statuses. [Rounds 4–6 experiment log](../EXPERIMENTS.md)
+
+The fresh-process sharded signal was optimistic. It suggested at least **95%**, while the subsequent persistent-process development batches for the combined policy family ran at about **92%**. Sharded runs use a full-horizon one-episode `--smoke` invocation per seed and are non-qualifying. Early returns favor short successes. Development blocks informed selection, and fresh signal blocks were retired after one use. Archived-prefix interventions provide diagnostic evidence.
+
+The reset audit found **no action-changing leak** in the tested controls. The `414f15a` cleanup clears six retained state categories, and all 81 actions in the frozen-versus-cleanup comparison matched bit-for-bit. Additional process-isolation tests matched actions and raw estimator outputs between fresh execution and execution after prior calls and reset. Only **7 of the 20** round-four failures passed when rerun fresh. The other 13 failed again. Different seed cohorts and renderer variability also limit what the sharded comparison can say about the cause of any one failure. [Reset and process-isolation evidence](../EXPERIMENTS.md)
+
+| Run | Frozen controller | Seed start | Result | Source slots 0–5 | Original report status |
+| --- | --- | ---: | --- | --- | --- |
+| One-time confirmation | `54080e5` | 2600000 | **25/30 (FAIL)** | 3/5, 5/5, 5/5, 2/5, 5/5, 5/5 | Integrity passed, no infrastructure error |
+| One-time final reviewer run | TBD | 7310000 | TBD | TBD | TBD |
+
+The confirmation is reported as run, and its block is now used. The reviewer block is reserved for one final run. Each block uses one uninterrupted run of the unmodified evaluator. A 30-episode pass requires at least 27 successes, five episodes per source slot and valid integrity checks. In the original `report.json`, `per_source_slot` keys 1–6 correspond to zero-based source slots 0–5 here. The confirmation used EGL on a T4, CPU Torch inference and zero recorded videos. The separate clip at `runs/astra_video/placement_comparison.mp4` shows an FK timeout and a withdrawal recovery on matched generation seed 3001616. [Confirmation receipt](../EXPERIMENTS.md) · [Protocol and deliverables](../README.md#deliverables)
+
+## Failure modes
 
 Of 28 audited baseline `e588ae9` failures, 19 reached the destination area and stayed held to timeout, seven lost their grasp, and two fell into other categories. Original-action replay of all 22 fresh `bd951bc` failures found **15 pad recontacts after opening and initially clearing, five reached the destination without opening, one incomplete transfer, and one pickup failure**. For the seven audited `528c854` timeouts, **six recontacted after opening and one remained clear but tilted**. At all six pad returns the estimator reported held=false. In six episodes that did withdraw, action-matched replays found that the motion check stopped the base after an apparent 1.41–1.52 cm of plate travel. Physical travel was 0.000–0.831 cm. Extending withdrawal on three archived generation failures changed the commands and recovered zero episodes. [Baseline and event replay log](../EXPERIMENTS.md)
 
-Sharded runs used the evaluator’s full episode horizon with a one-episode `--smoke` invocation per seed. They are non-qualifying. Development blocks were reused for selection, and fresh signal blocks were retired after one use. Early returns favor short successes. Generation continuations start from an archived prefix and serve as diagnostic evidence. Simulation success and separately reported policy wall time are different measures.
+The five confirmation failures included two near-rack timeouts, two held hovers and one grasp loss. Round four had nine near-rack timeouts, six grasp losses, three hovers, one transfer that never reached the target and one tilted release. Action traces showed that five of the nine near-rack cases had already commanded open. Late pad contact can look like a closed grasp in the terminal state. [Confirmation and round-four replay notes](../EXPERIMENTS.md)
 
-| Final frozen submission | Seed start | Successes / episodes | Source slots 0–5 | Original report, integrity and video |
-| --- | ---: | --- | --- | --- |
-| `54080e5` combined confirmation | 2600000 | In progress | Pending | Pending |
-| Same frozen candidate, final reviewer run once | 7310000 | TBD | TBD | TBD |
-
-Each final block uses one uninterrupted run of the unmodified evaluator. A 30-episode pass requires at least 27 successes, five episodes per source slot and valid integrity checks. In the original `report.json`, `per_source_slot` keys 1–6 correspond to zero-based source slots 0–5 in this report. The lead's confirmation uses EGL on a T4, CPU Torch inference and the default zero recorded videos. The separate clip at `runs/astra_video/placement_comparison.mp4` shows an FK timeout and a withdrawal recovery on matched generation seed 3001616. [Protocol and deliverables](../README.md#deliverables) · [Experiment log](../EXPERIMENTS.md)
+All 20 round-five timeouts reproduced in camera-free replay. **Eleven** recontacted a pad after opening, **three** tilted after opening, **two** stayed closed on the destination rack, **three** stayed closed off the rack after earlier contact, and **one** opened during a source-side lift. Nine recontacts preceded renewed arm or base motion. Release and hand separation remain the leading issues in that audited cohort. Round six had 18 unsuccessful episodes, with its own failure breakdown pending. [Round-five failure replay](../EXPERIMENTS.md)
 
 ## Reproduce
 
-Use a clean checkout of the frozen SHA. The commands below reproduce a development block with OSMesa and record three videos. The lead's actual confirmation uses the same factory and weights in the EGL container defined by the qualifying runner. [Qualifying invocation](../ops_modular/lead_qualify.py)
+Use a clean checkout of the matching SHA. The commands below run the round-six factory on a development block with OSMesa and record three videos. The recorded single-process scores use the qualifying runner's T4/EGL setup and the pinned weights. The earlier confirmation used `54080e5` and `submission.policy_modular_combined:make_policy`. [Qualifying runner](../ops_modular/lead_qualify.py)
 
 ```bash
-git checkout --detach 54080e5
+git checkout --detach 876a00f
 uv sync --locked --python 3.12 --no-dev --extra video
 uv run --locked --no-dev --extra video advaitic-check
 
@@ -82,13 +101,13 @@ export ADV_ESTIMATOR="$PWD/checkpoints/est_v1b/last.pt" ADV_HEADS="$PWD/checkpoi
 export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa ORT_DISABLE_TELEMETRY=1
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 LP_NUM_THREADS=2
 export CUDA_VISIBLE_DEVICES=''
-factory=submission.policy_modular_combined:make_policy
+factory=submission.policy_modular_round4:make_measured_policy
 
 # Development reproduction with the frozen policy.
-seed=1000000
+seed=1037000
 uv run --locked --no-dev --extra video advaitic-eval \
   --policy "$factory" --policy-python "$PWD/.policy/bin/python" \
-  --method modular-combined --checkpoint "est_v1b@$est_sha + heads@$head_sha" \
+  --method modular-measured --checkpoint "est_v1b@$est_sha + heads@$head_sha" \
   --episodes 30 --seed-start "$seed" --out "results/modular-$seed" --video-episodes 3
 ```
 
