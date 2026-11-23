@@ -1,168 +1,144 @@
-# G1 plate transfer
+# Advaitic · Robot Learning Assignment
 
-This repo is a closed-loop controller that makes a simulated Unitree G1 humanoid move a plate from one rack to another, using
-only its three onboard cameras and its joint readings:
+Transfer one plate between two racks using a Unitree G1 in MuJoCo. Build a repeatable, observation-driven system, evaluate it honestly, and explain how you improved it.
 
-- a ResNet-18 estimator that finds the plate and the target slot in the camera images, and
-- a state machine with forward/inverse kinematics that does the rest, with no learned actions.
+## Task
 
-It scores **27/30 on the reviewer block** (the pass bar is 27/30) and 231/240 (96%) on eight fresh development blocks.
+Move the plate from rack 1 into **any of the six slots in rack 2**. The source slot varies, and each rack has up to ±5 cm of x/y position variation. The embodiment is the **Unitree G1 with Dex1-1 grippers**, supported by BiGym2's frozen Balance/Walk controller. You do not need to train locomotion.
 
-![success rate across versions](docs/progress.png)
+Build a repeatable closed-loop system. You may use existing VLAs, fine-tuning, imitation learning, RL, perception foundation models, classical planning/control, or combinations. We do not prescribe a particular architecture. AI coding tools are allowed, but you must understand, explain and maintain the solution.
 
-Success rate of each frozen version. Hollow points are early sharded runs (one process per episode), which turned out to be
-optimistic; solid points use the official evaluator format.
+**Performance criterion: at least 90% success across at least 30 trials, with equal coverage of the six source slots.** Valid run sizes are 30, 36, 42, 48, 60, etc. A 30-trial run requires **27 successes**, with five trials from each source slot. Policy errors, falls and timeouts count as failures. Short smoke runs never count as a pass.
 
-One development episode (seed 1044006, source slot 3). The first lift fails its check and the robot re-grasps:
+The plate must be correctly oriented, near a destination slot, touching the destination rack, released by both grippers, and not supported by the table. These conditions must persist for one simulated second. Touching the floor fails the task; any robot fall prevents a successful episode. We retain BiGym2's checks and episode budget, not a position-only shortcut.
 
-![episode 1044006](docs/episode_1044006.gif)
+This is the **Advaitic balanced-slot assignment protocol**, not the upstream BiGym2 leaderboard protocol. It changes seed selection and the aggregate pass criterion, while retaining the task physics and success semantics.
 
-Full write-up: [docs/modular_report.md](docs/modular_report.md) · experiment log: [EXPERIMENTS.md](EXPERIMENTS.md) ·
-the original assignment: [docs/ASSIGNMENT.md](docs/ASSIGNMENT.md)
+## Setup
 
-## How to run
-
-Python 3.12, Linux. Install with [uv](https://docs.astral.sh/uv/); versions are pinned in `pyproject.toml` / `uv.lock`.
-The evaluator, simulator and walking controller come from the assignment and are unchanged.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/), clone your fork, then:
 
 ```bash
-git clone https://github.com/KhushiJ2911/g1-modular-plate-transfer.git && cd g1-modular-plate-transfer
-uv sync --locked --python 3.12 --no-dev
-uv run --locked --no-dev advaitic-check          # checks the simulator files are unchanged
+uv sync --locked
+uv run advaitic-check
 ```
 
-The policy runs in its own environment with CPU PyTorch, which also sees the evaluator's packages:
+On headless Linux set `MUJOCO_GL=egl`. On macOS leave it unset. Optional ONNX Runtime telemetry is disabled before import by this package. Downloading pinned dependencies and demonstrations needs internet; no hosted policy service is required.
+
+Verify the real simulator across all six source slots:
 
 ```bash
-uv venv --python 3.12 .policy
-uv pip install --python .policy/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 torchvision==0.20.1
-eval_site=$(uv run --locked --no-dev python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
-policy_site=$(.policy/bin/python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
-printf '%s\n' "$eval_site" > "$policy_site/advaitic_eval_env.pth"
+MUJOCO_GL=egl uv run advaitic-smoke
 ```
 
-Both weight files are in the repo (`checkpoints/`). Run a 30-episode block with the official evaluator:
+Run the interface example through the actual policy process and evaluator:
 
 ```bash
-head=64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff
-export ADV_ESTIMATOR=$PWD/checkpoints/est_v1b/last.pt ADV_HEADS=$PWD/checkpoints/astra/$head.npz
-export MUJOCO_GL=egl ORT_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
-uv run --locked --no-dev advaitic-eval \
-  --policy method.modular.vertical_clearance:make_policy --policy-python $PWD/.policy/bin/python \
-  --method modular-controller --checkpoint est_v1b+heads:$head.npz \
-  --episodes 30 --seed-start 7310000 --out results/final
+MUJOCO_GL=egl uv run advaitic-eval \
+  --policy submission.policy:make_policy \
+  --smoke --episodes 1 --max-steps 10 --out results/smoke
 ```
 
-A block takes about 16 minutes on a T4. Without a GPU use `MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa`. I ran the scored
-blocks on [Modal](https://modal.com) with [ops_modular/lead_qualify.py](ops_modular/lead_qualify.py).
+The example only holds the robot's pose. **It does not solve the task** and a smoke result is non-qualifying.
 
-Useful flags and variables:
+## Implement your method
 
-| Flag | What it does |
-|---|---|
-| `--seed-start` | first seed of the balanced block (5 episodes per source slot) |
-| `--episodes` | 30, 36, 42, ... (must be a multiple of 6 to count) |
-| `--video-episodes N` | record the first N episodes (needs `uv sync --locked --extra video`) |
-| `--policy` | `method.modular.vertical_clearance:make_policy` is the final version; older ones are listed in the report |
-| `ADV_ESTIMATOR`, `ADV_HEADS` | paths to the estimator checkpoint and the contact/calibration file |
+Put your solution under `submission/`, with a factory returning a callable:
 
-The training data (about 4 GB) is on Hugging Face:
-[KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data).
-Retrain the estimator on a CUDA GPU with the three `est_v1b/` folders under `/data`:
+```python
+def make_policy():
+    return YourPolicy()
+
+class YourPolicy:
+    def reset(self):
+        pass  # clear episode-specific state
+
+    def __call__(self, obs):
+        # obs["rgb"]: uint8 (3, 3, 84, 84), camera then CHW
+        # cameras: head, right wrist, left wrist
+        # obs["state"]: float32 (50,), robot proprioception
+        return actions  # (20,) or (H,20), 1 <= H <= 50
+```
+
+The evaluator calls `reset()` at each episode start and `__call__(obs)` when it needs the next action or chunk. You choose the method behind that interface.
+
+Actions are finite normalized values in `[-1,1]`. The first four slots command base forward/lateral velocity, pelvis height and yaw rate; the next fourteen command arm joint targets, and the last two command grippers. [`action_layout.json`](src/advaitic_eval/action_layout.json) contains the exact raw limits. Details are in [METHODS.md](METHODS.md).
+
+No seed, slot index, plate/rack pose, simulator state, reward or success flag is passed to your evaluated policy. Estimate task state from observations. Fixed robot geometry/calibration is allowed. You may use privileged state in a separately disclosed training or annotation workflow, never in final evaluated inference.
+
+The policy runs in a separate process. This keeps candidate imports and normal monkey-patching out of the evaluator's simulator. **It is a process boundary, not a security sandbox.** Reviewers must rerun using a clean trusted evaluator; candidate-generated logs alone are not authoritative.
+
+For a separate model environment, pass its Python path using `--policy-python /absolute/path/to/model-env/bin/python`. That environment needs your method dependencies and NumPy; the runner supplies the worker module on `PYTHONPATH`. No hosting is required.
+
+## Data and training
+
+BiGym2 provides 60 human demonstrations of `move_plate`:
 
 ```bash
-python -m method.harness.train_estimator --device cuda --cache-dir /cache --run-dir /runs/est_v1b \
-  --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv \
-  --steps 10000 --batch-size 64 --microbatch-size 32 --val-episodes 6 --val-every 1000 --num-workers 2 --seed 42
+uv run bigym-download --task move_plate
 ```
 
-The shipped checkpoint is step 8,000 of that run.
-
-## Details
-
-The policy sees three 84×84 RGB images (head, right wrist, left wrist) and 50 numbers of body state. It outputs 20
-numbers: base velocity, pelvis height and yaw rate, 7 joint targets per arm, and two gripper commands. The walking itself
-is done by BiGym2's frozen balance controller.
-
-| Part | What it does |
-|---|---|
-| Estimator | ResNet-18 (ImageNet init) on the three images plus some body state; predicts plate position, nearest rack slot, plate tilt and P(held). Trained on 422 episodes with labels from simulator state |
-| Contact head | linear model on the estimator features; predicts plate–rack contact |
-| Kinematics | a fixed-base copy of the G1 MuJoCo model; measured joints → hand pose (FK), hand target → joint angles (damped least-squares IK) |
-| State machine | 11 phases, each with an objective, an exit check and a time limit |
-
-Simulator state is used only to make training labels and to debug on development seeds. It is never read at inference.
-
-The phases:
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> APPROACH
-    APPROACH --> PREGRASP
-    PREGRASP --> GRASP
-    GRASP --> LIFT
-    LIFT --> CARRY
-    CARRY --> ALIGN
-    ALIGN --> LOWER
-    LOWER --> RELEASE
-    RELEASE --> SETTLE
-    SETTLE --> RETREAT
-    RETREAT --> HOLD
-    LIFT --> PREGRASP: retry (max 2)
-    LOWER --> ALIGN: retry (once)
-    SETTLE --> HOLD: guarded exit
+```python
+from bigym.loco import make_gym
+env = make_gym("move_plate")
+demos = env.get_demos(60)
+# Use decode_images=False when indexing large datasets without loading images.
+env.close()
 ```
 
-| Phase | Objective | Exit check |
-|---|---|---|
-| APPROACH | walk to a standing spot in front of the plate; lock the target slot from a median of estimates | near the spot, slow |
-| PREGRASP | hands just outside the plate edges | hands at IK targets |
-| GRASP | close both grippers | finger readings say the plate is pinched |
-| LIFT | raise the plate; from here the plate pose comes from FK, not the cameras | hands up, still holding |
-| CARRY | walk to the target rack, holding the plate fixed relative to the pelvis | near the standing spot, slow |
-| ALIGN | put the plate over the slot | plate centred over the slot |
-| LOWER | lower into the slot | rack contact, or descent stalls at the right height |
-| RELEASE | open both grippers, hold the arm at the pose measured at opening | grippers open |
-| SETTLE | wait for the plate to rest | 75 steps, supported and upright |
-| RETREAT | pull the hands back out | hands clear, plate did not move |
-| HOLD | stay still; if the hands are still near the plate, back the body away slowly, then lift the hands straight up | — |
+You may use additional data or models with attribution. Provide your training/data-generation commands and configs, not only final weights. Do not train on evaluation seeds or tune to the final reviewer seed block.
 
-Walking is a proportional controller on distance to the standing spot (0.07–0.24 m/s). The arm commands come from IK
-on the current hand target. There are no learned actions, which made every failure traceable to one check or one number.
+## Evaluate
 
-Before this I trained policies to imitate a scripted teacher (behavioural cloning, and a fine-tuned SmolVLA). They
-plateaued around 60%, and they copied the teacher's main failure: knocking the plate over after letting go. Most of the
-later fixes here target exactly that moment (RELEASE → HOLD).
+```bash
+MUJOCO_GL=egl uv run advaitic-eval \
+  --policy submission.policy:make_policy --method my-method \
+  --checkpoint my-checkpoint-identifier \
+  --episodes 30 --out results/final
+```
 
-## Results
+Use a **new** output directory for each run. The result contains `report.json`, `episodes.csv`, per-episode action arrays and policy stderr. It includes slot coverage, successes, failures, termination causes, simulation time, policy wall time, dependency/controller identity and a submission digest. A run can only pass if it is complete, balanced, integrity-valid and reaches 90%.
 
-Official evaluator, one process per 30-episode block, frozen policy `aa1e273`:
+To record the first three episodes:
 
-| Run | Success | Per source slot (0–5) |
-|---|---:|---|
-| Reviewer block 7310000 | **27/30** | 5, 5, 5, 3, 4, 5 |
-| Reviewer block, rerun 1 (same code) | 28/30 | 5, 5, 5, 3, 5, 5 |
-| Reviewer block, rerun 2 (same code) | 27/30 | 5, 5, 5, 3, 4, 5 |
-| 8 fresh development blocks | 231/240 (96%) | every block ≥ 27/30 |
-| Confirmation block 2600000 (earlier `54080e5`) | 25/30 | 3, 5, 5, 2, 5, 5 |
+```bash
+uv sync --locked --extra video
+MUJOCO_GL=egl uv run advaitic-eval \
+  --policy submission.policy:make_policy --episodes 30 \
+  --video-episodes 3 --out results/final-with-video
+```
 
-The reviewer block passes with no margin. Two slot-3 seeds (7310003, 7310008) time out in every run; seed 7310000
-flips between runs. Development blocks were used once each and then retired, and the reviewer block was never used
-for tuning. A later attempt to fix slot 3 lost 4 episodes on paired development blocks (112 vs 116 of 120), so the
-frozen version stayed. Per-episode logs are in [docs/final_7310000/](docs/final_7310000/) and every run, including the
-failed ones, is in [EXPERIMENTS.md](EXPERIMENTS.md).
+Environment time advances only when actions execute. Model inference wall time is reported separately; do not present simulator success as proof of real-time throughput.
 
-The longer video (all six slots, a re-grasp and a timeout) is [docs/video/plate_transfer_aa1e273.mp4](docs/video/plate_transfer_aa1e273.mp4).
+Source slot means the sampled slot **before** the unchanged 200-step settling warmup; contact settling can shift the plate centre. We record the sampled slot without changing the reset or physics.
 
-## Credits
+## Deliverables
 
-Built on:
-[SWIRL BiGym2](https://github.com/swirl-uk/BiGym2) (task, G1 model, walking controller, demos) ·
-the Advaitic robot-learning assignment (evaluator and interface) ·
-[ResNet](https://arxiv.org/abs/1512.03385) / [Torchvision](https://pytorch.org/vision/) ·
-[DAgger](https://arxiv.org/abs/1011.0686) ·
-[MuJoCo](https://mujoco.org)
+Share your **solution repository URL and exact commit SHA** directly with Advaitic, plus:
 
-Most of the controller code was written with AI coding agents (Claude Code as lead, OpenAI Codex workers); the split is in
-the report. Upstream code and assets keep their own licenses ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+1. Exact setup, training and evaluation commands, including model/checkpoint retrieval.
+2. A baseline and at least one substantive improvement, with an ablation or comparison.
+3. A full qualifying evaluation report and per-slot results; include unsuccessful runs in your experiment log.
+4. A short video showing multiple initial slots and at least one failure/recovery when applicable.
+5. A concise report explaining architecture, observations/actions, data, experiments, failure modes and next steps.
+6. Attribution for borrowed code, pretrained models, datasets and AI-tool use.
+
+Do not submit your solution as a pull request to this starter repository: that exposes it to other candidates. A public fork also exposes your solution. To keep it private, clone the starter into a separate private repository and grant Advaitic access.
+
+## What does not satisfy this assignment
+
+- A fixed open-loop motion script, recorded-trajectory replay, or per-seed/slot solution lookup.
+- Copying an existing solution or using an agent to generate one without demonstrating independent understanding, closed-loop behaviour, reproducible improvements and failure analysis.
+- Changing evaluation physics, assets, controller weights, resets, time limits, success checks or the evaluator.
+- Reading live simulator/task state from outside the permitted observation interface.
+- Claiming a success rate from a selected subset or edited result files.
+
+Classical feedback control, state machines and calibrated geometric constants are allowed. **Repeatability and observation-driven decisions matter; a particular coding style or a mandatory neural component does not.**
+
+## Review
+
+We will review the 90% evaluator target above and discuss your implementation and results in a technical deep dive. Only `submission/`, candidate method dependencies and candidate documentation should change. Request clarification for a suspected environment bug; do not silently fix it in your scored run.
+
+## Attribution
+
+Built on [SWIRL BiGym2](https://github.com/swirl-uk/BiGym2), pinned to `d71501359b215b9d78e27dcb70b220412d474dfa`. BiGym2 supplies the task/assets, Unitree G1 model, Dex1-1 grippers and NVIDIA GR00T-WBC controller. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The upstream project publishes agent-written policies; reusing them must be disclosed and is a baseline, not an original submission.
