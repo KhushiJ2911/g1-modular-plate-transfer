@@ -314,4 +314,4 @@ python -m method.bc.train --config method/bc/student_v1b_bce.yaml
 - [microVLA](https://github.com/KhushiJ2911/microVLA) (MIT); SigLIP for its vision distillation.
 - Torchvision ImageNet ResNet-18; robomimic-style spatial softmax; ACT-style action chunking and temporal ensembling; DAgger; Muon (Keller Jordan) and Moonlight.
 - Pretrained VLAs, fine-tuned only for comparison: SmolVLA and pi0.5 (via LeRobot), MolmoAct2.
-- AI coding tools were used during development, as permitted by the assignment.
+- AI coding tools, as permitted by the assignment: Claude Code (Claude Opus 5.5), with GPT-6.2 models (Astra and Sol) as subagents.
