@@ -759,3 +759,12 @@ Added `submission.policy_modular_round4:make_measured_policy` on 99e72f6. Sol’
   `method.modular.vertical_clearance:make_policy`, estimator est_v1b sha256 bd8ed33c…, heads 64dfe105….npz,
   export /home/keyu/advaitic/export/modular_aa1e273, qualify app `modular-qualify-aa1e273` (smoke ok, submission sha256 1b05190d…).
 - Reviewer block 7310000: launched ONCE now (single unmodified advaitic-eval, 30 episodes, T4). Result reported as is.
+
+### 2026-11-23 06:2x — REVIEWER BLOCK 7310000, run ONCE on frozen aa1e273 — **27/30, status PASS**
+- `ops_modular/lead_qualify.py` / app `modular-qualify-aa1e273` (T4): one unmodified `advaitic-eval --policy
+  method.modular.vertical_clearance:make_policy --episodes 30 --seed-start 7310000` (default seed start), 1045 s. integrity_ok, no
+  infrastructure error, submission sha256 1b05190d2013d5d08f230e9253615c13dd8fc5b009686e72a55bfa7fa5586f25.
+- Per slot (balanced 5 each): s0 5/5, s1 5/5, s2 5/5, s3 3/5, s4 4/5, s5 5/5. Failures (all timeouts, no falls): ep 0 (7310000, s4),
+  ep 3 (7310003, s3), ep 8 (7310008, s3). Report + episodes.csv copied to docs/final_7310000/.
+- This block was used exactly once, after all development; no change follows from it. Full qualifying-format record of the frozen
+  policy family: 2600000 25/30 (54080e5, FAIL), dev rounds 4–7, and 7310000 27/30 (aa1e273, PASS).
