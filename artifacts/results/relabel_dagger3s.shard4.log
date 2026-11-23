@@ -1,0 +1,17 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2500004, "steps": 613, "orig_open": 129, "orig_closed": 246, "new_open": 129, "new_closed": 246}
+{"seed": 2500012, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500020, "steps": 686, "orig_open": 91, "orig_closed": 243, "new_open": 89, "new_closed": 243}
+{"seed": 2500028, "steps": 655, "orig_open": 53, "orig_closed": 302, "new_open": 53, "new_closed": 302}
+{"seed": 2500036, "steps": 793, "orig_open": 0, "orig_closed": 249, "new_open": 0, "new_closed": 249}
+{"seed": 2500044, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500052, "steps": 914, "orig_open": 0, "orig_closed": 214, "new_open": 0, "new_closed": 214}
+{"seed": 2500060, "steps": 926, "orig_open": 49, "orig_closed": 163, "new_open": 23, "new_closed": 163}
+{"seed": 2500068, "steps": 578, "orig_open": 65, "orig_closed": 251, "new_open": 39, "new_closed": 251}
+{"seed": 2500076, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500084, "steps": 669, "orig_open": 100, "orig_closed": 247, "new_open": 99, "new_closed": 247}
+{"seed": 2500092, "steps": 821, "orig_open": 91, "orig_closed": 329, "new_open": 91, "new_closed": 329}
+{"seed": 2500100, "steps": 610, "orig_open": 101, "orig_closed": 260, "new_open": 79, "new_closed": 260}
+{"seed": 2500108, "steps": 672, "orig_open": 67, "orig_closed": 241, "new_open": 66, "new_closed": 241}
+{"seed": 2500116, "steps": 733, "orig_open": 147, "orig_closed": 192, "new_open": 0, "new_closed": 192}
+{"src": "/home/keyu/advaitic/data/dagger3", "episodes": 15, "verified": true, "shard": "4/8", "open_dist": 0.04, "open_tilt": 10.0, "orig_rule": {"open_dist": 0.05, "open_tilt": 20.0, "closed_lift": 0.03}, "totals": {"orig_open": 893, "orig_closed": 2937, "new_open": 668, "new_closed": 2937, "open_to_undefined": 225, "undefined_to_open": 0, "other_changes": 0}}

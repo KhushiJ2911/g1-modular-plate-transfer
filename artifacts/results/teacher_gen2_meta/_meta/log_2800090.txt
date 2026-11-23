@@ -1,0 +1,21 @@
+git_sha=2cc0622
+env -u LIBGL_ALWAYS_SOFTWARE -u __EGL_VENDOR_LIBRARY_FILENAMES -u EGL_PLATFORM MUJOCO_GL=egl uv run python -m method.teacher.run_teacher --mode v1 --dart-noise 0 --seeds 2800090:2800100 --out /tmp/gen/attempts_2800090.jsonl --save-demos /tmp/gen/demos
+Requested 10; skipped 0; pending 10
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+seed=2800090 slot=0 demo=44 success=True category=success end=success steps=704 error=0.0321m
+seed=2800091 slot=0 demo=43 success=False category=knocked_after_release end=timeout steps=1700 error=0.0131m
+seed=2800092 slot=5 demo=35 success=False category=place_position end=timeout steps=1700 error=0.0477m
+seed=2800093 slot=4 demo=20 success=True category=success end=success steps=730 error=0.0381m
+seed=2800094 slot=3 demo=57 success=True category=success end=success steps=543 error=0.0088m
+seed=2800095 slot=3 demo=12 success=True category=success end=success steps=786 error=0.0452m
+seed=2800096 slot=1 demo=53 success=True category=success end=success steps=803 error=0.0220m
+seed=2800097 slot=4 demo=9 success=True category=success end=success steps=628 error=0.0396m
+seed=2800098 slot=3 demo=18 success=True category=success end=success steps=820 error=0.0488m
+seed=2800099 slot=2 demo=55 success=True category=success end=success steps=609 error=0.0427m
+Privileged teacher: 8/10 successful (80.0%)
+  slot 0: 1/2
+  slot 1: 1/1
+  slot 2: 1/1
+  slot 3: 3/3
+  slot 4: 2/2
+  slot 5: 0/1

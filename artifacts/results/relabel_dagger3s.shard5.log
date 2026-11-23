@@ -1,0 +1,17 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2500005, "steps": 687, "orig_open": 50, "orig_closed": 328, "new_open": 17, "new_closed": 328}
+{"seed": 2500013, "steps": 664, "orig_open": 59, "orig_closed": 295, "new_open": 59, "new_closed": 295}
+{"seed": 2500021, "steps": 701, "orig_open": 57, "orig_closed": 348, "new_open": 57, "new_closed": 348}
+{"seed": 2500029, "steps": 645, "orig_open": 145, "orig_closed": 256, "new_open": 145, "new_closed": 256}
+{"seed": 2500037, "steps": 723, "orig_open": 99, "orig_closed": 279, "new_open": 51, "new_closed": 279}
+{"seed": 2500045, "steps": 610, "orig_open": 124, "orig_closed": 252, "new_open": 123, "new_closed": 252}
+{"seed": 2500053, "steps": 637, "orig_open": 49, "orig_closed": 242, "new_open": 0, "new_closed": 242}
+{"seed": 2500061, "steps": 657, "orig_open": 146, "orig_closed": 231, "new_open": 55, "new_closed": 231}
+{"seed": 2500069, "steps": 686, "orig_open": 138, "orig_closed": 248, "new_open": 7, "new_closed": 248}
+{"seed": 2500077, "steps": 1700, "orig_open": 0, "orig_closed": 258, "new_open": 0, "new_closed": 258}
+{"seed": 2500085, "steps": 667, "orig_open": 125, "orig_closed": 284, "new_open": 125, "new_closed": 284}
+{"seed": 2500093, "steps": 692, "orig_open": 15, "orig_closed": 241, "new_open": 4, "new_closed": 241}
+{"seed": 2500101, "steps": 610, "orig_open": 52, "orig_closed": 271, "new_open": 52, "new_closed": 271}
+{"seed": 2500109, "steps": 683, "orig_open": 127, "orig_closed": 264, "new_open": 126, "new_closed": 264}
+{"seed": 2500117, "steps": 767, "orig_open": 6, "orig_closed": 150, "new_open": 0, "new_closed": 150}
+{"src": "/home/keyu/advaitic/data/dagger3", "episodes": 15, "verified": true, "shard": "5/8", "open_dist": 0.04, "open_tilt": 10.0, "orig_rule": {"open_dist": 0.05, "open_tilt": 20.0, "closed_lift": 0.03}, "totals": {"orig_open": 1192, "orig_closed": 3947, "new_open": 821, "new_closed": 3947, "open_to_undefined": 371, "undefined_to_open": 0, "other_changes": 0}}

@@ -1,0 +1,19 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-5GwL9QJ5kwJFdlCuKnbYdi
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/policy_smoke.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function smoke_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+dev_bce1_t03_r1: exit=1 451s
+all evals done in 468s
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-5GwL9QJ5kwJFdlCuKnbYdi

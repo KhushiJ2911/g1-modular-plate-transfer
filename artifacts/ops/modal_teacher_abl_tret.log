@@ -1,0 +1,213 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-PbnLihX6sZWyLTeiW67iYc
+Building image im-5x89IS6zhTllyLiU5WVBHP
+
+=> Step 0: FROM base
+
+=> Step 1: COPY . /
+Saving image...
+Image saved, took 1.61s
+
+Built image im-5x89IS6zhTllyLiU5WVBHP in 6.59s
+
+
+Building image im-fV4rSULFbbtFKMNgBKdQWv
+
+=> Step 0: FROM base
+
+=> Step 1: RUN printf '%s\n' 2cc0622 > /root/code/.git_sha
+
+=> Step 2: RUN cd /root/code && uv sync --frozen --no-dev
+Using CPython 3.12.16 interpreter at: /usr/local/bin/python3
+Creating virtual environment at: .venv
+   Updating https://github.com/swirl-uk/BiGym2.git (d71501359b215b9d78e27dcb70b220412d474dfa)
+   Building advaitic-plate-transfer @ file:///root/code
+Downloading onnxruntime (22.7MiB)
+Downloading pillow (6.8MiB)
+Downloading zstandard (5.3MiB)
+Downloading numpy (16.0MiB)
+Downloading pygments (1.2MiB)
+Downloading mujoco (7.0MiB)
+Downloading viser (3.5MiB)
+Downloading hf-xet (4.1MiB)
+Downloading pyopengl (3.0MiB)
+Downloading pyarrow (52.5MiB)
+ Downloading hf-xet
+ Downloading zstandard
+ Downloading pillow
+      Built advaitic-plate-transfer @ file:///root/code
+ Downloading pygments
+ Downloading mujoco
+ Downloading viser
+    Updated https://github.com/swirl-uk/BiGym2.git (d71501359b215b9d78e27dcb70b220412d474dfa)
+   Building bigym @ git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa
+ Downloading onnxruntime
+ Downloading numpy
+ Downloading pyarrow
+      Built bigym @ git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa
+ Downloading pyopengl
+Prepared 55 packages in 3.48s
+Installed 55 packages in 865ms
+Bytecode compiled 5828 files in 2.53s
+ + absl-py==2.5.1
+ + advaitic-plate-transfer==0.1.0 (from file:///root/code)
+ + anyio==4.16.0
+ + attrs==26.1.0
+ + bigym==1.0.0 (from git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa)
+ + certifi==2026.10.23
+ + charset-normalizer==3.5.2
+ + click==8.5.1
+ + cloudpickle==3.1.2
+ + dm-env==1.6
+ + dm-tree==0.1.10
+ + docstring-parser==0.18.0
+ + etils==1.15.0
+ + farama-notifications==0.0.6
+ + filelock==4.2.9
+ + flatbuffers==25.12.19
+ + fsspec==2026.9.0
+ + glfw==2.11.0
+ + gymnasium==1.4.0
+ + h11==0.16.0
+ + hf-xet==1.8.0
+ + httpcore2==2.16.0
+ + httpx2==2.16.0
+ + huggingface-hub==2.4.0
+ + idna==3.20
+ + imageio==2.38.1
+ + markdown-it-py==4.2.0
+ + mdurl==0.1.2
+ + mjviser==0.0.16
+ + msgspec==0.22.0
+ + mujoco==3.8.1
+ + numpy==2.5.4
+ + onnxruntime==1.31.1
+ + packaging==26.3
+ + pillow==13.0.0
+ + protobuf==7.36.2
+ + pyarrow==26.0.1
+ + pygments==2.21.0
+ + pyopengl==3.1.10
+ + pyquaternion==0.9.9
+ + pyyaml==6.0.3
+ + requests==2.34.2
+ + rich==14.3.4
+ + tqdm==4.70.1
+ + trimesh==5.2.0
+ + truststore==0.10.5
+ + typeguard==4.6.0
+ + typing-extensions==4.16.0
+ + tyro==1.0.17
+ + urllib3==2.8.0
+ + viser==1.1.1
+ + websockets==16.1.1
+ + wrapt==2.5.2
+ + zipp==4.1.2
+ + zstandard==0.25.0
+
+=> Step 3: RUN cd /root/code && uv run bigym-download --task move_plate
+   Building advaitic-plate-transfer @ file:///root/code
+Downloading ruff (10.1MiB)
+ Downloading ruff
+      Built advaitic-plate-transfer @ file:///root/code
+Uninstalled 1 package in 1ms
+Installed 5 packages in 21ms
+Bytecode compiled 5930 files in 2.66s
+
+[1AFetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]
+[1AFetching 18 files:   6%|▌         | 1/18 [00:02<00:41,  2.44s/it]
+[1AFetching 18 files:  17%|█▋        | 3/18 [00:03<00:13,  1.15it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1AFetching 18 files:  28%|██▊       | 5/18 [00:03<00:06,  2.08it/s]
+[1AFetching 18 files:  33%|███▎      | 6/18 [00:04<00:07,  1.71it/s]
+[1AFetching 18 files:  44%|████▍     | 8/18 [00:04<00:03,  2.74it/s]
+[1AFetching 18 files:  56%|█████▌    | 10/18 [00:04<00:02,  3.72it/s]
+[1AFetching 18 files:  67%|██████▋   | 12/18 [00:04<00:01,  4.64it/s]
+[1AFetching 18 files:  78%|███████▊  | 14/18 [00:04<00:00,  5.91it/s]
+[1AFetching 18 files:  83%|████████▎ | 15/18 [00:05<00:00,  4.95it/s]
+[1AFetching 18 files:  89%|████████▉ | 16/18 [00:05<00:00,  4.02it/s]
+[1AFetching 18 files:  94%|█████████▍| 17/18 [00:06<00:00,  3.71it/s]
+[1AFetching 18 files: 100%|██████████| 18/18 [00:07<00:00,  1.47it/s]
+[1AFetching 18 files: 100%|██████████| 18/18 [00:07<00:00,  2.26it/s]
+
+[1AFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]
+[1AFetching 6 files:  67%|██████▋   | 4/6 [00:00<00:00,  7.44it/s]
+[1AFetching 6 files: 100%|██████████| 6/6 [00:00<00:00, 10.89it/s]
+move_plate: /root/.cache/huggingface/hub/datasets--SWIRL-Lab--bigym-g1-native60/snapshots/4c3e4414aaf74540899de0b9e82239ef927c9710/move_plate
+
+=> Step 4: RUN cd /root/code && uv run advaitic-check
+   Building advaitic-plate-transfer @ file:///root/code
+      Built advaitic-plate-transfer @ file:///root/code
+Uninstalled 1 package in 1ms
+Installed 1 package in 3ms
+Bytecode compiled 5930 files in 2.61s
+{
+  "ok": true,
+  "upstream_commit": "d71501359b215b9d78e27dcb70b220412d474dfa",
+  "verified_files": 555,
+  "failures": [],
+  "manifest_sha256": "4fb10989dfb8f6581f50b3befdf263db19b5129ec64311456fb58ddfb3ee0ccd"
+}
+
+=> Step 5: RUN uv venv /root/mlenv --python 3.12
+Using CPython 3.12.16 interpreter at: /usr/local/bin/python3.12
+Creating virtual environment at: /root/mlenv
+
+=> Step 6: RUN uv pip install --python /root/mlenv/bin/python torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+Using Python 3.12.16 environment at: /root/mlenv
+Resolved 13 packages in 291ms
+Downloading pillow (6.8MiB)
+Downloading networkx (2.0MiB)
+Downloading setuptools (1.2MiB)
+Downloading torchvision (1.8MiB)
+Downloading torch (166.6MiB)
+Downloading sympy (5.9MiB)
+Downloading numpy (16.0MiB)
+ Downloading torchvision
+ Downloading pillow
+ Downloading setuptools
+ Downloading networkx
+ Downloading numpy
+ Downloading sympy
+ Downloading torch
+Prepared 13 packages in 6.40s
+Installed 13 packages in 1.43s
+Bytecode compiled 5314 files in 2.67s
+ + filelock==4.2.4
+ + fsspec==2026.9.0
+ + jinja2==3.1.6
+ + markupsafe==3.0.3
+ + mpmath==1.3.0
+ + networkx==3.7
+ + numpy==2.5.4
+ + pillow==13.0.0
+ + setuptools==78.1.0
+ + sympy==1.13.1
+ + torch==2.5.1+cpu
+ + torchvision==0.20.1+cpu
+ + typing-extensions==4.16.0
+
+=> Step 7: RUN uv pip install --python /root/mlenv/bin/python numpy==2.5.5 pyyaml==6.0.3 pillow==13.0.0 safetensors==0.8.0
+Using Python 3.12.16 environment at: /root/mlenv
+Resolved 4 packages in 65ms
+Downloading numpy (15.0MiB)
+ Downloading numpy
+Prepared 3 packages in 507ms
+Uninstalled 1 package in 124ms
+Installed 3 packages in 118ms
+Bytecode compiled 5339 files in 2.74s
+ - numpy==2.5.4
+ + numpy==2.5.5
+ + pyyaml==6.0.3
+ + safetensors==0.8.0
+Saving image...
+Image saved, took 7.75s
+
+Built image im-fV4rSULFbbtFKMNgBKdQWv in 50.81s
+
+
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_teacher.py
+├── ✓ Uploaded /home/keyu/advaitic/export/teacher_2cc0622
+├── ✓ Created Function gen_shard.
+└── ✓ Created Function check_shard.

@@ -1,0 +1,279 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-mts7wGTO4u92qHIM5G7W4Q
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader; pip show lerobot | head -2
+NVIDIA L4, 23034 MiB
+Name: lerobot
+Version: 0.7.0
+ERROR: Pipe to stdout was broken
++  lerobot-train --dataset.repo_id=advaitic/plate_transfer --dataset.root=/lr/datasets/advaitic/plate_transfer --output_dir=/lr/runs/smoke_pi05 --job_name=smoke_pi05 --policy.device=cuda --policy.push_to_hub=false --batch_size=4 --steps=20 --save_freq=20 --log_freq=5 --num_workers=4 --policy.chunk_size=20 --policy.n_action_steps=10 --policy.type=pi05 --policy.pretrained_path=/lr/models/pi05_base --policy.train_expert_only=true --policy.freeze_vision_encoder=true --policy.gradient_checkpointing=true --policy.dtype=bfloat16 '--policy.normalization_mapping={"ACTION":"MEAN_STD","STATE":"MEAN_STD","VISUAL":"IDENTITY"}'
+WARNING:accelerate.utils.other:[RANK 0] Detected kernel version 4.19.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+INFO 2026-11-21 06:55:57 ot_train.py:565 {'accelerator': {'activation_checkpointing': {'mode': <ActivationCheckpointingMode.NONE: 'none'>},
+                 'compile': {'backend': 'inductor',
+                             'enabled': False,
+                             'mode': None,
+                             'regional': True},
+                 'ddp': {'find_unused_parameters': True,
+                         'gradient_as_bucket_view': False,
+                         'static_graph': False},
+                 'fsdp': {'cpu_offload': False,
+                          'ignored_modules': None,
+                          'min_num_params': None,
+                          'mixed_precision_policy': {'cast_forward_inputs': True,
+                                                     'output_dtype': None,
+                                                     'param_dtype': None,
+                                                     'reduce_dtype': None},
+                          'reshard_after_forward': True,
+                          'wrap_modules': None},
+                 'grad_scaler': {'backoff_factor': 0.5,
+                                 'growth_factor': 2.0,
+                                 'growth_interval': 2000,
+                                 'init_scale': 65536.0},
+                 'gradient_accumulation': {'steps': 1,
+                                           'sync_each_batch': False},
+                 'init_process_group': {'backend': 'nccl',
+                                        'init_method': None,
+                                        'timeout': None},
+                 'mixed_precision': 'no'},
+ 'batch_size': 4,
+ 'checkpoint_format': <CheckpointFormat.SAFETENSORS: 'safetensors'>,
+ 'checkpoint_path': None,
+ 'cudnn_deterministic': False,
+ 'dataloader_multiprocessing_context': 'spawn',
+ 'dataset': {'depth_output_unit': 'mm',
+             'episodes': None,
+             'eval_split': 0.0,
+             'exclude_episodes': None,
+             'image_transforms': {'backend': 'dataloader',
+                                  'enable': False,
+                                  'gpu_chunk_size': 32,
+                                  'gpu_compile': True,
+                                  'max_num_transforms': 3,
+                                  'random_order': False,
+                                  'tfs': {'affine': {'kwargs': {'degrees': [-5.0,
+                                                                            5.0],
+                                                                'translate': [0.05,
+                                                                              0.05]},
+                                                     'type': 'RandomAffine',
+                                                     'weight': 1.0},
+                                          'brightness': {'kwargs': {'brightness': [0.8,
+                                                                                   1.2]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'contrast': {'kwargs': {'contrast': [0.8,
+                                                                               1.2]},
+                                                       'type': 'ColorJitter',
+                                                       'weight': 1.0},
+                                          'hue': {'kwargs': {'hue': [-0.05,
+                                                                     0.05]},
+                                                  'type': 'ColorJitter',
+                                                  'weight': 1.0},
+                                          'saturation': {'kwargs': {'saturation': [0.5,
+                                                                                   1.5]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'sharpness': {'kwargs': {'sharpness': [0.5,
+                                                                                 1.5]},
+                                                        'type': 'SharpnessJitter',
+                                                        'weight': 1.0}}},
+             'repo_id': 'advaitic/plate_transfer',
+             'repo_type': 'dataset',
+             'return_uint8': False,
+             'revision': None,
+             'root': '/lr/datasets/advaitic/plate_transfer',
+             'streaming': False,
+             'streaming_byte_budget_gb': 8.0,
+             'streaming_decode_threads': 2,
+             'streaming_decoded_queue_size': 8,
+             'streaming_episode_pool_size': None,
+             'streaming_native_http_connections': None,
+             'streaming_native_http_subranges': 1,
+             'streaming_prefetch_episodes': 8,
+             'streaming_sampling_strategy': <StreamingSamplingStrategy.REMAINING: 'remaining'>,
+             'streaming_sidecar_lock_timeout_s': 1800,
+             'use_imagenet_stats': True,
+             'video_backend': 'torchcodec',
+             'video_decoder_cache_size': None},
+ 'ema': None,
+ 'env': None,
+ 'env_eval_freq': 20000,
+ 'eval': {'batch_size': 14,
+          'max_episode_steps': None,
+          'n_episodes': 50,
+          'recording': False,
+          'recording_private': False,
+          'recording_repo_id': None,
+          'use_async_envs': True},
+ 'eval_steps': 0,
+ 'job': {'detach': False,
+         'image': 'huggingface/lerobot-gpu:latest',
+         'tags': [],
+         'target': None,
+         'timeout': '2d'},
+ 'job_name': 'smoke_pi05',
+ 'log_freq': 5,
+ 'max_eval_samples': 0,
+ 'num_workers': 4,
+ 'optimizer': {'betas': [0.9, 0.95],
+               'eps': 1e-08,
+               'fused': None,
+               'grad_clip_norm': 1.0,
+               'lr': 2.5e-05,
+               'type': 'adamw',
+               'weight_decay': 0.01},
+ 'output_dir': '/lr/runs/smoke_pi05',
+ 'parallelism': {'cfg_parallel': 1,
+                 'context_parallel': {'ring_degree': 1, 'ulysses_degree': 1},
+                 'dp_replicate': 1,
+                 'dp_shard': 1},
+ 'peft': None,
+ 'persistent_workers': True,
+ 'policy': {'action_expert_variant': 'gemma_300m',
+            'action_feature_names': None,
+            'chunk_size': 20,
+            'compile_mode': 'max-autotune',
+            'compile_model': False,
+            'device': 'cuda',
+            'dtype': 'bfloat16',
+            'empty_cameras': 0,
+            'freeze_vision_encoder': True,
+            'gradient_checkpointing': True,
+            'image_resolution': [224, 224],
+            'input_features': {},
+            'license': None,
+            'max_action_dim': 32,
+            'max_period': 4.0,
+            'max_state_dim': 32,
+            'memory_frames': 6,
+            'memory_stride': 30,
+            'memory_temporal_attention_every': 4,
+            'min_period': 0.004,
+            'n_action_steps': 10,
+            'n_obs_steps': 1,
+            'normalization_mapping': {'ACTION': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'STATE': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'VISUAL': <NormalizationMode.IDENTITY: 'IDENTITY'>},
+            'num_inference_steps': 10,
+            'optimizer_betas': [0.9, 0.95],
+            'optimizer_eps': 1e-08,
+            'optimizer_fused': None,
+            'optimizer_grad_clip_norm': 1.0,
+            'optimizer_lr': 2.5e-05,
+            'optimizer_weight_decay': 0.01,
+            'output_features': {},
+            'paligemma_variant': 'gemma_2b',
+            'pretrained_path': '/lr/models/pi05_base',
+            'pretrained_revision': None,
+            'private': None,
+            'push_to_hub': False,
+            'relative_exclude_joints': ['gripper'],
+            'repo_id': None,
+            'rtc_config': None,
+            'rtc_training_max_delay': 0,
+            'scheduler_decay_lr': 2.5e-06,
+            'scheduler_decay_steps': 30000,
+            'scheduler_warmup_steps': 1000,
+            'tags': None,
+            'text_tokenizer_name': 'google/paligemma-3b-pt-224',
+            'time_sampling_beta_alpha': 1.5,
+            'time_sampling_beta_beta': 1.0,
+            'time_sampling_offset': 0.001,
+            'time_sampling_scale': 0.999,
+            'tokenizer_max_length': 200,
+            'train_expert_only': True,
+            'type': 'pi05',
+            'use_amp': False,
+            'use_peft': False,
+            'use_proprioceptive_memory': False,
+            'use_relative_actions': False,
+            'use_visual_memory': False},
+ 'prefetch_factor': 4,
+ 'rename_map': {},
+ 'resume': False,
+ 'reward_model': None,
+ 'sample_weighting': None,
+ 'save_checkpoint': True,
+ 'save_checkpoint_to_hub': False,
+ 'save_freq': 20,
+ 'scheduler': {'decay_lr': 2.5e-06,
+               'num_decay_steps': 30000,
+               'num_warmup_steps': 1000,
+               'peak_lr': 2.5e-05,
+               'type': 'cosine_decay_with_warmup'},
+ 'seed': 1000,
+ 'steps': 20,
+ 'tf32': True,
+ 'tolerance_s': 0.0001,
+ 'trackio': {'capture_console': True,
+             'disable_artifact': True,
+             'enable': False,
+             'private': None,
+             'project': 'lerobot',
+             'resume': None,
+             'run_name': None,
+             'space_id': None},
+ 'use_policy_training_preset': True}
+INFO 2026-11-21 06:55:57 ot_train.py:572 Logs will be saved locally.
+INFO 2026-11-21 06:55:57 ot_train.py:589 Creating dataset
+INFO 2026-11-21 06:55:58 ot_train.py:628 Creating policy
+INFO 2026-11-21 06:58:36 ing_pi05.py:700 Enabled gradient checkpointing for PI05Pytorch model
+WARNING 2026-11-21 06:58:43 ng_pi05.py:1299 Vision embedding key might need handling: paligemma_with_expert.paligemma.model.vision_tower.vision_model.embeddings.patch_embedding.bias
+WARNING 2026-11-21 06:58:43 ng_pi05.py:1299 Vision embedding key might need handling: paligemma_with_expert.paligemma.model.vision_tower.vision_model.embeddings.patch_embedding.weight
+INFO 2026-11-21 06:58:51 ot_train.py:723 Creating optimizer and scheduler
+INFO 2026-11-21 06:58:51 hedulers.py:156 Auto-scaling LR scheduler: num_training_steps (20) < num_decay_steps (30000). Scaling warmup: 1000 → 0, decay: 30000 → 20 (scale factor: 0.001)
+INFO 2026-11-21 06:58:51 ot_train.py:784 Output dir: /lr/runs/smoke_pi05
+INFO 2026-11-21 06:58:51 ot_train.py:791 cfg.steps=20 (20)
+INFO 2026-11-21 06:58:51 ot_train.py:792 dataset.num_frames=178845 (179K)
+INFO 2026-11-21 06:58:51 ot_train.py:793 dataset.num_episodes=262
+INFO 2026-11-21 06:58:51 ot_train.py:794 Effective batch size: 4 x 1 dp workers x 1 grad accum = 4 (topology: dp_replicate=1, dp_shard=1)
+INFO 2026-11-21 06:58:51 ot_train.py:799 num_learnable_params=693422112 (693M)
+INFO 2026-11-21 06:58:51 ot_train.py:800 num_total_params=4143404816 (4B)
+The PI05 model is a direct port of the OpenPI implementation. 
+This implementation follows the original OpenPI structure for compatibility. 
+Original implementation: https://github.com/Physical-Intelligence/openpi
+Loading model from: /lr/models/pi05_base
+✓ Loaded state dict from model.safetensors
+Remapped 812 state dict keys
+All keys loaded successfully!
+
+Training:   0%|          | 0/20 [00:00<?, ?step/s]INFO 2026-11-21 06:58:51 ot_train.py:848 Start offline training on a fixed dataset, with effective batch size: 4
+
+Training:   5%|▌         | 1/20 [00:21<06:54, 21.83s/step]
+Training:  10%|█         | 2/20 [00:23<03:03, 10.20s/step]
+Training:  15%|█▌        | 3/20 [00:25<01:50,  6.49s/step]
+Training:  20%|██        | 4/20 [00:28<01:15,  4.75s/step]
+Training:  25%|██▌       | 5/20 [00:30<00:56,  3.78s/step]INFO 2026-11-21 06:59:21 ot_train.py:894 step:5 smpl:20 ep:0 epch:0.00 loss:1.117 grdn:7.246 lr:2.4e-05 data_s:3.575 prep_s:0.014 updt_s:2.433 step_s:6.024 smp/s:1 mem_gb:12.83
+
+Training:  30%|███       | 6/20 [00:32<00:44,  3.20s/step]
+Training:  35%|███▌      | 7/20 [00:34<00:36,  2.83s/step]
+Training:  40%|████      | 8/20 [00:36<00:31,  2.59s/step]
+Training:  45%|████▌     | 9/20 [00:38<00:26,  2.43s/step]
+Training:  50%|█████     | 10/20 [00:40<00:23,  2.34s/step]INFO 2026-11-21 06:59:31 ot_train.py:894 step:10 smpl:40 ep:0 epch:0.00 loss:0.994 grdn:6.685 lr:1.7e-05 data_s:0.001 prep_s:0.004 updt_s:2.077 step_s:2.084 smp/s:2 mem_gb:12.83
+
+Training:  55%|█████▌    | 11/20 [00:42<00:20,  2.26s/step]
+Training:  60%|██████    | 12/20 [00:44<00:17,  2.21s/step]
+Training:  65%|██████▌   | 13/20 [00:46<00:15,  2.17s/step]
+Training:  70%|███████   | 14/20 [00:48<00:12,  2.15s/step]
+Training:  75%|███████▌  | 15/20 [00:50<00:10,  2.13s/step]INFO 2026-11-21 06:59:42 ot_train.py:894 step:15 smpl:60 ep:0 epch:0.00 loss:1.687 grdn:14.248 lr:8.8e-06 data_s:0.001 prep_s:0.003 updt_s:2.081 step_s:2.087 smp/s:2 mem_gb:12.83
+
+Training:  80%|████████  | 16/20 [00:53<00:08,  2.12s/step]
+Training:  85%|████████▌ | 17/20 [00:55<00:06,  2.11s/step]
+Training:  90%|█████████ | 18/20 [00:57<00:04,  2.11s/step]
+Training:  95%|█████████▌| 19/20 [00:59<00:02,  2.11s/step]
+Training: 100%|██████████| 20/20 [01:01<00:00,  2.11s/step]INFO 2026-11-21 06:59:52 ot_train.py:894 step:20 smpl:80 ep:0 epch:0.00 loss:0.819 grdn:5.010 lr:3.3e-06 data_s:0.001 prep_s:0.003 updt_s:2.093 step_s:2.099 smp/s:2 mem_gb:12.83
+INFO 2026-11-21 06:59:52 ot_train.py:936 Checkpoint policy after step 20
+INFO 2026-11-21 07:00:07 n/_torch.py:299 Model weights successfully saved to /lr/runs/smoke_pi05/checkpoints/000020/pretrained_model!
+
+Training: 100%|██████████| 20/20 [01:19<00:00,  3.97s/step]
+INFO 2026-11-21 07:00:10 t_train.py:1026 End of training
+(0, 276)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-mts7wGTO4u92qHIM5G7W4Q

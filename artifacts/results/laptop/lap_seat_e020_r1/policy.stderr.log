@@ -1,0 +1,142 @@
+[harness config] {"arm_speed_rad_s": 0.4, "base_speed_m_s": 0.04, "ensemble_decay": 0.0, "exec_steps": 2, "grasp_timeout_steps": 100, "gripper_closed_min": 0.2, "held_steps": 4, "held_threshold": 0.7, "lost_steps": 10, "place_distance_m": 0.08, "place_kp": 2.0, "place_servo": false, "place_vmax": 0.1, "regrip": false, "release_distance_m": 0.035, "release_tilt_deg": 12.0, "reopen_steps": 10, "seat_cue": true, "seat_cue_only": false, "seat_error_rad": 0.02, "seat_steps": 5, "settle_steps": 75, "stable_steps": 6, "supervise": true, "temporal_ensemble": true, "tilt_hold": false}
+[harness t=304] APPROACH>GRASP bce1 close proposal
+[harness t=404] GRASP>APPROACH grasp timeout; reopen
+[harness t=414] APPROACH>GRASP bce1 close proposal
+[harness t=514] GRASP>APPROACH grasp timeout; reopen
+[harness t=524] APPROACH>GRASP bce1 close proposal
+[harness t=624] GRASP>APPROACH grasp timeout; reopen
+[harness t=194] APPROACH>GRASP bce1 close proposal
+[harness t=208] GRASP>CARRY d=0.310 tilt=7.2 held=1.00
+[harness t=450] CARRY>PLACE d=0.077 tilt=4.0 held=1.00
+[harness t=478] PLACE>RELEASE d=0.029 tilt=3.3 held=1.00 stable=6
+[harness t=480] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=210] APPROACH>GRASP bce1 close proposal
+[harness t=224] GRASP>CARRY d=0.278 tilt=8.4 held=1.00
+[harness t=472] CARRY>PLACE d=0.079 tilt=4.5 held=1.00
+[harness t=504] PLACE>RELEASE d=0.030 tilt=2.7 held=1.00 stable=6
+[harness t=506] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=314] APPROACH>GRASP bce1 close proposal
+[harness t=414] GRASP>APPROACH grasp timeout; reopen
+[harness t=424] APPROACH>GRASP bce1 close proposal
+[harness t=524] GRASP>APPROACH grasp timeout; reopen
+[harness t=534] APPROACH>GRASP bce1 close proposal
+[harness t=634] GRASP>APPROACH grasp timeout; reopen
+[harness t=206] APPROACH>GRASP bce1 close proposal
+[harness t=220] GRASP>CARRY d=0.401 tilt=7.1 held=1.00
+[harness t=466] CARRY>PLACE d=0.075 tilt=7.7 held=1.00
+[harness t=504] PLACE>RELEASE d=0.029 tilt=6.4 held=1.00 stable=6
+[harness t=506] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=580] settle period elapsed; open/hold latched
+[harness t=200] APPROACH>GRASP bce1 close proposal
+[harness t=214] GRASP>CARRY d=0.370 tilt=9.5 held=1.00
+[harness t=456] CARRY>PLACE d=0.079 tilt=7.5 held=1.00
+[harness t=498] PLACE>RELEASE d=0.032 tilt=5.5 held=1.00 stable=6
+[harness t=500] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=228] APPROACH>GRASP bce1 close proposal
+[harness t=242] GRASP>CARRY d=0.266 tilt=9.2 held=0.99
+[harness t=542] CARRY>PLACE d=0.078 tilt=9.6 held=1.00
+[harness t=592] PLACE>RELEASE d=0.028 tilt=6.0 held=1.00 stable=6
+[harness t=594] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=212] APPROACH>GRASP bce1 close proposal
+[harness t=228] GRASP>CARRY d=0.437 tilt=7.9 held=1.00
+[harness t=500] CARRY>PLACE d=0.077 tilt=8.2 held=1.00
+[harness t=530] PLACE>RELEASE d=0.029 tilt=5.3 held=1.00 stable=6
+[harness t=532] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=198] APPROACH>GRASP bce1 close proposal
+[harness t=212] GRASP>CARRY d=0.425 tilt=7.5 held=1.00
+[harness t=478] CARRY>PLACE d=0.079 tilt=6.5 held=1.00
+[harness t=532] PLACE>RELEASE d=0.031 tilt=3.6 held=1.00 stable=6
+[harness t=534] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=200] APPROACH>GRASP bce1 close proposal
+[harness t=214] GRASP>CARRY d=0.373 tilt=7.9 held=1.00
+[harness t=446] CARRY>PLACE d=0.076 tilt=6.1 held=1.00
+[harness t=544] PLACE>RELEASE d=0.011 tilt=4.6 held=1.00 stable=6
+[harness t=546] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=196] APPROACH>GRASP bce1 close proposal
+[harness t=210] GRASP>CARRY d=0.392 tilt=8.2 held=1.00
+[harness t=468] CARRY>PLACE d=0.079 tilt=5.5 held=1.00
+[harness t=492] PLACE>RELEASE d=0.019 tilt=2.9 held=1.00 stable=6
+[harness t=494] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=208] APPROACH>GRASP bce1 close proposal
+[harness t=222] GRASP>CARRY d=0.353 tilt=6.8 held=1.00
+[harness t=450] CARRY>PLACE d=0.080 tilt=4.4 held=1.00
+[harness t=544] PLACE>RELEASE d=0.034 tilt=2.1 held=1.00 stable=6
+[harness t=546] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=232] APPROACH>GRASP bce1 close proposal
+[harness t=246] GRASP>CARRY d=0.410 tilt=7.9 held=1.00
+[harness t=498] CARRY>PLACE d=0.073 tilt=9.3 held=1.00
+[harness t=530] PLACE>RELEASE d=0.028 tilt=7.4 held=1.00 stable=6
+[harness t=532] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=208] APPROACH>GRASP bce1 close proposal
+[harness t=222] GRASP>CARRY d=0.419 tilt=8.2 held=1.00
+[harness t=488] CARRY>PLACE d=0.076 tilt=5.9 held=1.00
+[harness t=560] PLACE>RELEASE d=0.032 tilt=3.5 held=1.00 stable=6
+[harness t=562] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=232] APPROACH>GRASP bce1 close proposal
+[harness t=248] GRASP>CARRY d=0.442 tilt=8.7 held=1.00
+[harness t=540] CARRY>PLACE d=0.080 tilt=7.9 held=1.00
+[harness t=564] PLACE>RELEASE d=0.026 tilt=5.4 held=1.00 stable=6
+[harness t=566] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=222] APPROACH>GRASP bce1 close proposal
+[harness t=236] GRASP>CARRY d=0.487 tilt=7.6 held=1.00
+[harness t=508] CARRY>PLACE d=0.078 tilt=7.5 held=1.00
+[harness t=530] PLACE>RELEASE d=0.029 tilt=4.9 held=1.00 stable=6
+[harness t=532] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=208] APPROACH>GRASP bce1 close proposal
+[harness t=222] GRASP>CARRY d=0.359 tilt=9.8 held=0.99
+[harness t=548] CARRY>PLACE d=0.077 tilt=7.3 held=1.00
+[harness t=572] PLACE>RELEASE d=0.032 tilt=5.4 held=1.00 stable=6
+[harness t=574] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=222] APPROACH>GRASP bce1 close proposal
+[harness t=236] GRASP>CARRY d=0.359 tilt=6.5 held=1.00
+[harness t=514] CARRY>PLACE d=0.078 tilt=4.8 held=1.00
+[harness t=554] PLACE>RELEASE d=0.019 tilt=2.4 held=1.00 stable=6
+[harness t=556] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=216] APPROACH>GRASP bce1 close proposal
+[harness t=230] GRASP>CARRY d=0.432 tilt=7.0 held=1.00
+[harness t=476] CARRY>PLACE d=0.080 tilt=7.7 held=1.00
+[harness t=520] PLACE>RELEASE d=0.026 tilt=5.5 held=1.00 stable=6
+[harness t=522] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=204] APPROACH>GRASP bce1 close proposal
+[harness t=216] GRASP>CARRY d=0.279 tilt=9.3 held=1.00
+[harness t=498] CARRY>PLACE d=0.074 tilt=7.9 held=1.00
+[harness t=526] PLACE>RELEASE d=0.034 tilt=5.9 held=1.00 stable=6
+[harness t=528] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=602] settle period elapsed; open/hold latched
+[harness t=194] APPROACH>GRASP bce1 close proposal
+[harness t=208] GRASP>CARRY d=0.286 tilt=9.5 held=1.00
+[harness t=458] CARRY>PLACE d=0.075 tilt=7.6 held=1.00
+[harness t=476] PLACE>RELEASE d=0.025 tilt=5.9 held=1.00 stable=6
+[harness t=478] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=186] APPROACH>GRASP bce1 close proposal
+[harness t=200] GRASP>CARRY d=0.330 tilt=8.2 held=1.00
+[harness t=446] CARRY>PLACE d=0.071 tilt=6.6 held=1.00
+[harness t=1142] PLACE>RELEASE d=0.034 tilt=5.6 held=1.00 stable=6
+[harness t=1144] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=216] APPROACH>GRASP bce1 close proposal
+[harness t=230] GRASP>CARRY d=0.414 tilt=7.4 held=1.00
+[harness t=472] CARRY>PLACE d=0.073 tilt=5.0 held=1.00
+[harness t=514] PLACE>RELEASE d=0.026 tilt=3.4 held=1.00 stable=6
+[harness t=516] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=214] APPROACH>GRASP bce1 close proposal
+[harness t=224] GRASP>CARRY d=0.384 tilt=3.5 held=0.99
+[harness t=526] CARRY>PLACE d=0.079 tilt=5.8 held=1.00
+[harness t=558] PLACE>RELEASE d=0.028 tilt=10.4 held=1.00 stable=6
+[harness t=560] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=634] settle period elapsed; open/hold latched
+[harness t=214] APPROACH>GRASP bce1 close proposal
+[harness t=228] GRASP>CARRY d=0.453 tilt=6.5 held=1.00
+[harness t=486] CARRY>PLACE d=0.077 tilt=6.7 held=1.00
+[harness t=518] PLACE>RELEASE d=0.033 tilt=4.2 held=1.00 stable=6
+[harness t=520] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=222] APPROACH>GRASP bce1 close proposal
+[harness t=236] GRASP>CARRY d=0.482 tilt=8.4 held=0.99
+[harness t=490] CARRY>PLACE d=0.074 tilt=6.7 held=1.00
+[harness t=514] PLACE>RELEASE d=0.025 tilt=4.3 held=1.00 stable=6
+[harness t=516] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=248] APPROACH>GRASP bce1 close proposal
+[harness t=260] GRASP>CARRY d=0.552 tilt=17.2 held=0.85
+[harness t=528] CARRY>PLACE d=0.078 tilt=8.0 held=1.00
+[harness t=592] PLACE>RELEASE d=0.029 tilt=4.5 held=1.00 stable=6
+[harness t=594] RELEASE>SETTLE open latched; hold observed release pose
+[harness t=668] settle period elapsed; open/hold latched

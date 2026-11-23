@@ -1,0 +1,17 @@
+Sun Nov 22 11:05:13 AM IST 2026 checkpoint ready
+Loading weights:  19%|█▉        | 92/489 [00:00<00:02, 147.68it/s]
+Loading weights:  27%|██▋       | 132/489 [00:01<00:01, 198.47it/s]
+Loading weights:  40%|████      | 196/489 [00:01<00:00, 294.67it/s]
+Loading weights:  49%|████▉     | 241/489 [00:01<00:01, 187.33it/s]
+Loading weights:  56%|█████▌    | 274/489 [00:01<00:01, 191.84it/s]
+Loading weights:  62%|██████▏   | 303/489 [00:02<00:01, 128.12it/s]
+Loading weights:  71%|███████▏  | 349/489 [00:02<00:00, 146.42it/s]
+Loading weights:  76%|███████▌  | 371/489 [00:02<00:00, 146.55it/s]
+Loading weights:  84%|████████▍ | 413/489 [00:02<00:00, 189.46it/s]
+Loading weights:  90%|████████▉ | 440/489 [00:02<00:00, 154.40it/s]
+Loading weights: 100%|██████████| 489/489 [00:02<00:00, 166.22it/s]
+
+eval_run_lr ['ft_smolvla_v2/checkpoints/015000/pretrained_model', 'dev_smolvla_v2_r1'] fc-01M80WVYTX7MP4WRCSQ3X4YP2M
+eval_run_lr ['ft_smolvla_v2/checkpoints/015000/pretrained_model', 'dev_smolvla_v2_r2'] fc-01M80WVZWPFTFZFSS2Y1MJ7FSQ
+eval_run_lr ['ft_smolvla_v2/checkpoints/015000/pretrained_model', 'dev_smolvla_v2_r3'] fc-01M80WW0ZQTW1MFWX21HD3J1W7
+Sun Nov 22 11:20:08 AM IST 2026 evals spawned

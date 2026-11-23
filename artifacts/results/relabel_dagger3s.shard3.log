@@ -1,0 +1,17 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2500003, "steps": 702, "orig_open": 150, "orig_closed": 262, "new_open": 150, "new_closed": 262}
+{"seed": 2500011, "steps": 632, "orig_open": 80, "orig_closed": 253, "new_open": 41, "new_closed": 253}
+{"seed": 2500019, "steps": 604, "orig_open": 55, "orig_closed": 270, "new_open": 55, "new_closed": 270}
+{"seed": 2500027, "steps": 697, "orig_open": 142, "orig_closed": 292, "new_open": 0, "new_closed": 292}
+{"seed": 2500035, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500043, "steps": 609, "orig_open": 54, "orig_closed": 291, "new_open": 32, "new_closed": 291}
+{"seed": 2500051, "steps": 562, "orig_open": 73, "orig_closed": 262, "new_open": 66, "new_closed": 262}
+{"seed": 2500059, "steps": 668, "orig_open": 84, "orig_closed": 266, "new_open": 84, "new_closed": 266}
+{"seed": 2500067, "steps": 638, "orig_open": 146, "orig_closed": 229, "new_open": 146, "new_closed": 229}
+{"seed": 2500075, "steps": 615, "orig_open": 100, "orig_closed": 261, "new_open": 62, "new_closed": 261}
+{"seed": 2500083, "steps": 816, "orig_open": 28, "orig_closed": 291, "new_open": 0, "new_closed": 291}
+{"seed": 2500091, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500099, "steps": 572, "orig_open": 52, "orig_closed": 252, "new_open": 52, "new_closed": 252}
+{"seed": 2500107, "steps": 792, "orig_open": 63, "orig_closed": 377, "new_open": 7, "new_closed": 377}
+{"seed": 2500115, "steps": 738, "orig_open": 139, "orig_closed": 248, "new_open": 102, "new_closed": 248}
+{"src": "/home/keyu/advaitic/data/dagger3", "episodes": 15, "verified": true, "shard": "3/8", "open_dist": 0.04, "open_tilt": 10.0, "orig_rule": {"open_dist": 0.05, "open_tilt": 20.0, "closed_lift": 0.03}, "totals": {"orig_open": 1166, "orig_closed": 3554, "new_open": 797, "new_closed": 3554, "open_to_undefined": 369, "undefined_to_open": 0, "other_changes": 0}}

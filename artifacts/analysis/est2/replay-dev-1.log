@@ -1,0 +1,25 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2950006, "split": "dev", "rows": 79, "steps": 719, "seconds": 8.57}
+{"seed": 2950016, "split": "dev", "rows": 71, "steps": 659, "seconds": 14.85}
+{"seed": 2950026, "split": "dev", "rows": 89, "steps": 743, "seconds": 18.46}
+{"seed": 2950036, "split": "dev", "rows": 73, "steps": 669, "seconds": 13.14}
+{"seed": 2950046, "split": "dev", "rows": 71, "steps": 626, "seconds": 9.51}
+{"seed": 2950056, "split": "dev", "rows": 80, "steps": 694, "seconds": 17.91}
+{"seed": 2950066, "split": "dev", "rows": 79, "steps": 676, "seconds": 17.14}
+{"seed": 2950076, "split": "dev", "rows": 54, "steps": 1700, "seconds": 35.73}
+{"seed": 2950086, "split": "dev", "rows": 143, "steps": 1700, "seconds": 39.8}
+{"seed": 2950096, "split": "dev", "rows": 57, "steps": 592, "seconds": 13.89}
+{"seed": 2950106, "split": "dev", "rows": 81, "steps": 667, "seconds": 18.06}
+{"seed": 2950116, "split": "dev", "rows": 75, "steps": 692, "seconds": 15.77}
+{"seed": 2950126, "split": "dev", "rows": 64, "steps": 632, "seconds": 20.62}
+{"seed": 2950136, "split": "dev", "rows": 54, "steps": 1700, "seconds": 36.7}
+{"seed": 2950146, "split": "dev", "rows": 70, "steps": 659, "seconds": 12.99}
+{"seed": 2950156, "split": "dev", "rows": 64, "steps": 626, "seconds": 16.16}
+{"seed": 2950166, "split": "dev", "rows": 74, "steps": 758, "seconds": 27.69}
+{"seed": 2950176, "split": "dev", "rows": 61, "steps": 597, "seconds": 15.81}
+{"seed": 2950186, "split": "dev", "rows": 66, "steps": 611, "seconds": 16.67}
+{"seed": 2950196, "split": "dev", "rows": 70, "steps": 680, "seconds": 21.67}
+{"seed": 2950206, "split": "dev", "rows": 54, "steps": 1700, "seconds": 38.42}
+{"seed": 2950216, "split": "dev", "rows": 318, "steps": 1700, "seconds": 44.93}
+{"seed": 2950226, "split": "dev", "rows": 54, "steps": 1700, "seconds": 37.65}
+{"seed": 2950236, "split": "dev", "rows": 73, "steps": 674, "seconds": 14.04}

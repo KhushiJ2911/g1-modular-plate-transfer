@@ -1,0 +1,18 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-3QFxu4fpcfuPgYKMx1s1WL
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+dev_bce4b_r2: exit=1 611s
+all evals doError: [Errno -3] Temporary failure in name resolution
+d out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-3QFxu4fpcfuPgYKMx1s1WL

@@ -1,0 +1,38 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+1/30 slot=6 success=False end=timeout
+2/30 slot=6 success=False end=timeout
+3/30 slot=6 success=False end=timeout
+4/30 slot=6 success=False end=timeout
+5/30 slot=1 success=True end=success
+6/30 slot=3 success=True end=success
+7/30 slot=6 success=False end=timeout
+8/30 slot=2 success=True end=success
+9/30 slot=3 success=True end=success
+10/30 slot=4 success=False end=timeout
+11/30 slot=4 success=True end=success
+12/30 slot=5 success=False end=timeout
+13/30 slot=3 success=True end=success
+14/30 slot=3 success=True end=success
+15/30 slot=3 success=True end=success
+16/30 slot=1 success=True end=success
+17/30 slot=5 success=False end=timeout
+18/30 slot=5 success=False end=timeout
+19/30 slot=1 success=False end=timeout
+20/30 slot=5 success=False end=timeout
+21/30 slot=4 success=True end=success
+22/30 slot=5 success=True end=success
+23/30 slot=4 success=False end=timeout
+24/30 slot=4 success=True end=success
+25/30 slot=1 success=False end=timeout
+26/30 slot=2 success=True end=success
+27/30 slot=1 success=False end=timeout
+28/30 slot=2 success=False end=timeout
+29/30 slot=2 success=True end=success
+30/30 slot=2 success=True end=success
+{
+  "status": "FAIL",
+  "successes": 15,
+  "completed_episodes": 30,
+  "success_rate": 0.5,
+  "meets_success_criterion": false
+}

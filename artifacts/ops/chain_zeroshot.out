@@ -1,0 +1,13 @@
+Sun Nov 22 01:58:10 AM IST 2026 building step-0 checkpoints
+Sun Nov 22 02:04:41 AM IST 2026 verify pi0.5 weights vs base
+saved=813 ref=812 shared=0 identical=0 max_abs_diff=0
+only_in_saved ['model.action_in_proj.bias', 'model.action_in_proj.weight', 'model.action_out_proj.bias', 'model.action_out_proj.weight', 'model.paligemma_with_expert.gemma_expert.model.layers.0.input_layernorm.dense.bias', 'model.paligemma_with_expert.gemma_expert.model.layers.0.input_layernorm.dense.weight', 'model.paligemma_with_expert.gemma_expert.model.layers.0.post_attention_layernorm.dense.bias', 'model.paligemma_with_expert.gemma_expert.model.layers.0.post_attention_layernorm.dense.weight', 'model.paligemma_with_expert.gemma_expert.model.layers.1.input_layernorm.dense.bias', 'model.paligemma_with_expert.gemma_expert.model.layers.1.input_layernorm.dense.weight']
+Sun Nov 22 02:05:30 AM IST 2026 launching 6 evals
+Sun Nov 22 03:24:04 AM IST 2026 evals done
+dev_zs_pi05_r1: exit=1 2303s
+dev_zs_pi05_r2: exit=1 2270s
+dev_zs_pi05_r3: exit=1 2258s
+dev_zs_molmoact2_r1: exit=1 2395s
+dev_zs_molmoact2_r2: exit=1 2435s
+dev_zs_molmoact2_r3: exit=1 2411s
+all evals done in 4706s

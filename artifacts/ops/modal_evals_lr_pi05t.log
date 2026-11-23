@@ -1,0 +1,19 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-0Ej3963bZCAnkwxhyhkBqt
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+dev_pi05t_r1: exit=1 2959s
+dev_pi05t_r2: exit=1 2086s
+dev_pi05t_r3: exit=1 2815s
+all evals done in 3541s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-0Ej3963bZCAnkwxhyhkBqt

@@ -1,0 +1,18 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-fxi3621t31yp9q1J1trKGx
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+dev_bce4a_r1: exit=1 576s
+all evals done in 915s
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-fxi3621t31yp9q1J1trKGx

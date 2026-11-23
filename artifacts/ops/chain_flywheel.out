@@ -1,0 +1,10 @@
+[2026-11-22 12:10:14] 24 shards done
+dirname: missing operand
+Try 'dirname --help' for more information.
+[2026-11-22 12:10:18] src 
+Traceback (most recent call last):
+  File "/home/keyu/advaitic/ops/flywheel_filter.py", line 10, in <module>
+    src, dst = Path(sys.argv[1]), Path(sys.argv[2])
+                                       ~~~~~~~~^^^
+IndexError: list index out of range
+[2026-11-22 12:10:18] filter failed

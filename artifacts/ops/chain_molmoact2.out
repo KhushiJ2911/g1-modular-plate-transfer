@@ -1,0 +1,7 @@
+Sat Nov 21 05:17:28 PM IST 2026 train start
+Sat Nov 21 06:33:10 PM IST 2026 train end: [modal-client] 2026-11-21T18:33:10+0530 Timed out waiting for final app logs. ✓ App completed. View run at  https://modal.com/apps/jaiswalkhushi2911/main/ap-85fkOHJw18IvGDVxf3rCBY 
+Sat Nov 21 07:43:29 PM IST 2026 evals done
+dev_molmoact2_r1: exit=1 2616s
+dev_molmoact2_r2: exit=1 2769s
+dev_molmoact2_r3: exit=1 2811s
+all evals done in 4207s

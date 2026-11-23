@@ -1,0 +1,6 @@
+- Updated [RESEARCH_LOG.md](/home/keyu/advaitic/research_log/RESEARCH_LOG.md) through source line 449.
+- Added zero-shot results, bce4 results and threshold sweeps.
+- Integrated harness implementation, estimator metrics and pending ablations.
+- Documented launch failures, outage recovery and spending limits.
+- Updated [.log_state.json](/home/keyu/advaitic/research_log/.log_state.json); verified source hash, links and result totals.
+- Wrote only the two authorized files.

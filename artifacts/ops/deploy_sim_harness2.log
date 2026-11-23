@@ -1,0 +1,426 @@
+Building image im-e5ANgxMXHjXUyniktWc7PD
+
+=> Step 0: FROM base
+
+=> Step 1: COPY . /
+Saving image...
+Image saved, took 501.31ms
+
+Built image im-e5ANgxMXHjXUyniktWc7PD in 1.13s
+
+
+Building image im-vZlA66M5xc1wReA8yzxVrm
+
+=> Step 0: FROM base
+
+=> Step 1: RUN cd /root/code && uv sync --frozen --no-dev
+Using CPython 3.12.16 interpreter at: /usr/local/bin/python3
+Creating virtual environment at: .venv
+   Updating https://github.com/swirl-uk/BiGym2.git (d71501359b215b9d78e27dcb70b220412d474dfa)
+   Building advaitic-plate-transfer @ file:///root/code
+Downloading zstandard (5.3MiB)
+Downloading pillow (6.8MiB)
+Downloading pyopengl (3.0MiB)
+Downloading pygments (1.2MiB)
+Downloading hf-xet (4.1MiB)
+Downloading viser (3.5MiB)
+Downloading pyarrow (52.5MiB)
+Downloading onnxruntime (22.7MiB)
+Downloading numpy (16.0MiB)
+Downloading mujoco (7.0MiB)
+ Downloading hf-xet
+ Downloading zstandard
+      Built advaitic-plate-transfer @ file:///root/code
+ Downloading pillow
+ Downloading pygments
+ Downloading viser
+ Downloading mujoco
+ Downloading onnxruntime
+    Updated https://github.com/swirl-uk/BiGym2.git (d71501359b215b9d78e27dcb70b220412d474dfa)
+   Building bigym @ git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa
+ Downloading numpy
+ Downloading pyarrow
+ Downloading pyopengl
+      Built bigym @ git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa
+Prepared 55 packages in 4.54s
+Installed 55 packages in 886ms
+Bytecode compiled 5828 files in 2.56s
+ + absl-py==2.5.1
+ + advaitic-plate-transfer==0.1.0 (from file:///root/code)
+ + anyio==4.16.0
+ + attrs==26.1.0
+ + bigym==1.0.0 (from git+https://github.com/swirl-uk/BiGym2.git@d71501359b215b9d78e27dcb70b220412d474dfa)
+ + certifi==2026.10.23
+ + charset-normalizer==3.5.2
+ + click==8.5.1
+ + cloudpickle==3.1.2
+ + dm-env==1.6
+ + dm-tree==0.1.10
+ + docstring-parser==0.18.0
+ + etils==1.15.0
+ + farama-notifications==0.0.6
+ + filelock==4.2.9
+ + flatbuffers==25.12.19
+ + fsspec==2026.9.0
+ + glfw==2.11.0
+ + gymnasium==1.4.0
+ + h11==0.16.0
+ + hf-xet==1.8.0
+ + httpcore2==2.16.0
+ + httpx2==2.16.0
+ + huggingface-hub==2.4.0
+ + idna==3.20
+ + imageio==2.38.1
+ + markdown-it-py==4.2.0
+ + mdurl==0.1.2
+ + mjviser==0.0.16
+ + msgspec==0.22.0
+ + mujoco==3.8.1
+ + numpy==2.5.4
+ + onnxruntime==1.31.1
+ + packaging==26.3
+ + pillow==13.0.0
+ + protobuf==7.36.2
+ + pyarrow==26.0.1
+ + pygments==2.21.0
+ + pyopengl==3.1.10
+ + pyquaternion==0.9.9
+ + pyyaml==6.0.3
+ + requests==2.34.2
+ + rich==14.3.4
+ + tqdm==4.70.1
+ + trimesh==5.2.0
+ + truststore==0.10.5
+ + typeguard==4.6.0
+ + typing-extensions==4.16.0
+ + tyro==1.0.17
+ + urllib3==2.8.0
+ + viser==1.1.1
+ + websockets==16.1.1
+ + wrapt==2.5.2
+ + zipp==4.1.2
+ + zstandard==0.25.0
+
+=> Step 2: RUN cd /root/code && uv run bigym-download --task move_plate
+   Building advaitic-plate-transfer @ file:///root/code
+Downloading ruff (10.1MiB)
+ Downloading ruff
+      Built advaitic-plate-transfer @ file:///root/code
+Uninstalled 1 package in 1ms
+Installed 5 packages in 21ms
+Bytecode compiled 5930 files in 2.57s
+
+[1AFetching 18 files:   0%|          | 0/18 [00:00<?, ?it/s]
+[1AFetching 18 files:   6%|▌         | 1/18 [00:03<00:54,  3.21s/it]
+[1AFetching 18 files:  11%|█         | 2/18 [00:04<00:33,  2.09s/it]
+[1AFetching 18 files:  17%|█▋        | 3/18 [00:04<00:20,  1.35s/it]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[1AFetching 18 files:  22%|██▏       | 4/18 [00:05<00:13,  1.05it/s]
+[1AFetching 18 files:  28%|██▊       | 5/18 [00:05<00:09,  1.38it/s]
+[1AFetching 18 files:  39%|███▉      | 7/18 [00:06<00:04,  2.22it/s]
+[1AFetching 18 files:  44%|████▍     | 8/18 [00:06<00:03,  2.75it/s]
+[1AFetching 18 files:  50%|█████     | 9/18 [00:06<00:02,  3.10it/s]
+[1AFetching 18 files:  56%|█████▌    | 10/18 [00:06<00:02,  3.74it/s]
+[1AFetching 18 files:  61%|██████    | 11/18 [00:06<00:01,  4.38it/s]
+[1AFetching 18 files:  72%|███████▏  | 13/18 [00:07<00:01,  3.13it/s]
+[1AFetching 18 files:  89%|████████▉ | 16/18 [00:07<00:00,  4.85it/s]
+[1AFetching 18 files:  94%|█████████▍| 17/18 [00:08<00:00,  3.67it/s]
+[1AFetching 18 files: 100%|██████████| 18/18 [00:08<00:00,  3.16it/s]
+[1AFetching 18 files: 100%|██████████| 18/18 [00:08<00:00,  2.05it/s]
+
+[1AFetching 6 files:   0%|          | 0/6 [00:00<?, ?it/s]
+[1AFetching 6 files:  17%|█▋        | 1/6 [00:00<00:01,  3.08it/s]
+[1AFetching 6 files:  67%|██████▋   | 4/6 [00:01<00:00,  3.82it/s]
+[1AFetching 6 files: 100%|██████████| 6/6 [00:01<00:00,  5.52it/s]
+move_plate: /root/.cache/huggingface/hub/datasets--SWIRL-Lab--bigym-g1-native60/snapshots/4c3e4414aaf74540899de0b9e82239ef927c9710/move_plate
+
+=> Step 3: RUN cd /root/code && uv run advaitic-check
+   Building advaitic-plate-transfer @ file:///root/code
+      Built advaitic-plate-transfer @ file:///root/code
+Uninstalled 1 package in 1ms
+Installed 1 package in 3ms
+Bytecode compiled 5930 files in 2.48s
+{
+  "ok": true,
+  "upstream_commit": "d71501359b215b9d78e27dcb70b220412d474dfa",
+  "verified_files": 555,
+  "failures": [],
+  "manifest_sha256": "4fb10989dfb8f6581f50b3befdf263db19b5129ec64311456fb58ddfb3ee0ccd"
+}
+
+=> Step 4: RUN uv venv /root/mlenv --python 3.12
+Using CPython 3.12.16 interpreter at: /usr/local/bin/python3.12
+Creating virtual environment at: /root/mlenv
+
+=> Step 5: RUN uv pip install --python /root/mlenv/bin/python torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cpu
+Using Python 3.12.16 environment at: /root/mlenv
+Resolved 13 packages in 609ms
+Downloading setuptools (1.2MiB)
+Downloading sympy (5.9MiB)
+Downloading networkx (2.0MiB)
+Downloading pillow (6.8MiB)
+Downloading numpy (16.0MiB)
+Downloading torch (166.6MiB)
+Downloading torchvision (1.8MiB)
+ Downloading torchvision
+ Downloading pillow
+ Downloading setuptools
+ Downloading networkx
+ Downloading numpy
+ Downloading sympy
+ Downloading torch
+Prepared 13 packages in 6.40s
+Installed 13 packages in 1.48s
+Bytecode compiled 5314 files in 2.69s
+ + filelock==4.2.4
+ + fsspec==2026.9.0
+ + jinja2==3.1.6
+ + markupsafe==3.0.3
+ + mpmath==1.3.0
+ + networkx==3.7
+ + numpy==2.5.4
+ + pillow==13.0.0
+ + setuptools==78.1.0
+ + sympy==1.13.1
+ + torch==2.5.1+cpu
+ + torchvision==0.20.1+cpu
+ + typing-extensions==4.16.0
+
+=> Step 6: RUN uv pip install --python /root/mlenv/bin/python numpy==2.5.5 pyyaml==6.0.3 pillow==13.0.0 safetensors==0.8.0
+Using Python 3.12.16 environment at: /root/mlenv
+Resolved 4 packages in 67ms
+Downloading numpy (15.0MiB)
+ Downloading numpy
+Prepared 3 packages in 511ms
+Uninstalled 1 package in 119ms
+Installed 3 packages in 114ms
+Bytecode compiled 5339 files in 2.66s
+ - numpy==2.5.4
+ + numpy==2.5.5
+ + pyyaml==6.0.3
+ + safetensors==0.8.0
+Saving image...
+Image saved, took 7.11s
+
+Built image im-vZlA66M5xc1wReA8yzxVrm in 54.12s
+
+
+Building image im-ZOWrklkfByLz24OSoYzw91
+
+=> Step 0: FROM base
+
+=> Step 1: RUN uv venv /root/lrenv --python 3.12
+Using CPython 3.12.16 interpreter at: /usr/local/bin/python3.12
+Creating virtual environment at: /root/lrenv
+
+=> Step 2: RUN uv pip install --python /root/lrenv/bin/python 'lerobot[pi,smolvla,molmoact2,dataset,training]==0.7.0'
+Using Python 3.12.16 environment at: /root/lrenv
+Resolved 108 packages in 1.94s
+Downloading hf-xet (4.1MiB)
+Downloading torch (514.2MiB)
+Downloading triton (272.4MiB)
+Downloading nvidia-cudnn-cu13 (495.1MiB)
+Downloading nvidia-cufft (208.1MiB)
+Downloading nvidia-cusolver (217.4MiB)
+Downloading nvidia-cublas (386.1MiB)
+Downloading nvidia-cusparse (144.0MiB)
+Downloading nvidia-nccl-cu13 (206.0MiB)
+Downloading nvidia-cusparselt-cu13 (162.3MiB)
+Downloading numpy (15.8MiB)
+Downloading pyarrow (52.5MiB)
+Downloading nvidia-nvshmem-cu13 (129.1MiB)
+Downloading nvidia-nvjitlink (44.5MiB)
+Downloading transformers (12.4MiB)
+Downloading nvidia-cuda-nvrtc (44.8MiB)
+Downloading scipy (33.7MiB)
+Downloading uvloop (4.3MiB)
+Downloading sympy (6.0MiB)
+Downloading pandas (11.8MiB)
+Downloading nvidia-cuda-cupti (11.4MiB)
+Downloading torchcodec (9.5MiB)
+Downloading cuda-bindings (8.0MiB)
+Downloading nvidia-cufile (1.3MiB)
+Downloading torchvision (7.2MiB)
+Downloading sentencepiece (1.6MiB)
+Downloading nvidia-cuda-cccl (3.9MiB)
+Downloading networkx (2.0MiB)
+Downloading brotli (1.4MiB)
+Downloading tokenizers (3.2MiB)
+Downloading pydantic-core (2.2MiB)
+Downloading pillow (6.8MiB)
+Downloading pygments (1.2MiB)
+Downloading nvidia-cuda-runtime (2.2MiB)
+Downloading av (38.1MiB)
+Downloading opencv-python-headless (57.6MiB)
+Downloading cmake (28.3MiB)
+Downloading trackio (3.0MiB)
+Downloading lerobot (2.5MiB)
+ Downloading hf-xet
+ Downloading nvidia-cufile
+ Downloading brotli
+ Downloading pydantic-core
+ Downloading sentencepiece
+ Downloading tokenizers
+ Downloading nvidia-cuda-cupti
+ Downloading nvidia-nvjitlink
+ Downloading uvloop
+ Downloading nvidia-cuda-nvrtc
+ Downloading nvidia-cuda-runtime
+ Downloading cuda-bindings
+ Downloading pillow
+ Downloading nvidia-cufft
+   Building docopt==0.6.2
+ Downloading nvidia-cusparse
+ Downloading torchvision
+ Downloading torchcodec
+ Downloading nvidia-cusparselt-cu13
+ Downloading opencv-python-headless
+ Downloading nvidia-cusolver
+      Built docopt==0.6.2
+ Downloading nvidia-nvshmem-cu13
+ Downloading nvidia-nccl-cu13
+ Downloading pygments
+ Downloading av
+ Downloading trackio
+ Downloading nvidia-cublas
+ Downloading networkx
+ Downloading nvidia-cudnn-cu13
+ Downloading lerobot
+ Downloading pyarrow
+ Downloading numpy
+ Downloading triton
+ Downloading pandas
+ Downloading scipy
+ Downloading sympy
+ Downloading nvidia-cuda-cccl
+ Downloading transformers
+ Downloading cmake
+ Downloading torch
+Prepared 107 packages in 23.91s
+Installed 108 packages in 3.90s
+Bytecode compiled 14452 files in 7.21s
+ + accelerate==1.16.0
+ + annotated-doc==0.0.7
+ + annotated-types==0.8.0
+ + anyio==4.16.0
+ + attrs==26.1.0
+ + av==15.1.0
+ + brotli==1.2.1
+ + certifi==2026.11.20
+ + charset-normalizer==3.5.2
+ + click==8.5.1
+ + cloudpickle==3.1.3
+ + cmake==4.1.3
+ + cuda-bindings==13.5.0
+ + cuda-pathfinder==1.9.1
+ + cuda-toolkit==13.2.2
+ + datasets==5.2.0
+ + dill==0.4.1
+ + docopt==0.6.2
+ + draccus==0.11.6
+ + einops==0.8.2
+ + farama-notifications==0.0.6
+ + filelock==4.3.0
+ + fsspec==2026.9.0
+ + gymnasium==1.4.0
+ + h11==0.16.0
+ + hf-xet==1.8.0
+ + httpcore2==2.16.2
+ + httptools==0.9.0
+ + httpx2==2.16.2
+ + huggingface-hub==2.4.0
+ + idna==3.20
+ + jinja2==3.1.6
+ + jsonlines==4.0.0
+ + lerobot==0.7.0
+ + markdown-it-py==4.3.0
+ + markupsafe==3.0.4
+ + mdurl==0.1.2
+ + mergedeep==1.3.4
+ + mpmath==1.3.0
+ + multiprocess==0.70.19
+ + mypy-extensions==1.2.0
+ + networkx==3.7
+ + num2words==0.5.14
+ + numpy==2.2.6
+ + nvidia-cublas==13.4.1.3
+ + nvidia-cuda-cccl==13.3.5.0.6
+ + nvidia-cuda-cupti==13.2.86
+ + nvidia-cuda-nvrtc==13.2.86
+ + nvidia-cuda-runtime==13.2.86
+ + nvidia-cudnn-cu13==9.26.0.51
+ + nvidia-cufft==12.2.0.57
+ + nvidia-cufile==1.17.1.22
+ + nvidia-cusolver==12.2.0.11
+ + nvidia-cusparse==12.7.10.12
+ + nvidia-cusparselt-cu13==0.8.1
+ + nvidia-ml-py==13.615.71
++ nvidia-nccl-cu13==2.30
++==..
+ ==37.
+  ==2.86  opencv-python-headless==13..92
+++ 26.3+ 2.3.
+ peft==22
+  ==.0
++ ==72+ pyarrow26..1
+ pydantic==14
+ + pydantic-core2.5
+ pygments
+ 400  ==.2
+  ==0.
+pytz==2026
+ pyyaml==.0
++ regex==202611.19
+requests2..
++rich==0.  safetensors +1.
++==03  ==.21
+ ==15 +==1.0  sympy==.
+ termcolor==30
+ tokenizers.3
+10.2 torch==.0 torchcodec0.0
+ torchvision==29.2  tqdm==70
++trackio==45.
+  transformers5.22
++triton==9
++ truststore +0.2
++typing-extensions==16.0 typing-inspect0..
+ typing-inspection==4
++ ==6
++==280  ==0.
++uvloop0.23..3  websockets4  xxhash==10Saving image...
+Image saved, took 13.18s
+
+Built image im-ZOWrklkfByLz24OSoYzw91 in 54.03s
+
+
+Building image im-5td53peeYKIHEHv41S6W2m
+
+=> Step 0: FROM base
+
+=> Step 1: ENV HF_HOME=/lr/hf
+
+=> Step 2: ENV HF_HUB_OFFLINE=1
+
+=> Step 3: ENV TOKENIZERS_PARALLELISM=false
+Saving image...
+Image saved, took 1.86s
+
+Built image im-5td53peeYKIHEHv41S6W2m in 4.59s
+
+
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/policy_smoke.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-harness
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function smoke_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+✓ App deployed in 127.748s! 🎉
+
+View Deployment: 
+https://modal.com/apps/jaiswalkhushi2911/main/deployed/advaitic-sim-harness

@@ -1,0 +1,12 @@
+Sat Nov 21 05:42:18 PM IST 2026 train ended: https://modal.com/apps/jaiswalkhushi2911/main/ap-eSqjPnt9CeKPVqCb2HIVbV
+✓ Finished downloading files to local!
+✓ Finished downloading files to local!
+b065543a811f4d87d21ee32084da627786cc43c5e3d17f1293ba1cdbf61ef83e  ckpts/mvla_large_final.pt
+✓ Uploaded file 'ckpts/mvla_large_final.pt' to 'mvla_large_final.pt'
+Sat Nov 21 05:42:51 PM IST 2026 launching evals: mvla_large_final.pt,dev_mvla_large_final_r1,1000000,submission.policy_vla:make_policy;mvla_large_final.pt,dev_mvla_large_final_r2,1000000,submission.policy_vla:make_policy;mvla_large_final.pt,dev_mvla_large_final_r3,1000000,submission.policy_vla:make_policy;
+Sat Nov 21 06:27:50 PM IST 2026 evals done
+dev_mvla_large_final_r3: exit=1 2680s
+all evals done in 2690s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-iW2xVJOer8URV7NnkKXiNG

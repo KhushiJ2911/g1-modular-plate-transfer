@@ -1,0 +1,15 @@
+[2026-11-22 15:50:06] 24 shards done
+[2026-11-22 15:54:40] src data/flywheel2_raw/flywheel2
+episodes 240 kept 90 unreadable 0
+✓ Uploaded directory 'data/flywheel2_succ' to '/flywheel2_succ'
+[2026-11-22 16:03:21] bce6c promoted 7ef973353569
+[2026-11-22 16:03:37] bce6c smoke ('student_bce6c.pt', '{"spec": "submission.policy_harness:make_policy", "ok": true, "load_seconds": 4.6, "calls": 20, "steps": 40, "chunk": 2, "call_seconds_max": 0.036, "call_seconds_mean": 0.023}')
+eval_run ['student_bce6c.pt', 'dev_bce6c_ens_r1'] fc-01M81D349706CESKHTZT8RHAF1
+eval_run ['student_bce6c.pt', 'dev_bce6c_ens_r2'] fc-01M81D34JJRM7WFTN4BKH70GND
+eval_run ['student_bce6c.pt', 'dev_bce6c_ens_r3'] fc-01M81D34W8V8QDQS6SA9BE4MX6
+[2026-11-22 16:05:58] bce6d promoted 140d4e6f4419
+[2026-11-22 16:06:16] bce6d smoke ('student_bce6d.pt', '{"spec": "submission.policy_harness:make_policy", "ok": true, "load_seconds": 4.7, "calls": 20, "steps": 40, "chunk": 2, "call_seconds_max": 0.032, "call_seconds_mean": 0.019}')
+eval_run ['student_bce6d.pt', 'dev_bce6d_ens_r1'] fc-01M81D7ZQ849NA3830WMZ23KBG
+eval_run ['student_bce6d.pt', 'dev_bce6d_ens_r2'] fc-01M81D800GQ1KYHWAJMMSH4WX1
+eval_run ['student_bce6d.pt', 'dev_bce6d_ens_r3'] fc-01M81D809R1HNH9K3V2KNR6F02
+[2026-11-22 16:06:18] done

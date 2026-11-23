@@ -1,0 +1,22 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-WHJSuj0aMv3QGiJ6I4VhcD
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+└── ✓ Created Function eval_run.
+dev_bce1_r1: exit=1 552s
+dev_bce1_r2: exit=1 507s
+dev_bce1_r3: exit=1 501s
+dev_bce2a_r1: exit=1 870s
+dev_bce2a_r2: exit=1 638s
+dev_bce2a_r3: exit=1 679s
+dev_bce2b_r1: exit=1 790s
+dev_bce2b_r2: exit=1 711s
+dev_bce2b_r3: exit=1 663s
+all evals done in 878s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-WHJSuj0aMv3QGiJ6I4VhcD

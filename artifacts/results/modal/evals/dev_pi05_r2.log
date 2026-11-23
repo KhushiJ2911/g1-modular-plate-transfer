@@ -1,0 +1,38 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+1/30 slot=6 success=False end=policy_error
+2/30 slot=6 success=False end=policy_error
+3/30 slot=6 success=False end=policy_error
+4/30 slot=6 success=False end=policy_error
+5/30 slot=1 success=False end=policy_error
+6/30 slot=3 success=False end=policy_error
+7/30 slot=6 success=False end=policy_error
+8/30 slot=2 success=False end=policy_error
+9/30 slot=3 success=False end=policy_error
+10/30 slot=4 success=False end=policy_error
+11/30 slot=4 success=False end=policy_error
+12/30 slot=5 success=False end=policy_error
+13/30 slot=3 success=False end=policy_error
+14/30 slot=3 success=False end=policy_error
+15/30 slot=3 success=False end=policy_error
+16/30 slot=1 success=False end=policy_error
+17/30 slot=5 success=False end=policy_error
+18/30 slot=5 success=False end=policy_error
+19/30 slot=1 success=False end=policy_error
+20/30 slot=5 success=False end=policy_error
+21/30 slot=4 success=False end=policy_error
+22/30 slot=5 success=False end=policy_error
+23/30 slot=4 success=False end=policy_error
+24/30 slot=4 success=False end=policy_error
+25/30 slot=1 success=False end=policy_error
+26/30 slot=2 success=False end=policy_error
+27/30 slot=1 success=False end=policy_error
+28/30 slot=2 success=False end=policy_error
+29/30 slot=2 success=False end=policy_error
+30/30 slot=2 success=False end=policy_error
+{
+  "status": "FAIL",
+  "successes": 0,
+  "completed_episodes": 30,
+  "success_rate": 0.0,
+  "meets_success_criterion": false
+}

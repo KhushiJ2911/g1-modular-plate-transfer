@@ -1,0 +1,204 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-wbRt8lKEYuK6BzDfTYc7Ti
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_verify_same.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_zeroshot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function verify_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader; pip show lerobot | head -2
+NVIDIA A100-SXM4-40GB, 40960 MiB
+Name: lerobot
+Version: 0.7.0
+ERROR: Pipe to stdout was broken
++  lerobot-train --dataset.repo_id=advaitic/plate_transfer_v2 --dataset.root=/lr/datasets/advaitic/plate_transfer_v2 --output_dir=/lr/runs/ft_smolvla_v2 --job_name=ft_smolvla_v2 --policy.device=cuda --policy.push_to_hub=false --num_workers=8 --policy.chunk_size=20 --policy.n_action_steps=10 --log_freq=100 --batch_size=32 --steps=15000 --save_freq=5000 --policy.path=/lr/runs/ft_smolvla/checkpoints/005000/pretrained_model --rename_map='{"observation.images.cam0":"observation.images.camera1","observation.images.cam1":"observation.images.camera2","observation.images.cam2":"observation.images.camera3"}'
+WARNING:accelerate.utils.other:[RANK 0] Detected kernel version 4.19.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+[modal-client] 2026-11-22T02:34:20+0530 Loop attempt for _run_app.<locals>.heartbeat failed
+Traceback (most recent call last):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 174, in send_request
+    protocol = await self._channel.__connect__()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 137, in __connect__
+    return await super().__connect__()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 744, in __connect__
+    async with self._connect_lock:
+               ^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/locks.py", line 14, in __aenter__
+    await self.acquire()
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/locks.py", line 113, in acquire
+    await fut
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_grpc_client.py", line 164, in direct
+    return await self.client._call_unary(self.wrapped_method, req, timeout=timeout, metadata=metadata)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 611, in _call_unary
+    return await self._call_safely(coro, grpclib_method.name)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 561, in _call_safely
+    return await request_task
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 912, in __call__
+    await stream.send_message(message, end=True)
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 242, in send_message
+    await self.send_request()
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 173, in send_request
+    with self._wrapper:
+         ^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/utils.py", line 70, in __exit__
+    raise self._error
+TimeoutError: Deadline exceeded
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/async_utils.py", line 590, in loop_coro
+    await asyncio.wait_for(async_f(), timeout=timeout)
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/runner.py", line 69, in _heartbeat
+    await client._stub.AppHeartbeat(request, retry=Retry(attempt_timeout=HEARTBEAT_TIMEOUT))
+modal.exception.ConnectionError: Deadline exceeded
+Task exception was never retrieved
+future: <Task finished name='Task-16' coro=<get_app_logs_loop() done, defined at /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py:91> exception=ConnectionAbortedError('SSL handshake is taking longer than 60.0 seconds: aborting the connection')>
+Traceback (most recent call last):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py", line 223, in get_app_logs_loop
+    app_done = await _get_logs()
+               ^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py", line 180, in _get_logs
+    async for log_batch in client._stub.AppGetLogs.unary_stream(request):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_grpc_client.py", line 196, in unary_stream
+    async for response in self.client._call_stream(self.wrapped_method, request, metadata=metadata):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 624, in _call_stream
+    await self._call_safely(stream.send_message(request, end=True), f"{grpclib_method.name}.send_message")
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 561, in _call_safely
+    return await request_task
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 242, in send_message
+    await self.send_request()
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 174, in send_request
+    protocol = await self._channel.__connect__()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 137, in __connect__
+    return await super().__connect__()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 748, in __connect__
+    self._protocol = await self._create_connection()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 147, in _create_connection
+    protocol = await self._open_connection()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 169, in _open_connection
+    return await super()._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 725, in _create_connection
+    _, protocol = await self._loop.create_connection(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 1159, in create_connection
+    transport, protocol = await self._create_connection_transport(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 1192, in _create_connection_transport
+    await waiter
+ConnectionAbortedError: SSL handshake is taking longer than 60.0 seconds: aborting the connection
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ client.py:369 in recv_initial_metadata                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ protocol.py:342 in recv_headers                                              │
+│                                                                              │
+│ /home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/pytho │
+│ n3.12/asyncio/locks.py:212 in wait                                           │
+│                                                                              │
+│   211 │   │   try:                                                           │
+│ ❱ 212 │   │   │   await fut                                                  │
+│   213 │   │   │   return True                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+CancelledError
+
+During handling of the above exception, another exception occurred:
+
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_g │
+│ rpc_client.py:164 in direct                                                  │
+│                                                                              │
+│   163 │   │   self.wrapped_method.channel = await self.client._get_channel(s │
+│ ❱ 164 │   │   return await self.client._call_unary(self.wrapped_method, req, │
+│   165                                                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/cl │
+│ ient.py:611 in _call_unary                                                   │
+│                                                                              │
+│   610 │   │   coro = grpclib_method(request, timeout=timeout, metadata=metad │
+│ ❱ 611 │   │   return await self._call_safely(coro, grpclib_method.name)      │
+│   612                                                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/cl │
+│ ient.py:561 in _call_safely                                                  │
+│                                                                              │
+│   560 │   │   │   │   request_task.set_name(readable_method)                 │
+│ ❱ 561 │   │   │   │   return await request_task                              │
+│   562 │   │   │   except asyncio.CancelledError:                             │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ client.py:913 in __call__                                                    │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ client.py:426 in recv_message                                                │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ client.py:368 in recv_initial_metadata                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/ │
+│ utils.py:70 in __exit__                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+TimeoutError: Deadline exceeded
+
+During handling of the above exception, another exception occurred:
+
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/keyu/advaitic/ops/modal_lerobot.py:105 in train                        │
+│                                                                              │
+│   104 │   │     exe: str = "lerobot-train", ds: str = DS):                   │
+│ ❱ 105 │   print(train_job.with_options(gpu=gpu, timeout=timeout).remote(name │
+│   106                                                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_o │
+│ bject.py:49 in wrapped                                                       │
+│                                                                              │
+│    48 │   │   await self.hydrate()                                           │
+│ ❱  49 │   │   return await method(self, *args, **kwargs)                     │
+│    50                                                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_f │
+│ unctions.py:2115 in remote                                                   │
+│                                                                              │
+│   2114 │   │                                                                 │
+│ ❱ 2115 │   │   return await self._call_function(args, kwargs)                │
+│   2116                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_f │
+│ unctions.py:2050 in _call_function                                           │
+│                                                                              │
+│   2049 │   │                                                                 │
+│ ❱ 2050 │   │   return await invocation.run_function()                        │
+│   2051                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_f │
+│ unctions.py:496 in run_function                                              │
+│                                                                              │
+│    495 │   │   │   metadata = await self.client.get_input_plane_metadata(sel │
+│ ❱  496 │   │   │   await_response: api_pb2.AttemptAwaitResponse = await self │
+│    497 │   │   │   │   await_request,                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ConnectionError: Deadline exceeded

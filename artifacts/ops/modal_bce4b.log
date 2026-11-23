@@ -1,0 +1,50 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-iCJ8XbyHSfAcIPJAehoaVi
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/export/bc_5233dc7
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA A100-SXM4-40GB, 40960 MiB
++ python -m method.bc.train --device cuda --cache-dir /cache --run-dir /runs/bce4b --data-dirs /data/human60 /data/teacher_v1 /data/teacher_v1_dart0 /data/dagger /data/teacher_v1_gen2 --config method/bc/student_v1b_bce.yaml --data-weights 1 0.4 0.6 0.67 0.9 --val-episodes 6 --microbatch-size 64 --num-workers 2 --warmup-steps 200 --gripper-pos-weight 2 --steps 6000 --init-from /ckpts/student_v1b.pt
+Initialized EMA weights from /ckpts/student_v1b.pt; fresh optimizer/step
+483 train / 30 val episodes; 182466 train frames; cache=/cache/6895ee8ba6c560c9d5d5fb09.u8
+step=100 train=1.01890 val=nan aux=0.00000 val_aux=nan l1=0.02208/nan gripper_bce=0.99509/nan gripper_acc=0.445/nan open_acc=0.570/nan lr=0.00015 it/s=25.48
+step=200 train=0.21591 val=nan aux=0.00000 val_aux=nan l1=0.03357/nan gripper_bce=0.18253/nan gripper_acc=0.955/nan open_acc=0.932/nan lr=0.0003 it/s=45.48
+step=300 train=0.16916 val=nan aux=0.00000 val_aux=nan l1=0.02922/nan gripper_bce=0.14028/nan gripper_acc=0.963/nan open_acc=0.945/nan lr=0.0003 it/s=46.15
+step=400 train=0.15473 val=nan aux=0.00000 val_aux=nan l1=0.02570/nan gripper_bce=0.12921/nan gripper_acc=0.964/nan open_acc=0.951/nan lr=0.000299 it/s=45.43
+step=500 train=0.16169 val=nan aux=0.00000 val_aux=nan l1=0.02409/nan gripper_bce=0.13758/nan gripper_acc=0.959/nan open_acc=0.945/nan lr=0.000298 it/s=36.73
+step=600 train=0.14232 val=nan aux=0.00000 val_aux=nan l1=0.02381/nan gripper_bce=0.11851/nan gripper_acc=0.964/nan open_acc=0.951/nan lr=0.000297 it/s=40.12
+step=700 train=0.14901 val=nan aux=0.00000 val_aux=nan l1=0.02244/nan gripper_bce=0.12649/nan gripper_acc=0.960/nan open_acc=0.955/nan lr=0.000295 it/s=40.35
+step=800 train=0.13864 val=nan aux=0.00000 val_aux=nan l1=0.02180/nan gripper_bce=0.11711/nan gripper_acc=0.967/nan open_acc=0.952/nan lr=0.000292 it/s=42.33
+step=900 train=0.15132 val=nan aux=0.00000 val_aux=nan l1=0.02077/nan gripper_bce=0.13032/nan gripper_acc=0.960/nan open_acc=0.948/nan lr=0.000289 it/s=40.14
+step=1000 train=0.13941 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.02005/0.02465 gripper_bce=0.11916/0.31512 gripper_acc=0.963/0.947 open_acc=0.954/0.949 lr=0.000286 it/s=20.27
+step=1100 train=0.13714 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01989/0.02465 gripper_bce=0.11726/0.31512 gripper_acc=0.963/0.947 open_acc=0.955/0.949 lr=0.000283 it/s=38.64
+step=1200 train=0.13236 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01951/0.02465 gripper_bce=0.11319/0.31512 gripper_acc=0.968/0.947 open_acc=0.955/0.949 lr=0.000279 it/s=44.31
+step=1300 train=0.13930 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01935/0.02465 gripper_bce=0.12014/0.31512 gripper_acc=0.964/0.947 open_acc=0.952/0.949 lr=0.000274 it/s=46.69
+step=1400 train=0.12363 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01904/0.02465 gripper_bce=0.10457/0.31512 gripper_acc=0.968/0.947 open_acc=0.956/0.949 lr=0.000269 it/s=45.30
+step=1500 train=0.12749 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01879/0.02465 gripper_bce=0.10832/0.31512 gripper_acc=0.967/0.947 open_acc=0.955/0.949 lr=0.000264 it/s=45.72
+step=1600 train=0.12086 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01851/0.02465 gripper_bce=0.10226/0.31512 gripper_acc=0.971/0.947 open_acc=0.960/0.949 lr=0.000259 it/s=46.07
+step=1700 train=0.11699 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01839/0.02465 gripper_bce=0.09829/0.31512 gripper_acc=0.970/0.947 open_acc=0.961/0.949 lr=0.000253 it/s=47.14
+step=1800 train=0.12665 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01830/0.02465 gripper_bce=0.10844/0.31512 gripper_acc=0.967/0.947 open_acc=0.956/0.949 lr=0.000247 it/s=46.71
+step=1900 train=0.12003 val=0.33978 aux=0.00000 val_aux=0.00000 l1=0.01822/0.02465 gripper_bce=0.10111/0.31512 gripper_acc=0.973/0.947 open_acc=0.959/0.949 lr=0.000241 it/s=45.97
+step=2000 train=0.12826 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01791/0.01949 gripper_bce=0.11052/0.12747 gripper_acc=0.966/0.965 open_acc=0.956/0.947 lr=0.000234 it/s=23.79
+step=2100 train=0.11824 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01780/0.01949 gripper_bce=0.10037/0.12747 gripper_acc=0.968/0.965 open_acc=0.961/0.947 lr=0.000227 it/s=43.87
+step=2200 train=0.13080 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01731/0.01949 gripper_bce=0.11370/0.12747 gripper_acc=0.965/0.965 open_acc=0.957/0.947 lr=0.00022 it/s=47.00
+step=2300 train=0.11380 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01725/0.01949 gripper_bce=0.09677/0.12747 gripper_acc=0.970/0.965 open_acc=0.960/0.947 lr=0.000213 it/s=47.22
+step=2400 train=0.11355 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01696/0.01949 gripper_bce=0.09675/0.12747 gripper_acc=0.971/0.965 open_acc=0.962/0.947 lr=0.000206 it/s=47.82
+step=2500 train=0.11856 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01690/0.01949 gripper_bce=0.10130/0.12747 gripper_acc=0.970/0.965 open_acc=0.961/0.947 lr=0.000198 it/s=46.90
+step=2600 train=0.12367 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01667/0.01949 gripper_bce=0.10667/0.12747 gripper_acc=0.966/0.965 open_acc=0.960/0.947 lr=0.00019 it/s=47.50
+step=2700 train=0.10849 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01667/0.01949 gripper_bce=0.09186/0.12747 gripper_acc=0.972/0.965 open_acc=0.964/0.947 lr=0.000182 it/s=47.97
+step=2800 train=0.11712 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01663/0.01949 gripper_bce=0.10017/0.12747 gripper_acc=0.969/0.965 open_acc=0.958/0.947 lr=0.000174 it/s=47.13
+step=2900 train=0.11593 val=0.14696 aux=0.00000 val_aux=0.00000 l1=0.01657/0.01949 gripper_bce=0.09951/0.12747 gripper_acc=0.970/0.965 open_acc=0.959/0.947 lr=0.000166 it/s=46.76
+step=3000 train=0.11329 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01655/0.01481 gripper_bce=0.09646/0.10780 gripper_acc=0.971/0.970 open_acc=0.963/0.953 lr=0.000158 it/s=23.50
+step=3100 train=0.10507 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01620/0.01481 gripper_bce=0.08885/0.10780 gripper_acc=0.972/0.970 open_acc=0.967/0.953 lr=0.00015 it/s=42.89
+step=3200 train=0.11277 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01642/0.01481 gripper_bce=0.09638/0.10780 gripper_acc=0.972/0.970 open_acc=0.962/0.953 lr=0.000142 it/s=46.48
+step=3300 train=0.11229 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01598/0.01481 gripper_bce=0.09595/0.10780 gripper_acc=0.971/0.970 open_acc=0.961/0.953 lr=0.000134 it/s=47.10
+step=3400 train=0.11534 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01578/0.01481 gripper_bce=0.09933/0.10780 gripper_acc=0.970/0.970 open_acc=0.961/0.953 lr=0.000126 it/s=47.41
+step=3500 train=0.10464 val=0.12261 aux=0.00000 val_aux=0.00000 l1=0.01562/0.01481 gripper_bce=0.08875/0.10780 gripper_acc=0.973/0.970 open_acc=0.966/0.953 lr=0.000118 it/s=47.14
+(0, 299)
+Error: SSL handshake is taking longer than 60.0 seconds: aborting the connection

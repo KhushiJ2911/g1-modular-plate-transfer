@@ -1,0 +1,9 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2410001, "split": "challenge", "rows": 24, "steps": 553, "seconds": 30.5}
+{"seed": 2410005, "split": "challenge", "rows": 12, "steps": 595, "seconds": 28.84}
+{"seed": 2410009, "split": "challenge", "rows": 31, "steps": 565, "seconds": 34.21}
+{"seed": 2410014, "split": "challenge", "rows": 10, "steps": 657, "seconds": 14.41}
+{"seed": 2410019, "split": "challenge", "rows": 27, "steps": 692, "seconds": 22.4}
+{"seed": 2410034, "split": "challenge", "rows": 63, "steps": 734, "seconds": 47.67}
+{"seed": 2410039, "split": "challenge", "rows": 72, "steps": 822, "seconds": 49.35}
+{"seed": 2410047, "split": "challenge", "rows": 31, "steps": 580, "seconds": 24.69}

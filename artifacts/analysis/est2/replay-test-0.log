@@ -1,0 +1,12 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2950020, "split": "test", "rows": 48, "steps": 618, "seconds": 27.97}
+{"seed": 2950040, "split": "test", "rows": 0, "steps": 1700, "seconds": 33.67}
+{"seed": 2950060, "split": "test", "rows": 46, "steps": 686, "seconds": 45.71}
+{"seed": 2950080, "split": "test", "rows": 33, "steps": 596, "seconds": 27.57}
+{"seed": 2950100, "split": "test", "rows": 38, "steps": 615, "seconds": 33.86}
+{"seed": 2950120, "split": "test", "rows": 54, "steps": 639, "seconds": 43.77}
+{"seed": 2950140, "split": "test", "rows": 44, "steps": 677, "seconds": 47.68}
+{"seed": 2950160, "split": "test", "rows": 41, "steps": 646, "seconds": 40.56}
+{"seed": 2950180, "split": "test", "rows": 45, "steps": 626, "seconds": 47.38}
+{"seed": 2950200, "split": "test", "rows": 47, "steps": 779, "seconds": 46.77}
+{"seed": 2950220, "split": "test", "rows": 62, "steps": 760, "seconds": 62.63}

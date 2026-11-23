@@ -1,0 +1,24 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-BFXwjNrqtmlp5JyWF3eEeU
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-harness
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA A100-SXM4-40GB, 40960 MiB
++ python -m method.harness.train_estimator --device cuda --cache-dir /cache --run-dir /runs/est_v1 --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv --steps 10000 --batch-size 64 --microbatch-size 32 --val-episodes 6 --val-every 1000 --num-workers 4
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/root/code/method/harness/train_estimator.py", line 254, in <module>
+    main()
+  File "/root/code/method/harness/train_estimator.py", line 250, in main
+    train(args)
+  File "/root/code/method/harness/train_estimator.py", line 141, in train
+    raise ValueError("Positive steps/batches/cadences required; workers must be 0..2")
+ValueError: Positive steps/batches/cadences required; workers must be 0..2
+(1, 5)
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-BFXwjNrqtmlp5JyWF3eEeU

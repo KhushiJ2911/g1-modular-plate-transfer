@@ -1,0 +1,57 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-uefEhgg83ajiOaPy91ViYr
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_verify_same.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_zeroshot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function verify_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
++ lerobot-edit-dataset --repo_id advaitic/plate_transfer --new_repo_id advaitic/plate_transfer_v2 --operation.type merge --operation.repo_ids '["advaitic/plate_transfer", "advaitic/gen2_s0", "advaitic/gen2_s1", "advaitic/gen2_s2", "advaitic/gen2_s3", "advaitic/gen2_s4", "advaitic/gen2_s5"]'
+WARNING 2026-11-21 20:59:49 _dataset.py:513 merge uses --new_repo_id and --new_root for the merged dataset. The --repo_id and --root parameters are ignored.
+INFO 2026-11-21 20:59:49 _dataset.py:526 Loading 7 datasets to merge
+INFO 2026-11-21 20:59:59 _dataset.py:532 Merging datasets into advaitic/plate_transfer_v2
+INFO 2026-11-21 20:59:59 ggregate.py:382 Start aggregate_datasets
+
+Validate all meta data:   0%|          | 0/7 [00:00<?, ?it/s]
+Validate all meta data: 100%|██████████| 7/7 [00:00<00:00, 2568.02it/s]
+INFO 2026-11-21 20:59:59 ggregate.py:417 Find all tasks
+
+Copy data and videos:   0%|          | 0/7 [00:00<?, ?it/s]
+Copy data and videos:  14%|█▍        | 1/7 [00:04<00:25,  4.28s/it][mp4 @ 0x561d95e823c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95ed8c80] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95ebe840] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  29%|██▊       | 2/7 [00:12<00:32,  6.43s/it][mp4 @ 0x561d95e5a8c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d960614c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95e5a8c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  43%|████▎     | 3/7 [00:20<00:29,  7.37s/it][mp4 @ 0x561d95f67240] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d960614c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  57%|█████▋    | 4/7 [00:28<00:22,  7.35s/it][mp4 @ 0x561d95f74f80] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95f34b80] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95e55940] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  71%|███████▏  | 5/7 [00:36<00:15,  7.72s/it][mp4 @ 0x561d95e55940] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95f34b80] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x561d95f74f80] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  86%|████████▌ | 6/7 [00:46<00:08,  8.38s/it][mp4 @ 0x561d95f74f80] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos: 100%|██████████| 7/7 [00:52<00:00,  7.58s/it]
+Copy data and videos: 100%|██████████| 7/7 [00:52<00:00,  7.43s/it]
+INFO 2026-11-21 21:00:51 ggregate.py:813 write tasks
+INFO 2026-11-21 21:00:51 ggregate.py:816 write info
+INFO 2026-11-21 21:00:51 ggregate.py:823 write stats
+INFO 2026-11-21 21:00:51 ggregate.py:449 Aggregation complete.
+INFO 2026-11-21 21:00:54 _dataset.py:541 Merged dataset saved to /lr/datasets/advaitic/plate_transfer_v2
+INFO 2026-11-21 21:00:54 _dataset.py:542 Episodes: 453, Frames: 313860
+(0, 79)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-uefEhgg83ajiOaPy91ViYr

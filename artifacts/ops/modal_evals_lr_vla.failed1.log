@@ -1,0 +1,195 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-UyZKoirSjjDesEmmKByU3t
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+Stopping app - user stopped from CLI.
+Runner terminated.
+Runner terminated.
+Runner terminated.
+Runner terminated.
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/keyu/advaitic/ops/modal_sim.py:178 in evals_lr                         │
+│                                                                              │
+│   177 │   t0 = time.time()                                                   │
+│ ❱ 178 │   for name, rc, dt in eval_run_lr.starmap([(j[0], j[1], int(j[2])) f │
+│   179 │   │   print(f"{name}: exit={rc} {dt}s", flush=True)                  │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:858 in __iter__                                          │
+│                                                                              │
+│    857 │   │   │   with Runner() as runner:                                  │
+│ ❱  858 │   │   │   │   yield from run_async_gen(runner, self._async_iterable │
+│    859 │   │   except NestedEventLoops:                                      │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:958 in run_async_gen                                     │
+│                                                                              │
+│    957 │   │   │   else:                                                     │
+│ ❱  958 │   │   │   │   next_yield = runner.run(gen.asend(next_send))  # type │
+│    959 │   │   except KeyboardInterrupt as e:                                │
+│                                                                              │
+│ /home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/pytho │
+│ n3.12/asyncio/base_events.py:691 in run_until_complete                       │
+│                                                                              │
+│    690 │   │                                                                 │
+│ ❱  691 │   │   return future.result()                                        │
+│    692                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:768 in asend                                             │
+│                                                                              │
+│    767 │   │   self.iterated = True                                          │
+│ ❱  768 │   │   return await self.gen.asend(value)                            │
+│    769                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:1063 in _starmap_async                                         │
+│                                                                              │
+│   1062 │   _maybe_warn_about_wrap_exceptions("starmap.aio", wrap_returned_ex │
+│ ❱ 1063 │   async for output in _map_helper(                                  │
+│   1064 │   │   self,                                                         │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:1015 in _map_helper                                            │
+│                                                                              │
+│   1014 │   ) as map_output_stream:                                           │
+│ ❱ 1015 │   │   async for output in map_output_stream:                        │
+│   1016 │   │   │   yield output                                              │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1132 in async_merge                                      │
+│                                                                              │
+│   1131 │   │   │   │   │   assert_type(item, ExceptionWrapper)               │
+│ ❱ 1132 │   │   │   │   │   raise item.value                                  │
+│   1133                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1111 in producer                                         │
+│                                                                              │
+│   1110 │   │   │   async with aclosing(generator) as stream:                 │
+│ ❱ 1111 │   │   │   │   async for item in stream:                             │
+│   1112 │   │   │   │   │   await queue.put(ValueWrapper(item))               │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_o │
+│ bject.py:61 in wrapped                                                       │
+│                                                                              │
+│    60 │   │   async with aclosing(method(self, *args, **kwargs)) as stream:  │
+│ ❱  61 │   │   │   async for item in stream:                                  │
+│    62 │   │   │   │   yield item                                             │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_f │
+│ unctions.py:1992 in _map                                                     │
+│                                                                              │
+│   1991 │   │   │   ) as stream:                                              │
+│ ❱ 1992 │   │   │   │   async for item in stream:                             │
+│   1993 │   │   │   │   │   yield item                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:971 in _map_invocation_inputplane                              │
+│                                                                              │
+│    970 │   ) as merged:                                                      │
+│ ❱  971 │   │   async for maybe_output in merged:                             │
+│    972 │   │   │   if maybe_output is not None:  # ignore None sentinels     │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1132 in async_merge                                      │
+│                                                                              │
+│   1131 │   │   │   │   │   assert_type(item, ExceptionWrapper)               │
+│ ❱ 1132 │   │   │   │   │   raise item.value                                  │
+│   1133                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1111 in producer                                         │
+│                                                                              │
+│   1110 │   │   │   async with aclosing(generator) as stream:                 │
+│ ❱ 1111 │   │   │   │   async for item in stream:                             │
+│   1112 │   │   │   │   │   await queue.put(ValueWrapper(item))               │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:926 in poll_outputs                                            │
+│                                                                              │
+│    925 │   │   ) as streamer:                                                │
+│ ❱  926 │   │   │   async for idx, output in streamer:                        │
+│    927 │   │   │   │   if not order_outputs:                                 │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1261 in async_map_ordered                                │
+│                                                                              │
+│   1260 │   async with aclosing(async_map(async_zip(counter(), input_generato │
+│ ❱ 1261 │   │   async for output_idx, output_item in stream:                  │
+│   1262 │   │   │   buffer[output_idx] = output_item                          │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1237 in async_map                                        │
+│                                                                              │
+│   1236 │   ) as stream:                                                      │
+│ ❱ 1237 │   │   async for item in stream:                                     │
+│   1238 │   │   │   yield item                                                │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1132 in async_merge                                      │
+│                                                                              │
+│   1131 │   │   │   │   │   assert_type(item, ExceptionWrapper)               │
+│ ❱ 1132 │   │   │   │   │   raise item.value                                  │
+│   1133                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1111 in producer                                         │
+│                                                                              │
+│   1110 │   │   │   async with aclosing(generator) as stream:                 │
+│ ❱ 1111 │   │   │   │   async for item in stream:                             │
+│   1112 │   │   │   │   │   await queue.put(ValueWrapper(item))               │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1226 in worker                                           │
+│                                                                              │
+│   1225 │   │   │   if isinstance(item, ValueWrapper):                        │
+│ ❱ 1226 │   │   │   │   res = await prevent_cancellation_abortion(async_mappe │
+│   1227 │   │   │   │   yield res                                             │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1191 in prevent_cancellation_abortion                    │
+│                                                                              │
+│   1190 │   try:                                                              │
+│ ❱ 1191 │   │   return await asyncio.shield(t)                                │
+│   1192 │   except asyncio.CancelledError:                                    │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/async_utils.py:1250 in mapper_func_wrapper                              │
+│                                                                              │
+│   1249 │   async def mapper_func_wrapper(tup: tuple[int, T]) -> tuple[int, V │
+│ ❱ 1250 │   │   return (tup[0], await async_mapper_func(tup[1]))              │
+│   1251                                                                       │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:915 in fetch_output                                            │
+│                                                                              │
+│    914 │   │   │   else:                                                     │
+│ ❱  915 │   │   │   │   raise e                                               │
+│    916 │   │   return (item.idx, output)                                     │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/pa │
+│ rallel_map.py:910 in fetch_output                                            │
+│                                                                              │
+│    909 │   │   try:                                                          │
+│ ❱  910 │   │   │   output = await _process_result(item.result, item.data_for │
+│    911 │   │   except Exception as e:                                        │
+│                                                                              │
+│ /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_u │
+│ tils/function_utils.py:574 in _process_result                                │
+│                                                                              │
+│   573 │   │                                                                  │
+│ ❱ 574 │   │   raise RemoteError(result.exception)                            │
+│   575                                                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+RemoteError
+──────────────────────────────╯
+RemoteError

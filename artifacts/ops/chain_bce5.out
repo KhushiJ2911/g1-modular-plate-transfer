@@ -1,0 +1,51 @@
+[2026-11-22 10:51:45 IST] chain_bce5 start; code=/home/keyu/advaitic/export/bc_5233dc7 (5233dc7); tmp=/tmp/chain_bce5.DT1geT
+[2026-11-22 10:51:45 IST] waiting for 120 ep_*.npz + final track_report in /home/keyu/advaitic/data/dagger3_track
+[2026-11-22 10:51:45 IST]   0 episodes
+[2026-11-22 10:51:45 IST]   still waiting (0/120)
+[2026-11-22 10:58:45 IST]   120 episodes
+[2026-11-22 10:58:45 IST] labeler finished (reports present, no labeler process)
+  extra file: summary.json
+  extra file: track_config.shard0.json
+  extra file: track_config.shard1.json
+  extra file: track_report.shard0.json
+  extra file: track_report.shard1.json
+  extra file: verification.json
+[2026-11-22 10:58:45 IST] report /home/keyu/advaitic/data/dagger3_track/track_report.shard0.json summary: {"episodes": 60, "steps": 55205, "verified_states": 55205, "dropped_fraction": 0.17471243546780182, "fraction_above_cost_4": 0.17471243546780182}
+[2026-11-22 10:58:45 IST] report /home/keyu/advaitic/data/dagger3_track/track_report.shard1.json summary: {"episodes": 60, "steps": 47025, "verified_states": 47025, "dropped_fraction": 0.1454120148856991, "fraction_above_cost_4": 0.1454120148856991}
+[2026-11-22 10:58:45 IST] sanity check (every file loads; same validations as method/bc/dataset.py build_cache)
+120 files, 102230 steps, fully-labeled rows 0.839, episodes with no active labels: 0
+per-dim label fraction: [0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839, 0.839]
+labeled action mean, inactive dims {2: 0.1333, 3: 0.0, 11: 0.0932, 12: -0.2997, 13: 0.0739, 14: -0.6415, 15: 0.1127, 16: 0.1489, 17: -0.1227, 19: -1.0} (enters stats.action_mean = inference defaults for inactive dims; dataset.py:226-230, policy.py:86)
+inactive-dim mean vs student_v1b_bce1 action_mean, |diff|>0.02: {14: -0.0219, 16: 0.0253}
+[2026-11-22 10:58:57 IST] sanity OK
+[2026-11-22 10:58:59 IST] volume put attempt 1
+remote eps=120 files=126 mismatched/missing=0 []
+[2026-11-22 11:42:16 IST] data on volume verified
+[2026-11-22 11:42:18 IST] launch bce5a attempt 1: --config method/bc/student_v1b_bce.yaml --data-weights 1 0.4 0.6 0.67 0.67 --val-episodes 6 --microbatch-size 64 --num-workers 2 --warmup-steps 200 --gripper-pos-weight 2 --steps 6000 --init-from /ckpts/student_v1b.pt
+[2026-11-22 11:42:28 IST] bce5a started (client pid 72307, ap-pKT7poYNKnwXgUMRRNNpMU)
+[2026-11-22 11:44:48 IST] bce5a dataset line: 412 train / 30 val episodes; 164748 train frames; cache=/cache/636e601e0e08294bf187f443.u8
+[2026-11-22 11:46:18 IST] launch bce5b attempt 1: --config method/bc/student_v1b_bce.yaml --data-weights 1 0.4 0.6 0.67 0.67 --val-episodes 6 --microbatch-size 64 --num-workers 2 --warmup-steps 200 --gripper-pos-weight 2 --steps 3000 --init-from /ckpts/student_v1b_bce1.pt
+[2026-11-22 11:47:38 IST] bce5b started (client pid 74808, ap-Olxb7gDeeeNv6iuk1ZkSHy)
+[2026-11-22 11:47:38 IST] waiting for exit=0 in /runs/bce5a.log
+[2026-11-22 11:47:38 IST] waiting for exit=0 in /runs/bce5b.log
+[2026-11-22 11:47:53 IST] bce5a finished: # exit=0 wall_seconds=286
+[2026-11-22 11:47:53 IST] bce5a train tail: step=6000 train=0.11009 val=0.36358 aux=0.00000 val_aux=0.00000 l1=0.02805/0.03647 gripper_bce=0.08229/0.32711 gripper_acc=0.975/0.891 open_acc=0.976/0.926 lr=2.2e-11 it/s=22.68
+ckpt ok step 6000 init_from /ckpts/student_v1b.pt val_loss 0.3635751218304333 dirs ('/data/human60', '/data/teacher_v1', '/data/teacher_v1_dart0', '/data/dagger', '/data/dagger3_track')
+[2026-11-22 11:48:09 IST] bce5a local ckpt /home/keyu/advaitic/ckpts/student_bce5a.pt size=53768130 sha256=782c0634e7c76b6f
+[2026-11-22 11:48:13 IST] bce5a uploaded to advaitic-ckpts as student_bce5a.pt (53768130 bytes verified)
+[2026-11-22 11:48:13 IST] smoke student_bce5a.pt
+[2026-11-22 11:49:30 IST] bce5a smoke OK: {"spec": "submission.policy:make_policy", "ok": true, "load_seconds": 4.7, "calls": 20, "steps": 200, "chunk": 10, "call_seconds_max": 0.025, "call_seconds_mean": 0.01}
+[2026-11-22 11:49:33 IST] spawned eval_run ['student_bce5a.pt', 'dev_bce5a_r1'] fc-01M80YHX02B0BC5ZGFBSJ5X5M1
+[2026-11-22 11:49:35 IST] spawned eval_run ['student_bce5a.pt', 'dev_bce5a_r2'] fc-01M80YHYC1YVY979Z9M1JE3CQX
+[2026-11-22 11:49:36 IST] spawned eval_run ['student_bce5a.pt', 'dev_bce5a_r3'] fc-01M80YHZT7XE79J6DX3Z4E4RN6
+[2026-11-22 11:49:47 IST] bce5b finished: # exit=0 wall_seconds=82
+[2026-11-22 11:49:47 IST] bce5b train tail: step=3000 train=0.11380 val=0.57232 aux=0.00000 val_aux=0.00000 l1=0.02774/0.03770 gripper_bce=0.08611/0.53462 gripper_acc=0.975/0.880 open_acc=0.976/0.940 lr=9.44e-11 it/s=24.13
+ckpt ok step 3000 init_from /ckpts/student_v1b_bce1.pt val_loss 0.5723213489686096 dirs ('/data/human60', '/data/teacher_v1', '/data/teacher_v1_dart0', '/data/dagger', '/data/dagger3_track')
+[2026-11-22 11:50:37 IST] bce5b local ckpt /home/keyu/advaitic/ckpts/student_bce5b.pt size=53768130 sha256=281f743b2ef2f375
+[2026-11-22 11:50:41 IST] bce5b uploaded to advaitic-ckpts as student_bce5b.pt (53768130 bytes verified)
+[2026-11-22 11:50:41 IST] smoke student_bce5b.pt
+[2026-11-22 12:04:00 IST] bce5b smoke OK: {"spec": "submission.policy:make_policy", "ok": true, "load_seconds": 4.2, "calls": 20, "steps": 200, "chunk": 10, "call_seconds_max": 0.024, "call_seconds_mean": 0.011}
+[2026-11-22 12:04:03 IST] spawned eval_run ['student_bce5b.pt', 'dev_bce5b_r1'] fc-01M80ZCE3ABKDBMETNK623E5F6
+[2026-11-22 12:04:05 IST] spawned eval_run ['student_bce5b.pt', 'dev_bce5b_r2'] fc-01M80ZCFNC2WS1M0ZX9CX3XW7D
+[2026-11-22 12:04:07 IST] spawned eval_run ['student_bce5b.pt', 'dev_bce5b_r3'] fc-01M80ZCHKB7EQAD8MB82FJY08A
+[2026-11-22 12:04:07 IST] chain_bce5 done rc=0. Eval results land in advaitic-runs:/evals/dev_<name>_r{1,2,3} (+ .log).

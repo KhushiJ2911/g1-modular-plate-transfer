@@ -1,0 +1,23 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-PoKrFt9Hrv0MyoD9eQwaiH
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-harness
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA A100-SXM4-40GB, 40960 MiB
++ python -m method.harness.train_estimator --device cuda --cache-dir /cache --run-dir /runs/est_v1b --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv --steps 10000 --batch-size 64 --microbatch-size 32 --val-episodes 6 --val-every 1000 --num-workers 2
+Downloading: "https://download.pytorch.org/models/resnet18-f37072fd.pth" to /root/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth
+
+  0%|          | 0.00/44.7M [00:00<?, ?B/s]
+ 30%|███       | 13.5M/44.7M [00:00<00:00, 141MB/s]
+ 60%|██████    | 27.0M/44.7M [00:00<00:00, 138MB/s]
+ 92%|█████████▏| 40.9M/44.7M [00:00<00:00, 141MB/s]
+100%|██████████| 44.7M/44.7M [00:00<00:00, 142MB/s]
+{"step": 1000, "train_loss": 0.020121905021369457, "val": {"all": {"plate_error_cm": 3.0712377449949813, "site_error_cm": 1.518565690886243, "distance_mae_cm": 2.2173693007552693, "tilt_mae_deg": 2.689726760203637, "held_accuracy": 0.9840062926061878, "count": 15256}, "release_6cm": {"plate_error_cm": 2.1003262575851287, "site_error_cm": 1.6892453274274768, "distance_mae_cm": 1.103529234154102, "tilt_mae_deg": 2.2637925035696194, "held_accuracy": 0.951103160405486, "count": 3354}}}
+{"step": 2000, "train_loss": 0.14523423463106155, "val": {"all": {"plate_error_cm": 1.9092111945714885, "site_error_cm": 1.2650394960417446, "distance_mae_cm": 1.5335415245102662, "tilt_mae_deg": 2.3433489356918615, "held_accuracy": 0.984465128474043, "count": 15256}, "release_6cm": {"plate_error_cm": 1.5274339036424032, "site_error_cm": 1.4973318469830048, "distance_mae_cm": 0.9545793733962178, "tilt_mae_deg": 1.6111590603525325, "held_accuracy": 0.951103160405486, "count": 3354}}}
+{"step": 3000, "train_loss": 0.07216419093310833, "val": {"all": {"plate_error_cm": 1.9283022261065967, "site_error_cm": 1.2134809000803404, "distance_mae_cm": 1.309442249982846, "tilt_mae_deg": 2.847347967088316, "held_accuracy": 0.9839407446250655, "count": 15256}, "release_6cm": {"plate_error_cm": 1.4221510998393783, "site_error_cm": 1.3665057727106285, "distance_mae_cm": 0.8686481160853118, "tilt_mae_deg": 1.5315363422062829, "held_accuracy": 0.9508050089445438, "count": 3354}}}
+{"step": 4000, "train_loss": 0.0131153529509902, "val": {"all": {"plate_error_cm": 1.8577450673868972, "site_error_cm": 1.1483793426510172, "distance_mae_cm": 1.455391489184209, "tilt_mae_deg": 2.621611355688163, "held_accuracy": 0.9840718405873099, "count": 15256}, "release_6cm": {"plate_error_cm": 1.7672607515387118, "site_error_cm": 1.3106715247683676, "distance_mae_cm": 0.9121242254776974, "tilt_mae_deg": 1.4097567318306128, "held_accuracy": 0.9502087060226595, "count": 3354}}}
+Error: [Errno -3] Temporary failure in name resolution

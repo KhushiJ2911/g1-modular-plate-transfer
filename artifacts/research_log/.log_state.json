@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "source_path": "/home/keyu/advaitic/robot-learning-assignment/EXPERIMENTS.md",
+  "incorporated_line_count": 449,
+  "last_heading": "11-22 night: SFT results, failure analysis, harness (user: cap $20 overnight; baseline metered $44.94 at 03:13)",
+  "last_heading_line": 413,
+  "incorporated_prefix_sha256": "a841da6a60b130acc10fc25ab62597c93648bb055cd1006532f6964053ad4045",
+  "updated_at": "2026-11-22T10:36:56+05:30",
+  "research_log_path": "RESEARCH_LOG.md",
+  "update_mode": "incremental",
+  "pending_items": [
+    "Results of h_pass, h_full, h_exec10, h_bce4b and h_ens: three dev repeats each",
+    "SmolVLA v2 resumed training endpoint, evaluation and total cost",
+    "Final zero-shot spending and overnight closing meter against $20 cap from $44.94 baseline",
+    "Reconcile step-7000 estimator metrics with saved step-8000 evaluation checkpoint; offline release timing and recovery evidence",
+    "Verify deployed Function.spawn jobs survive client loss and watchdog protection survives reboot"
+  ],
+  "incremental_read_rule": "Read EXPERIMENTS.md from incorporated_line_count + 1; integrate new material into existing sections and tables, then advance this state. The prefix hash covers the exact incorporated bytes, including line endings.",
+  "previous_incorporated_line_count": 402
+}

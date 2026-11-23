@@ -1,0 +1,32 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-2WCcUEJtJyYrhFgmEWoV93
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+└── ✓ Created Function collect_shard_gpu.
+shard 2500000: exit=0 112s
+shard 2500006: exit=0 101s
+shard 2500012: exit=0 99s
+shard 2500018: exit=0 110s
+shard 2500024: exit=0 99s
+shard 2500030: exit=0 116s
+shard 2500036: exit=0 115s
+shard 2500042: exit=0 107s
+shard 2500048: exit=0 112s
+shard 2500054: exit=0 118s
+shard 2500060: exit=0 91s
+shard 2500066: exit=0 78s
+shard 2500072: exit=0 127s
+shard 2500078: exit=0 104s
+shard 2500084: exit=0 107s
+shard 2500090: exit=0 134s
+shard 2500096: exit=0 124s
+shard 2500102: exit=0 97s
+shard 2500108: exit=0 86s
+shard 2500114: exit=0 96s
+all shards done in 251s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-2WCcUEJtJyYrhFgmEWoV93

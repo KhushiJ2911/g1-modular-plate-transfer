@@ -1,0 +1,24 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-LjOe4kZxyIFl49ZkPcdBYW
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-harness
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA L4, 23034 MiB
++ python -m method.harness.train_estimator --device cuda --cache-dir /cache --run-dir /runs/est_smoke1 --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv --steps 50 --batch-size 64 --microbatch-size 8 --val-episodes 6 --val-every 25 --num-workers 2
+Downloading: "https://download.pytorch.org/models/resnet18-f37072fd.pth" to /root/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth
+
+  0%|          | 0.00/44.7M [00:00<?, ?B/s]
+ 29%|██▉       | 13.0M/44.7M [00:00<00:00, 136MB/s]
+ 59%|█████▉    | 26.5M/44.7M [00:00<00:00, 139MB/s]
+ 89%|████████▉ | 39.8M/44.7M [00:00<00:00, 127MB/s]
+100%|██████████| 44.7M/44.7M [00:00<00:00, 129MB/s]
+{"step": 25, "train_loss": 0.4473218768835068, "val": {"all": {"plate_error_cm": 11.740855178035362, "site_error_cm": 7.870165813794358, "distance_mae_cm": 8.640537176431632, "tilt_mae_deg": 2.4863147552437224, "held_accuracy": 0.8507472469847929, "count": 15256}, "release_6cm": {"plate_error_cm": 7.6407263961375715, "site_error_cm": 9.084109274418353, "distance_mae_cm": 7.652713165087009, "tilt_mae_deg": 4.1394269730835775, "held_accuracy": 0.9320214669051878, "count": 3354}}}
+{"step": 50, "train_loss": 0.26568653900176287, "val": {"all": {"plate_error_cm": 8.5025530724733, "site_error_cm": 5.468741843087172, "distance_mae_cm": 7.1418864520341865, "tilt_mae_deg": 2.4497994600820117, "held_accuracy": 0.9792868379653906, "count": 15256}, "release_6cm": {"plate_error_cm": 5.907852311751355, "site_error_cm": 5.283291558389089, "distance_mae_cm": 2.5187859163399104, "tilt_mae_deg": 3.835071691602344, "held_accuracy": 0.9388789505068574, "count": 3354}}}
+(0, 259)
+Stopping app - local entrypoint completed.
+[modal-client] 2026-11-22T03:46:34+0530 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-LjOe4kZxyIFl49ZkPcdBYW

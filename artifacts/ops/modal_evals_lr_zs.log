@@ -1,0 +1,23 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-6O8OYTPwTz4sckeK8YGE3b
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+dev_zs_pi05_r1: exit=1 2303s
+Container terminated due to preemption. Your Function will be restarted with the same input. For more details, see https://modal.com/docs/guide/preemption
+dev_zs_pi05_r2: exit=1 2270s
+dev_zs_pi05_r3: exit=1 2258s
+dev_zs_molmoact2_r1: exit=1 2395s
+dev_zs_molmoact2_r2: exit=1 2435s
+dev_zs_molmoact2_r3: exit=1 2411s
+all evals done in 4706s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-6O8OYTPwTz4sckeK8YGE3b

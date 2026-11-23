@@ -1,0 +1,5 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"run": "dev_s2_st10_r1", "seed": 1000004, "original_success": false, "original_open": 510, "est_z_cm": 2.9138855934143066, "control_open": true, "max_control_action_error": 0.0, "new_open": 534, "end": 654, "outcome": "no success in window"}
+{"run": "dev_s2_st10_r1", "seed": 1000024, "original_success": false, "original_open": 524, "est_z_cm": 2.7999916076660156, "control_open": true, "max_control_action_error": 0.0, "new_open": 534, "end": 590, "outcome": "success"}
+{"run": "dev_s2_st10_r1", "seed": 1000041, "original_success": false, "original_open": 588, "est_z_cm": 2.8370678424835205, "control_open": true, "max_control_action_error": 0.0, "new_open": null, "end": 790, "outcome": "no success in window"}
+{"run": "dev_s2_st10_r1", "seed": 1000044, "original_success": false, "original_open": 504, "est_z_cm": 3.047065496444702, "control_open": true, "max_control_action_error": 0.0, "new_open": 514, "end": 568, "outcome": "success"}

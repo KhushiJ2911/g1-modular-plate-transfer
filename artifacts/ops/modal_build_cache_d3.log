@@ -1,0 +1,16 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-ut7AntzCncqxW6ixQClSBU
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-muon
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ python -c 'import yaml; from method.bc.dataset import EpisodeStore
+c=yaml.safe_load(open('"'"'method/vla/microvla_v1.yaml'"'"'))
+s=EpisodeStore(['"'"'/data/human60'"'"', '"'"'/data/teacher_v1'"'"', '"'"'/data/teacher_v1_dart0'"'"'], '"'"'/cache'"'"', val_episodes=c['"'"'val_episodes'"'"'], proprio_dims=[0,1,2,3,4,5,6,7,8,18,19,20,21,40,41,42,43,44,45])
+print('"'"'cache digest'"'"', s.digest)
+'
+cache digest b0f86835f0257288c77700ab
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-ut7AntzCncqxW6ixQClSBU

@@ -1,0 +1,25 @@
+git_sha=2cc0622
+env -u LIBGL_ALWAYS_SOFTWARE -u __EGL_VENDOR_LIBRARY_FILENAMES -u EGL_PLATFORM MUJOCO_GL=egl uv run python -m method.teacher.run_teacher --mode v1 --dart-noise 0 --seeds 2900090:2900100 --out /tmp/gen/attempts_2900090.jsonl --save-demos /tmp/gen/demos --max-wait 200
+   Building advaitic-plate-transfer @ file:///root/code
+      Built advaitic-plate-transfer @ file:///root/code
+Uninstalled 1 package in 1ms
+Installed 1 package in 1ms
+Requested 10; skipped 0; pending 10
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+seed=2900090 slot=4 demo=13 success=True category=success end=success steps=795 error=0.0171m
+seed=2900091 slot=0 demo=59 success=True category=success end=success steps=833 error=0.0176m
+seed=2900092 slot=3 demo=13 success=True category=success end=success steps=795 error=0.0240m
+seed=2900093 slot=0 demo=7 success=True category=success end=success steps=927 error=0.0235m
+seed=2900094 slot=2 demo=40 success=True category=success end=success steps=802 error=0.0134m
+seed=2900095 slot=5 demo=29 success=True category=success end=success steps=788 error=0.0227m
+seed=2900096 slot=0 demo=44 success=False category=place_position end=timeout steps=1700 error=0.0240m
+seed=2900097 slot=1 demo=57 success=False category=knocked_after_release end=timeout steps=1700 error=0.0114m
+seed=2900098 slot=4 demo=22 success=False category=place_position end=timeout steps=1700 error=0.0111m
+seed=2900099 slot=5 demo=36 success=True category=success end=success steps=586 error=0.0191m
+Privileged teacher: 7/10 successful (70.0%)
+  slot 0: 2/3
+  slot 1: 0/1
+  slot 2: 1/1
+  slot 3: 1/1
+  slot 4: 1/2
+  slot 5: 2/2

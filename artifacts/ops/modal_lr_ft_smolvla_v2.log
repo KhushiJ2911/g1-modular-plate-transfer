@@ -1,0 +1,355 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-tUBptmDTZZx7kPPuqJUVXN
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_verify_same.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_zeroshot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function verify_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader; pip show lerobot | head -2
+NVIDIA A100-SXM4-40GB, 40960 MiB
+Name: lerobot
+Version: 0.7.0
+ERROR: Pipe to stdout was broken
++  lerobot-train --dataset.repo_id=advaitic/plate_transfer_v2 --dataset.root=/lr/datasets/advaitic/plate_transfer_v2 --output_dir=/lr/runs/ft_smolvla_v2 --job_name=ft_smolvla_v2 --policy.device=cuda --policy.push_to_hub=false --num_workers=8 --policy.chunk_size=20 --policy.n_action_steps=10 --log_freq=100 --batch_size=32 --steps=15000 --save_freq=5000 --policy.path=/lr/runs/ft_smolvla/checkpoints/005000/pretrained_model --rename_map='{"observation.images.cam0":"observation.images.camera1","observation.images.cam1":"observation.images.camera2","observation.images.cam2":"observation.images.camera3"}'
+WARNING:accelerate.utils.other:[RANK 0] Detected kernel version 4.19.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+INFO 2026-11-21 21:27:14 ot_train.py:565 {'accelerator': {'activation_checkpointing': {'mode': <ActivationCheckpointingMode.NONE: 'none'>},
+                 'compile': {'backend': 'inductor',
+                             'enabled': False,
+                             'mode': None,
+                             'regional': True},
+                 'ddp': {'find_unused_parameters': True,
+                         'gradient_as_bucket_view': False,
+                         'static_graph': False},
+                 'fsdp': {'cpu_offload': False,
+                          'ignored_modules': None,
+                          'min_num_params': None,
+                          'mixed_precision_policy': {'cast_forward_inputs': True,
+                                                     'output_dtype': None,
+                                                     'param_dtype': None,
+                                                     'reduce_dtype': None},
+                          'reshard_after_forward': True,
+                          'wrap_modules': None},
+                 'grad_scaler': {'backoff_factor': 0.5,
+                                 'growth_factor': 2.0,
+                                 'growth_interval': 2000,
+                                 'init_scale': 65536.0},
+                 'gradient_accumulation': {'steps': 1,
+                                           'sync_each_batch': False},
+                 'init_process_group': {'backend': 'nccl',
+                                        'init_method': None,
+                                        'timeout': None},
+                 'mixed_precision': 'no'},
+ 'batch_size': 32,
+ 'checkpoint_format': <CheckpointFormat.SAFETENSORS: 'safetensors'>,
+ 'checkpoint_path': None,
+ 'cudnn_deterministic': False,
+ 'dataloader_multiprocessing_context': 'spawn',
+ 'dataset': {'depth_output_unit': 'mm',
+             'episodes': None,
+             'eval_split': 0.0,
+             'exclude_episodes': None,
+             'image_transforms': {'backend': 'dataloader',
+                                  'enable': False,
+                                  'gpu_chunk_size': 32,
+                                  'gpu_compile': True,
+                                  'max_num_transforms': 3,
+                                  'random_order': False,
+                                  'tfs': {'affine': {'kwargs': {'degrees': [-5.0,
+                                                                            5.0],
+                                                                'translate': [0.05,
+                                                                              0.05]},
+                                                     'type': 'RandomAffine',
+                                                     'weight': 1.0},
+                                          'brightness': {'kwargs': {'brightness': [0.8,
+                                                                                   1.2]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'contrast': {'kwargs': {'contrast': [0.8,
+                                                                               1.2]},
+                                                       'type': 'ColorJitter',
+                                                       'weight': 1.0},
+                                          'hue': {'kwargs': {'hue': [-0.05,
+                                                                     0.05]},
+                                                  'type': 'ColorJitter',
+                                                  'weight': 1.0},
+                                          'saturation': {'kwargs': {'saturation': [0.5,
+                                                                                   1.5]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'sharpness': {'kwargs': {'sharpness': [0.5,
+                                                                                 1.5]},
+                                                        'type': 'SharpnessJitter',
+                                                        'weight': 1.0}}},
+             'repo_id': 'advaitic/plate_transfer_v2',
+             'repo_type': 'dataset',
+             'return_uint8': False,
+             'revision': None,
+             'root': '/lr/datasets/advaitic/plate_transfer_v2',
+             'streaming': False,
+             'streaming_byte_budget_gb': 8.0,
+             'streaming_decode_threads': 2,
+             'streaming_decoded_queue_size': 8,
+             'streaming_episode_pool_size': None,
+             'streaming_native_http_connections': None,
+             'streaming_native_http_subranges': 1,
+             'streaming_prefetch_episodes': 8,
+             'streaming_sampling_strategy': <StreamingSamplingStrategy.REMAINING: 'remaining'>,
+             'streaming_sidecar_lock_timeout_s': 1800,
+             'use_imagenet_stats': True,
+             'video_backend': 'torchcodec',
+             'video_decoder_cache_size': None},
+ 'ema': None,
+ 'env': None,
+ 'env_eval_freq': 20000,
+ 'eval': {'batch_size': 16,
+          'max_episode_steps': None,
+          'n_episodes': 50,
+          'recording': False,
+          'recording_private': False,
+          'recording_repo_id': None,
+          'use_async_envs': True},
+ 'eval_steps': 0,
+ 'job': {'detach': False,
+         'image': 'huggingface/lerobot-gpu:latest',
+         'tags': [],
+         'target': None,
+         'timeout': '2d'},
+ 'job_name': 'ft_smolvla_v2',
+ 'log_freq': 100,
+ 'max_eval_samples': 0,
+ 'num_workers': 8,
+ 'optimizer': {'betas': [0.9, 0.95],
+               'eps': 1e-08,
+               'fused': None,
+               'grad_clip_norm': 10.0,
+               'lr': 0.0001,
+               'type': 'adamw',
+               'weight_decay': 1e-10},
+ 'output_dir': '/lr/runs/ft_smolvla_v2',
+ 'parallelism': {'cfg_parallel': 1,
+                 'context_parallel': {'ring_degree': 1, 'ulysses_degree': 1},
+                 'dp_replicate': 1,
+                 'dp_shard': 1},
+ 'peft': None,
+ 'persistent_workers': True,
+ 'policy': {'adapt_to_pi_aloha': False,
+            'add_image_special_tokens': False,
+            'attention_mode': 'cross_attn',
+            'chunk_size': 20,
+            'compile_mode': 'max-autotune',
+            'compile_model': False,
+            'device': 'cuda',
+            'dtype': None,
+            'empty_cameras': 0,
+            'expert_width_multiplier': 0.75,
+            'freeze_vision_encoder': True,
+            'input_features': {'observation.images.camera1': {'shape': [3,
+                                                                        256,
+                                                                        256],
+                                                              'type': <FeatureType.VISUAL: 'VISUAL'>},
+                               'observation.images.camera2': {'shape': [3,
+                                                                        256,
+                                                                        256],
+                                                              'type': <FeatureType.VISUAL: 'VISUAL'>},
+                               'observation.images.camera3': {'shape': [3,
+                                                                        256,
+                                                                        256],
+                                                              'type': <FeatureType.VISUAL: 'VISUAL'>},
+                               'observation.state': {'shape': [6],
+                                                     'type': <FeatureType.STATE: 'STATE'>}},
+            'license': None,
+            'load_vlm_weights': True,
+            'max_action_dim': 32,
+            'max_period': 4.0,
+            'max_state_dim': 32,
+            'min_period': 0.004,
+            'n_action_steps': 10,
+            'n_obs_steps': 1,
+            'normalization_mapping': {'ACTION': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'STATE': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'VISUAL': <NormalizationMode.IDENTITY: 'IDENTITY'>},
+            'num_expert_layers': 0,
+            'num_steps': 10,
+            'num_vlm_layers': 16,
+            'optimizer_betas': [0.9, 0.95],
+            'optimizer_eps': 1e-08,
+            'optimizer_fused': None,
+            'optimizer_grad_clip_norm': 10.0,
+            'optimizer_lr': 0.0001,
+            'optimizer_weight_decay': 1e-10,
+            'output_features': {'action': {'shape': [10],
+                                           'type': <FeatureType.ACTION: 'ACTION'>}},
+            'pad_language_to': 'max_length',
+            'prefix_length': 0,
+            'pretrained_path': '/lr/runs/ft_smolvla/checkpoints/005000/pretrained_model',
+            'pretrained_revision': None,
+            'private': None,
+            'push_to_hub': False,
+            'repo_id': None,
+            'resize_imgs_with_padding': [512, 512],
+            'rtc_config': None,
+            'scheduler_decay_lr': 2.5e-06,
+            'scheduler_decay_steps': 30000,
+            'scheduler_warmup_steps': 1000,
+            'self_attn_every_n_layers': 2,
+            'tags': None,
+            'tokenizer_max_length': 48,
+            'train_expert_only': True,
+            'train_state_proj': True,
+            'type': 'smolvla',
+            'use_amp': False,
+            'use_cache': True,
+            'use_delta_joint_actions_aloha': False,
+            'use_peft': False,
+            'vlm_model_name': 'HuggingFaceTB/SmolVLM2-500M-Video-Instruct'},
+ 'prefetch_factor': 4,
+ 'rename_map': {'observation.images.cam0': 'observation.images.camera1',
+                'observation.images.cam1': 'observation.images.camera2',
+                'observation.images.cam2': 'observation.images.camera3'},
+ 'resume': False,
+ 'reward_model': None,
+ 'sample_weighting': None,
+ 'save_checkpoint': True,
+ 'save_checkpoint_to_hub': False,
+ 'save_freq': 5000,
+ 'scheduler': {'decay_lr': 2.5e-06,
+               'num_decay_steps': 30000,
+               'num_warmup_steps': 1000,
+               'peak_lr': 0.0001,
+               'type': 'cosine_decay_with_warmup'},
+ 'seed': 1000,
+ 'steps': 15000,
+ 'tf32': True,
+ 'tolerance_s': 0.0001,
+ 'trackio': {'capture_console': True,
+             'disable_artifact': True,
+             'enable': False,
+             'private': None,
+             'project': 'lerobot',
+             'resume': None,
+             'run_name': None,
+             'space_id': None},
+ 'use_policy_training_preset': True}
+INFO 2026-11-21 21:27:14 ot_train.py:572 Logs will be saved locally.
+INFO 2026-11-21 21:27:14 ot_train.py:589 Creating dataset
+INFO 2026-11-21 21:27:16 ot_train.py:628 Creating policy
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+Loading  HuggingFaceTB/SmolVLM2-500M-Video-Instruct weights ...
+
+Loading weights:   0%|          | 0/489 [00:00<?, ?it/s]
+Loading weights:   8%|▊         | 38/489 [00:00<00:01, 362.39it/s]
+Loading weights:  16%|█▌        | 77/489 [00:00<00:01, 337.05it/s]
+Loading weights:  25%|██▍       | 122/489 [00:00<00:01, 363.26it/s]
+Loading weights:  39%|███▉      | 191/489 [00:00<00:00, 470.22it/s]
+Loading weights:  51%|█████     | 250/489 [00:00<00:00, 505.91it/s]
+Loading weights:  69%|██████▊   | 335/489 [00:00<00:00, 614.71it/s]
+Loading weights: 100%|██████████| 489/489 [00:00<00:00, 661.59it/s]
+INFO 2026-11-21 21:27:22 ot_train.py:723 Creating optimizer and scheduler
+INFO 2026-11-21 21:27:22 hedulers.py:156 Auto-scaling LR scheduler: num_training_steps (15000) < num_decay_steps (30000). Scaling warmup: 1000 → 500, decay: 30000 → 15000 (scale factor: 0.500)
+INFO 2026-11-21 21:27:22 ot_train.py:784 Output dir: /lr/runs/ft_smolvla_v2
+INFO 2026-11-21 21:27:22 ot_train.py:791 cfg.steps=15000 (15K)
+INFO 2026-11-21 21:27:22 ot_train.py:792 dataset.num_frames=313860 (314K)
+INFO 2026-11-21 21:27:22 ot_train.py:793 dataset.num_episodes=453
+INFO 2026-11-21 21:27:22 ot_train.py:794 Effective batch size: 32 x 1 dp workers x 1 grad accum = 32 (topology: dp_replicate=1, dp_shard=1)
+INFO 2026-11-21 21:27:22 ot_train.py:799 num_learnable_params=99880992 (100M)
+INFO 2026-11-21 21:27:22 ot_train.py:800 num_total_params=450046176 (450M)
+Reducing the number of VLM layers to 16 ...
+Loading weights from local directory
+
+Training:   0%|          | 0/15000 [00:00<?, ?step/s]INFO 2026-11-21 21:27:22 ot_train.py:848 Start offline training on a fixed dataset, with effective batch size: 32
+
+Training:   0%|          | 1/15000 [00:25<106:42:24, 25.61s/step]
+Training:   0%|          | 2/15000 [00:25<44:46:39, 10.75s/step] 
+Training:   0%|          | 3/15000 [00:26<24:58:42,  6.00s/step]
+Training:   0%|          | 4/15000 [00:26<15:40:45,  3.76s/step]
+Training:   0%|          | 5/15000 [00:26<10:32:27,  2.53s/step]
+Training:   0%|          | 6/15000 [00:27<7:26:27,  1.79s/step] 
+Training:   0%|          | 7/15000 [00:27<5:28:24,  1.31s/step]
+Training:   0%|          | 8/15000 [00:28<4:11:00,  1.00s/step]
+Training:   0%|          | 9/15000 [00:28<3:19:15,  1.25step/s]
+Training:   0%|          | 10/15000 [00:28<2:44:12,  1.52step/s]
+Training:   0%|          | 11/15000 [00:29<2:20:11,  1.78step/s]
+Training:   0%|          | 12/15000 [00:29<2:03:40,  2.02step/s]
+Training:   0%|          | 13/15000 [00:29<1:52:12,  2.23step/s]
+Training:   0%|          | 14/15000 [00:30<1:44:08,  2.40step/s]
+Training:   0%|          | 15/15000 [00:30<1:38:25,  2.54step/s]
+Training:   0%|          | 16/15000 [00:30<1:34:39,  2.64step/s]
+Training:   0%|          | 17/15000 [00:31<1:32:01,  2.71step/s]
+Training:   0%|          | 18/15000 [00:31<1:29:58,  2.78step/s]
+Training:   0%|          | 19/15000 [00:31<1:29:00,  2.81step/s]
+Training:   0%|          | 20/15000 [00:32<1:28:05,  2.83step/s]
+Training:   0%|          | 21/15000 [00:32<1:27:11,  2.86step/s]
+Training:   0%|          | 22/15000 [00:32<1:26:35,  2.88step/s]
+Training:   0%|          | 23/15000 [00:33<1:26:20,  2.89step/s]
+Training:   0%|          | 24/15000 [00:33<1:26:10,  2.90step/s]
+Training:   0%|          | 25/15000 [00:33<1:26:01,  2.90step/s]
+Training:   0%|          | 26/15000 [00:34<1:26:05,  2.90step/s]
+Training:   0%|          | 27/15000 [00:34<1:26:00,  2.90step/s]
+Training:   0%|          | 28/15000 [00:34<1:25:47,  2.91step/s]
+Training:   0%|          | 29/15000 [00:35<1:25:45,  2.91step/s]
+Training:   0%|          | 30/15000 [00:35<1:25:40,  2.91step/s]
+Training:   0%|          | 31/15000 [00:35<1:25:47,  2.91step/s]
+Training:   0%|          | 32/15000 [00:36<1:25:41,  2.91step/s]
+Training:   0%|          | 33/15000 [00:36<1:25:41,  2.91step/s]
+Training:   0%|          | 34/15000 [00:36<1:25:49,  2.91step/s]
+Training:   0%|          | 35/15000 [00:37<1:25:46,  2.91step/s]
+Training:   0%|          | 36/15000 [00:37<1:25:47,  2.91step/s]
+Training:   0%|          | 37/15000 [00:37<1:25:53,  2.90step/s]
+Training:   0%|          | 38/15000 [00:38<1:25:47,  2.91step/s]
+Training:   0%|          | 39/15000 [00:38<1:25:51,  2.90step/s]
+Training:   0%|          | 40/15000 [00:39<1:25:50,  2.90step/s]
+Training:   0%|          | 41/15000 [00:39<1:25:42,  2.91step/s]
+Training:   0%|          | 42/15000 [00:39<1:25:40,  2.91step/s]
+Training:   0%|          | 43/15000 [00:40<1:25:42,  2.91step/s]
+Training:   0%|          | 44/15000 [00:40<1:25:40,  2.91step/s]
+Training:   0%|          | 45/15000 [00:40<1:25:49,  2.90step/s]
+[modal-client] 2026-11-22T03:33:21+0530 Auth token refresh failed; falling back to cached token: Deadline exceeded
+Error: [Errno -3] Temporary failure in name resolution
+Task exception was never retrieved
+future: <Task finished name='Task-16' coro=<get_app_logs_loop() done, defined at /home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py:91> exception=ConnectionAbortedError('SSL handshake is taking longer than 60.0 seconds: aborting the connection')>
+Traceback (most recent call last):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py", line 223, in get_app_logs_loop
+    app_done = await _get_logs()
+               ^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_output/pty.py", line 180, in _get_logs
+    async for log_batch in client._stub.AppGetLogs.unary_stream(request):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_grpc_client.py", line 196, in unary_stream
+    async for response in self.client._call_stream(self.wrapped_method, request, metadata=metadata):
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 624, in _call_stream
+    await self._call_safely(stream.send_message(request, end=True), f"{grpclib_method.name}.send_message")
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/client.py", line 561, in _call_safely
+    return await request_task
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 242, in send_message
+    await self.send_request()
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 174, in send_request
+    protocol = await self._channel.__connect__()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 137, in __connect__
+    return await super().__connect__()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 748, in __connect__
+    self._protocol = await self._create_connection()
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 147, in _create_connection
+    protocol = await self._open_connection()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/modal/_utils/grpc_utils.py", line 169, in _open_connection
+    return await super()._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/tools/modal/lib/python3.12/site-packages/grpclib/client.py", line 725, in _create_connection
+    _, protocol = await self._loop.create_connection(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 1159, in create_connection
+    transport, protocol = await self._create_connection_transport(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/base_events.py", line 1192, in _create_connection_transport
+    await waiter
+ConnectionAbortedError: SSL handshake is taking longer than 60.0 seconds: aborting the connection

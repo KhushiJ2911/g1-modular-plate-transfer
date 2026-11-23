@@ -1,0 +1,75 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-G1K8yT3RPxEbz3nCGZBcQY
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+└── ✓ Created Function prefetch_job.
++ lerobot-edit-dataset --repo_id advaitic/plate_transfer_s0 --new_repo_id advaitic/plate_transfer --operation.type merge --operation.repo_ids '["advaitic/plate_transfer_s0", "advaitic/plate_transfer_s1", "advaitic/plate_transfer_s2", "advaitic/plate_transfer_s3", "advaitic/plate_transfer_s4", "advaitic/plate_transfer_s5", "advaitic/plate_transfer_s6", "advaitic/plate_transfer_s7", "advaitic/plate_transfer_s8", "advaitic/plate_transfer_s9", "advaitic/plate_transfer_s10", "advaitic/plate_transfer_s11"]'
+WARNING 2026-11-21 06:25:49 _dataset.py:513 merge uses --new_repo_id and --new_root for the merged dataset. The --repo_id and --root parameters are ignored.
+INFO 2026-11-21 06:25:49 _dataset.py:526 Loading 12 datasets to merge
+INFO 2026-11-21 06:26:07 _dataset.py:532 Merging datasets into advaitic/plate_transfer
+INFO 2026-11-21 06:26:07 ggregate.py:382 Start aggregate_datasets
+
+Validate all meta data:   0%|          | 0/12 [00:00<?, ?it/s]
+Validate all meta data: 100%|██████████| 12/12 [00:00<00:00, 2295.63it/s]
+INFO 2026-11-21 06:26:08 ggregate.py:417 Find all tasks
+
+Copy data and videos:   0%|          | 0/12 [00:00<?, ?it/s]
+Copy data and videos:   8%|▊         | 1/12 [00:02<00:22,  2.03s/it][mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  17%|█▋        | 2/12 [00:05<00:27,  2.73s/it][mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b774c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105ac19c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  25%|██▌       | 3/12 [00:08<00:28,  3.13s/it][mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105d230c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b774c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  33%|███▎      | 4/12 [00:13<00:30,  3.84s/it][mp4 @ 0x55c105c168c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105c168c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105c168c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  42%|████▏     | 5/12 [00:18<00:30,  4.29s/it][mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  50%|█████     | 6/12 [00:24<00:29,  4.86s/it][mp4 @ 0x55c105bf66c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  58%|█████▊    | 7/12 [00:31<00:26,  5.33s/it][mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  67%|██████▋   | 8/12 [00:38<00:23,  5.91s/it][mp4 @ 0x55c105b6ae40] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105ae2e80] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  75%|███████▌  | 9/12 [00:46<00:19,  6.55s/it][mp4 @ 0x55c105b774c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105bb4680] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b774c0] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  83%|████████▎ | 10/12 [00:54<00:14,  7.18s/it][mp4 @ 0x55c105be74c0] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos:  92%|█████████▏| 11/12 [01:02<00:07,  7.36s/it][mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b9ca00] Starting second pass: moving the moov atom to the beginning of the file
+[mp4 @ 0x55c105b05b00] Starting second pass: moving the moov atom to the beginning of the file
+
+Copy data and videos: 100%|██████████| 12/12 [01:10<00:00,  7.58s/it]
+Copy data and videos: 100%|██████████| 12/12 [01:10<00:00,  5.89s/it]
+INFO 2026-11-21 06:27:18 ggregate.py:813 write tasks
+INFO 2026-11-21 06:27:18 ggregate.py:816 write info
+INFO 2026-11-21 06:27:18 ggregate.py:823 write stats
+INFO 2026-11-21 06:27:18 ggregate.py:449 Aggregation complete.
+INFO 2026-11-21 06:27:21 _dataset.py:541 Merged dataset saved to /lr/datasets/advaitic/plate_transfer
+INFO 2026-11-21 06:27:21 _dataset.py:542 Episodes: 262, Frames: 178845
+(0, 113)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-G1K8yT3RPxEbz3nCGZBcQY

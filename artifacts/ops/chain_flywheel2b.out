@@ -1,0 +1,24 @@
+[2026-11-22 12:45:21] 24 shards done
+[2026-11-22 12:53:29] get retry 1
+[2026-11-22 13:22:10] src data/flywheel2_raw/flywheel2
+Traceback (most recent call last):
+  File "/home/keyu/advaitic/ops/flywheel_filter.py", line 18, in <module>
+    a = {key: z[key] for key in z.files}
+              ~^^^^^
+  File "/home/keyu/advaitic/mlenv/lib/python3.12/site-packages/numpy/lib/_npyio_impl.py", line 257, in __getitem__
+    return format.read_array(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/advaitic/mlenv/lib/python3.12/site-packages/numpy/lib/_format_impl.py", line 871, in read_array
+    data = _read_bytes(fp, read_size, "array data")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/advaitic/mlenv/lib/python3.12/site-packages/numpy/lib/_format_impl.py", line 1015, in _read_bytes
+    r = fp.read(size - len(data))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/zipfile/__init__.py", line 1017, in read
+    data = self._read1(n)
+           ^^^^^^^^^^^^^^
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/zipfile/__init__.py", line 1100, in _read1
+    data = self._decompressor.decompress(data, n)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+zlib.error: Error -3 while decompressing data: invalid stored block lengths
+[2026-11-22 13:22:49] filter failed

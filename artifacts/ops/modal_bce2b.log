@@ -1,0 +1,47 @@
+Note that running a local entrypoint in detached mode only keeps the last triggered Modal function alive after the parent process has been killed or disconnected.
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-d2MCvpQxNxgkca9bntIqaq
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/export/bc_5233dc7
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA A100-SXM4-40GB, 40960 MiB
++ python -m method.bc.train --device cuda --cache-dir /cache --run-dir /runs/bce2b --data-dirs /data/human60 /data/teacher_v1 /data/teacher_v1_dart0 /data/dagger /data/dagger3 --config method/bc/student_v1b_bce.yaml --data-weights 1 0.4 0.6 0.67 0.67 --val-episodes 6 --microbatch-size 64 --num-workers 2 --warmup-steps 200 --gripper-pos-weight 2 --steps 3000 --init-from /ckpts/student_v1b_bce1.pt
+Initialized EMA weights from /ckpts/student_v1b_bce1.pt; fresh optimizer/step
+412 train / 30 val episodes; 164748 train frames; cache=/cache/62ca21e4b44d4d4d0d082878.u8
+step=100 train=0.12081 val=nan aux=0.00000 val_aux=nan l1=0.01465/nan gripper_bce=0.10635/nan gripper_acc=0.969/nan open_acc=0.963/nan lr=0.00015 it/s=22.45
+step=200 train=0.12250 val=nan aux=0.00000 val_aux=nan l1=0.01608/nan gripper_bce=0.10639/nan gripper_acc=0.966/nan open_acc=0.962/nan lr=0.0003 it/s=47.99
+step=300 train=0.13865 val=nan aux=0.00000 val_aux=nan l1=0.01702/nan gripper_bce=0.12157/nan gripper_acc=0.962/nan open_acc=0.961/nan lr=0.000299 it/s=48.65
+step=400 train=0.12243 val=nan aux=0.00000 val_aux=nan l1=0.01722/nan gripper_bce=0.10509/nan gripper_acc=0.966/nan open_acc=0.967/nan lr=0.000296 it/s=38.75
+step=500 train=0.11916 val=nan aux=0.00000 val_aux=nan l1=0.01696/nan gripper_bce=0.10176/nan gripper_acc=0.967/nan open_acc=0.967/nan lr=0.000292 it/s=40.68
+step=600 train=0.11002 val=nan aux=0.00000 val_aux=nan l1=0.01646/nan gripper_bce=0.09369/nan gripper_acc=0.971/nan open_acc=0.969/nan lr=0.000285 it/s=41.22
+step=700 train=0.11394 val=nan aux=0.00000 val_aux=nan l1=0.01639/nan gripper_bce=0.09770/nan gripper_acc=0.970/nan open_acc=0.967/nan lr=0.000277 it/s=46.71
+step=800 train=0.11006 val=nan aux=0.00000 val_aux=nan l1=0.01636/nan gripper_bce=0.09407/nan gripper_acc=0.969/nan open_acc=0.967/nan lr=0.000267 it/s=46.94
+step=900 train=0.11850 val=nan aux=0.00000 val_aux=nan l1=0.01621/nan gripper_bce=0.10231/nan gripper_acc=0.967/nan open_acc=0.965/nan lr=0.000256 it/s=47.30
+step=1000 train=0.11842 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01619/0.01176 gripper_bce=0.10214/0.14582 gripper_acc=0.967/0.956 open_acc=0.964/0.928 lr=0.000244 it/s=22.11
+step=1100 train=0.10230 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01607/0.01176 gripper_bce=0.08552/0.14582 gripper_acc=0.974/0.956 open_acc=0.969/0.928 lr=0.00023 it/s=44.04
+step=1200 train=0.10517 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01597/0.01176 gripper_bce=0.08876/0.14582 gripper_acc=0.972/0.956 open_acc=0.968/0.928 lr=0.000215 it/s=46.76
+step=1300 train=0.11005 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01540/0.01176 gripper_bce=0.09457/0.14582 gripper_acc=0.970/0.956 open_acc=0.967/0.928 lr=0.0002 it/s=47.53
+step=1400 train=0.10730 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01535/0.01176 gripper_bce=0.09209/0.14582 gripper_acc=0.972/0.956 open_acc=0.968/0.928 lr=0.000184 it/s=47.28
+step=1500 train=0.10929 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01550/0.01176 gripper_bce=0.09392/0.14582 gripper_acc=0.971/0.956 open_acc=0.968/0.928 lr=0.000167 it/s=47.28
+step=1600 train=0.10180 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01508/0.01176 gripper_bce=0.08659/0.14582 gripper_acc=0.973/0.956 open_acc=0.969/0.928 lr=0.00015 it/s=48.14
+step=1700 train=0.09144 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01470/0.01176 gripper_bce=0.07654/0.14582 gripper_acc=0.976/0.956 open_acc=0.978/0.928 lr=0.000133 it/s=48.30
+step=1800 train=0.09655 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01491/0.01176 gripper_bce=0.08188/0.14582 gripper_acc=0.976/0.956 open_acc=0.971/0.928 lr=0.000117 it/s=48.40
+step=1900 train=0.10303 val=0.15758 aux=0.00000 val_aux=0.00000 l1=0.01434/0.01176 gripper_bce=0.08872/0.14582 gripper_acc=0.972/0.956 open_acc=0.969/0.928 lr=0.000101 it/s=48.44
+step=2000 train=0.08343 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01427/0.01159 gripper_bce=0.06962/0.13962 gripper_acc=0.979/0.959 open_acc=0.976/0.934 lr=8.51e-05 it/s=23.86
+step=2100 train=0.09223 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01431/0.01159 gripper_bce=0.07821/0.13962 gripper_acc=0.976/0.959 open_acc=0.971/0.934 lr=7.03e-05 it/s=44.02
+step=2200 train=0.08744 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01402/0.01159 gripper_bce=0.07381/0.13962 gripper_acc=0.978/0.959 open_acc=0.976/0.934 lr=5.66e-05 it/s=47.49
+step=2300 train=0.09523 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01377/0.01159 gripper_bce=0.08139/0.13962 gripper_acc=0.975/0.959 open_acc=0.974/0.934 lr=4.41e-05 it/s=47.65
+step=2400 train=0.08926 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01386/0.01159 gripper_bce=0.07616/0.13962 gripper_acc=0.978/0.959 open_acc=0.973/0.934 lr=3.28e-05 it/s=46.74
+step=2500 train=0.08495 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01389/0.01159 gripper_bce=0.07097/0.13962 gripper_acc=0.979/0.959 open_acc=0.974/0.934 lr=2.31e-05 it/s=46.36
+step=2600 train=0.08892 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01366/0.01159 gripper_bce=0.07468/0.13962 gripper_acc=0.978/0.959 open_acc=0.975/0.934 lr=1.49e-05 it/s=49.32
+step=2700 train=0.08248 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01369/0.01159 gripper_bce=0.06833/0.13962 gripper_acc=0.980/0.959 open_acc=0.976/0.934 lr=8.47e-06 it/s=48.14
+step=2800 train=0.07804 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01372/0.01159 gripper_bce=0.06425/0.13962 gripper_acc=0.981/0.959 open_acc=0.976/0.934 lr=3.8e-06 it/s=48.02
+step=2900 train=0.08460 val=0.15121 aux=0.00000 val_aux=0.00000 l1=0.01339/0.01159 gripper_bce=0.07062/0.13962 gripper_acc=0.979/0.959 open_acc=0.975/0.934 lr=9.62e-07 it/s=48.05
+step=3000 train=0.08328 val=0.16642 aux=0.00000 val_aux=0.00000 l1=0.01364/0.01146 gripper_bce=0.07007/0.15496 gripper_acc=0.979/0.954 open_acc=0.977/0.921 lr=9.44e-11 it/s=22.97
+Peak CUDA memory: allocated=1.599 GB, reserved=1.655 GB
+(0, 217)
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-d2MCvpQxNxgkca9bntIqaq

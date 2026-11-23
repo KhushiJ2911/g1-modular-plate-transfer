@@ -1,0 +1,7 @@
+| run | n | success | A never grasped | B grasped | C lifted | D1 on rack | D2 on rack | E reached rack |
+| dev_e_pass_r1 | 30 | 22 | 1 | 0 | 0 | 4 | 2 | 1 |
+   D2 end_site_dist/end_tilt: [(0.039, 24.0), (0.038, 23.9)]
+| dev_h_ens_r1 | 30 | 22 | 1 | 0 | 0 | 2 | 3 | 2 |
+   D2 end_site_dist/end_tilt: [(0.051, 12.1), (0.039, 23.8), (0.054, 12.6)]
+| dev_s_seat_r1 | 30 | 24 | 1 | 0 | 0 | 2 | 1 | 2 |
+   D2 end_site_dist/end_tilt: [(0.056, 12.5)]

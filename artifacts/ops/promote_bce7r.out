@@ -1,0 +1,8 @@
+[12:54:43] bce7r trained: step=14000 train=0.06170 val=0.12329 aux=0.00000 val_aux=0.00000 l1=0.01057/0.01057 gripper_bce=0.05118/0.11272 gripper_
+[13:09:43] bce7r download retry 1
+[13:15:29] bce7r promoted 703e427a0ae0
+[13:30:26] bce7r smoke ('student_bce7r.pt', '{"spec": "submission.policy_harness:make_policy", "ok": true, "load_seconds": 11.6, "calls": 20, "steps": 40, "chunk": 2, "call_seconds_max": 0.046, "call_seconds_mean": 0.026}')
+eval_run ['student_bce7r.pt', 'dev_bce7r_ens_r1'] fc-01M814ANHDQXTEES400Y6AQ62A
+eval_run ['student_bce7r.pt', 'dev_bce7r_ens_r2'] fc-01M814ANT5RQA1N19ZED57G66C
+eval_run ['student_bce7r.pt', 'dev_bce7r_ens_r3'] fc-01M814AP3R6VS7HEFH5PFZ9RZW
+[13:30:29] bce7r evals spawned

@@ -1,0 +1,325 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-TPFGYa51dNzqFvus6A4MH7
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader; pip show lerobot | head -2
+NVIDIA A100-SXM4-40GB, 40960 MiB
+Name: lerobot
+Version: 0.7.0
+ERROR: Pipe to stdout was broken
++  lerobot-train --dataset.repo_id=advaitic/plate_transfer --dataset.root=/lr/datasets/advaitic/plate_transfer --output_dir=/lr/runs/smoke_molmoact2_lora --job_name=smoke_molmoact2_lora --policy.device=cuda --policy.push_to_hub=false --batch_size=8 --steps=30 --save_freq=30 --log_freq=5 --num_workers=8 --policy.chunk_size=20 --policy.n_action_steps=10 --policy.type=molmoact2 --policy.checkpoint_path=allenai/MolmoAct2 --policy.train_mode_vlm=lora --policy.action_mode=continuous --policy.image_keys='["observation.images.cam0","observation.images.cam1","observation.images.cam2"]' --policy.gradient_checkpointing=true --policy.dtype=bfloat16 --dataset.image_transforms.enable=true '--policy.normalization_mapping={"ACTION":"MEAN_STD","STATE":"MEAN_STD","VISUAL":"IDENTITY"}'
+WARNING:accelerate.utils.other:[RANK 0] Detected kernel version 4.19.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+INFO 2026-11-21 07:39:36 ot_train.py:565 {'accelerator': {'activation_checkpointing': {'mode': <ActivationCheckpointingMode.NONE: 'none'>},
+                 'compile': {'backend': 'inductor',
+                             'enabled': False,
+                             'mode': None,
+                             'regional': True},
+                 'ddp': {'find_unused_parameters': True,
+                         'gradient_as_bucket_view': False,
+                         'static_graph': False},
+                 'fsdp': {'cpu_offload': False,
+                          'ignored_modules': None,
+                          'min_num_params': None,
+                          'mixed_precision_policy': {'cast_forward_inputs': True,
+                                                     'output_dtype': None,
+                                                     'param_dtype': None,
+                                                     'reduce_dtype': None},
+                          'reshard_after_forward': True,
+                          'wrap_modules': None},
+                 'grad_scaler': {'backoff_factor': 0.5,
+                                 'growth_factor': 2.0,
+                                 'growth_interval': 2000,
+                                 'init_scale': 65536.0},
+                 'gradient_accumulation': {'steps': 1,
+                                           'sync_each_batch': False},
+                 'init_process_group': {'backend': 'nccl',
+                                        'init_method': None,
+                                        'timeout': None},
+                 'mixed_precision': 'no'},
+ 'batch_size': 8,
+ 'checkpoint_format': <CheckpointFormat.SAFETENSORS: 'safetensors'>,
+ 'checkpoint_path': None,
+ 'cudnn_deterministic': False,
+ 'dataloader_multiprocessing_context': 'spawn',
+ 'dataset': {'depth_output_unit': 'mm',
+             'episodes': None,
+             'eval_split': 0.0,
+             'exclude_episodes': None,
+             'image_transforms': {'backend': 'dataloader',
+                                  'enable': True,
+                                  'gpu_chunk_size': 32,
+                                  'gpu_compile': True,
+                                  'max_num_transforms': 3,
+                                  'random_order': False,
+                                  'tfs': {'affine': {'kwargs': {'degrees': [-5.0,
+                                                                            5.0],
+                                                                'translate': [0.05,
+                                                                              0.05]},
+                                                     'type': 'RandomAffine',
+                                                     'weight': 1.0},
+                                          'brightness': {'kwargs': {'brightness': [0.8,
+                                                                                   1.2]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'contrast': {'kwargs': {'contrast': [0.8,
+                                                                               1.2]},
+                                                       'type': 'ColorJitter',
+                                                       'weight': 1.0},
+                                          'hue': {'kwargs': {'hue': [-0.05,
+                                                                     0.05]},
+                                                  'type': 'ColorJitter',
+                                                  'weight': 1.0},
+                                          'saturation': {'kwargs': {'saturation': [0.5,
+                                                                                   1.5]},
+                                                         'type': 'ColorJitter',
+                                                         'weight': 1.0},
+                                          'sharpness': {'kwargs': {'sharpness': [0.5,
+                                                                                 1.5]},
+                                                        'type': 'SharpnessJitter',
+                                                        'weight': 1.0}}},
+             'repo_id': 'advaitic/plate_transfer',
+             'repo_type': 'dataset',
+             'return_uint8': False,
+             'revision': None,
+             'root': '/lr/datasets/advaitic/plate_transfer',
+             'streaming': False,
+             'streaming_byte_budget_gb': 8.0,
+             'streaming_decode_threads': 2,
+             'streaming_decoded_queue_size': 8,
+             'streaming_episode_pool_size': None,
+             'streaming_native_http_connections': None,
+             'streaming_native_http_subranges': 1,
+             'streaming_prefetch_episodes': 8,
+             'streaming_sampling_strategy': <StreamingSamplingStrategy.REMAINING: 'remaining'>,
+             'streaming_sidecar_lock_timeout_s': 1800,
+             'use_imagenet_stats': True,
+             'video_backend': 'torchcodec',
+             'video_decoder_cache_size': None},
+ 'ema': None,
+ 'env': None,
+ 'env_eval_freq': 20000,
+ 'eval': {'batch_size': 16,
+          'max_episode_steps': None,
+          'n_episodes': 50,
+          'recording': False,
+          'recording_private': False,
+          'recording_repo_id': None,
+          'use_async_envs': True},
+ 'eval_steps': 0,
+ 'job': {'detach': False,
+         'image': 'huggingface/lerobot-gpu:latest',
+         'tags': [],
+         'target': None,
+         'timeout': '2d'},
+ 'job_name': 'smoke_molmoact2_lora',
+ 'log_freq': 5,
+ 'max_eval_samples': 0,
+ 'num_workers': 8,
+ 'optimizer': {'betas': [0.9, 0.95],
+               'eps': 1e-06,
+               'grad_clip_norm': 0.0,
+               'group_grad_clip_norm': 1.0,
+               'lr': 1e-05,
+               'type': 'molmoact2_adamw',
+               'weight_decay': 0.0},
+ 'output_dir': '/lr/runs/smoke_molmoact2_lora',
+ 'parallelism': {'cfg_parallel': 1,
+                 'context_parallel': {'ring_degree': 1, 'ulysses_degree': 1},
+                 'dp_replicate': 1,
+                 'dp_shard': 1},
+ 'peft': None,
+ 'persistent_workers': True,
+ 'policy': {'action_mode': 'continuous',
+            'add_control_tokens': True,
+            'add_setup_tokens': True,
+            'checkpoint_force_download': False,
+            'checkpoint_path': 'allenai/MolmoAct2',
+            'checkpoint_revision': None,
+            'chunk_size': 20,
+            'compile_model': False,
+            'control_mode': '',
+            'dataset_feature_names': {},
+            'device': 'cuda',
+            'discrete_action_tokenizer': 'allenai/MolmoAct2-FAST-Tokenizer',
+            'discrete_generation_max_steps': None,
+            'discrete_loss_token_weighting': 'root_subsegments_root_tokens',
+            'dtype': 'bfloat16',
+            'enable_inference_cuda_graph': True,
+            'enable_knowledge_insulation': False,
+            'eval_seed': None,
+            'expected_max_action_dim': 32,
+            'flow_matching_beta_alpha': 1.0,
+            'flow_matching_beta_beta': 1.5,
+            'flow_matching_cutoff': 1.0,
+            'flow_matching_time_offset': 0.001,
+            'flow_matching_time_scale': 0.999,
+            'freeze_embedding': True,
+            'gradient_checkpointing': True,
+            'image_keys': ['observation.images.cam0',
+                           'observation.images.cam1',
+                           'observation.images.cam2'],
+            'inference_action_mode': 'continuous',
+            'input_features': {},
+            'joint_offsets': None,
+            'joint_signs': None,
+            'license': None,
+            'llm_residual_dropout': 0.1,
+            'lora_alpha': 16,
+            'lora_bias': 'none',
+            'lora_dropout': 0.05,
+            'lora_rank': 64,
+            'mask_action_dim_padding': True,
+            'max_sequence_length': None,
+            'n_action_steps': 10,
+            'n_obs_steps': 1,
+            'norm_stats_path': None,
+            'norm_tag': None,
+            'normalization_mapping': {'ACTION': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'STATE': <NormalizationMode.MEAN_STD: 'MEAN_STD'>,
+                                      'VISUAL': <NormalizationMode.IDENTITY: 'IDENTITY'>},
+            'normalize_gripper': False,
+            'normalize_language': True,
+            'num_flow_timesteps': 8,
+            'num_inference_steps': None,
+            'num_state_tokens': 256,
+            'optimizer_action_expert_lr': 5e-05,
+            'optimizer_betas': [0.9, 0.95],
+            'optimizer_connector_lr': 5e-06,
+            'optimizer_eps': 1e-06,
+            'optimizer_grad_clip_norm': 1.0,
+            'optimizer_lr': 1e-05,
+            'optimizer_vit_lr': 5e-06,
+            'optimizer_weight_decay': 0.0,
+            'output_features': {},
+            'per_episode_seed': False,
+            'pretrained_path': None,
+            'pretrained_revision': None,
+            'private': None,
+            'push_to_hub': False,
+            'repo_id': None,
+            'rtc_config': None,
+            'scheduler_decay_lr': 1e-06,
+            'scheduler_decay_steps': 24000,
+            'scheduler_warmup_steps': 200,
+            'setup_type': '',
+            'softmax_auxiliary_loss': True,
+            'softmax_auxiliary_loss_scale': 0.0001,
+            'tags': None,
+            'train_mode_vlm': 'lora',
+            'type': 'molmoact2',
+            'use_amp': False,
+            'use_peft': False},
+ 'prefetch_factor': 4,
+ 'rename_map': {},
+ 'resume': False,
+ 'reward_model': None,
+ 'sample_weighting': None,
+ 'save_checkpoint': True,
+ 'save_checkpoint_to_hub': False,
+ 'save_freq': 30,
+ 'scheduler': {'decay_lr': 1e-06,
+               'num_decay_steps': 24000,
+               'num_warmup_steps': 200,
+               'peak_lr': 1e-05,
+               'type': 'molmoact2_cosine_with_warmup'},
+ 'seed': 1000,
+ 'steps': 30,
+ 'tf32': True,
+ 'tolerance_s': 0.0001,
+ 'trackio': {'capture_console': True,
+             'disable_artifact': True,
+             'enable': False,
+             'private': None,
+             'project': 'lerobot',
+             'resume': None,
+             'run_name': None,
+             'space_id': None},
+ 'use_policy_training_preset': True}
+INFO 2026-11-21 07:39:36 ot_train.py:572 Logs will be saved locally.
+INFO 2026-11-21 07:39:36 ot_train.py:589 Creating dataset
+INFO 2026-11-21 07:39:37 ot_train.py:628 Creating policy
+
+Fetching 16 files:   0%|          | 0/16 [00:00<?, ?it/s]
+Fetching 16 files: 100%|██████████| 16/16 [00:00<00:00, 854.18it/s]
+/usr/local/lib/python3.12/site-packages/transformers/configuration_utils.py:723: FutureWarning: `rope_scaling` is deprecated and will be removed in a future version. Set `rope_parameters` instead, with `rope_type` and `rope_theta` included.
+  warnings.warn(
+/usr/local/lib/python3.12/site-packages/transformers/modeling_rope_utils.py:1164: FutureWarning: `rope_config_validation` is deprecated and has been removed. Its functionality has been moved to RotaryEmbeddingConfigMixin.validate_rope method. PreTrainedConfig inherits this class, so please call self.validate_rope() instead. Also, make sure to use the new rope_parameters syntax. You can call self.standardize_rope_params() in the meantime.
+  warnings.warn(
+
+Loading weights:   0%|          | 0/1295 [00:00<?, ?it/s]
+Loading weights:   0%|          | 1/1295 [00:00<12:35,  1.71it/s]
+Loading weights:  26%|██▌       | 339/1295 [00:00<00:01, 665.57it/s]
+Loading weights:  42%|████▏     | 538/1295 [00:01<00:01, 584.31it/s]
+Loading weights:  52%|█████▏    | 670/1295 [00:02<00:03, 183.32it/s]
+Loading weights:  58%|█████▊    | 753/1295 [00:04<00:04, 115.48it/s]
+Loading weights:  62%|██████▏   | 808/1295 [00:05<00:04, 117.59it/s]
+Loading weights:  66%|██████▌   | 849/1295 [00:05<00:04, 106.74it/s]
+Loading weights:  68%|██████▊   | 879/1295 [00:06<00:04, 101.50it/s]
+Loading weights:  70%|██████▉   | 902/1295 [00:06<00:05, 75.40it/s] 
+Loading weights: 100%|██████████| 1295/1295 [00:06<00:00, 188.34it/s]
+
+Fetching 16 files:   0%|          | 0/16 [00:00<?, ?it/s]
+Fetching 16 files: 100%|██████████| 16/16 [00:00<00:00, 792.87it/s]
+INFO 2026-11-21 07:39:53 ot_train.py:723 Creating optimizer and scheduler
+INFO 2026-11-21 07:39:53 ot_train.py:784 Output dir: /lr/runs/smoke_molmoact2_lora
+INFO 2026-11-21 07:39:53 ot_train.py:791 cfg.steps=30 (30)
+INFO 2026-11-21 07:39:53 ot_train.py:792 dataset.num_frames=178845 (179K)
+INFO 2026-11-21 07:39:53 ot_train.py:793 dataset.num_episodes=262
+INFO 2026-11-21 07:39:53 ot_train.py:794 Effective batch size: 8 x 1 dp workers x 1 grad accum = 8 (topology: dp_replicate=1, dp_shard=1)
+INFO 2026-11-21 07:39:53 ot_train.py:799 num_learnable_params=737356320 (737M)
+INFO 2026-11-21 07:39:53 ot_train.py:800 num_total_params=5601988080 (6B)
+
+Training:   0%|          | 0/30 [00:00<?, ?step/s]INFO 2026-11-21 07:39:53 ot_train.py:848 Start offline training on a fixed dataset, with effective batch size: 8
+[transformers] Please pass `return_numpy=True`, returning a PIL.Image.Image is deprecated.
+
+Training:   3%|▎         | 1/30 [00:25<12:16, 25.38s/step]
+Training:   7%|▋         | 2/30 [00:28<05:40, 12.17s/step]
+Training:  10%|█         | 3/30 [00:31<03:34,  7.94s/step]
+Training:  13%|█▎        | 4/30 [00:34<02:34,  5.96s/step]
+Training:  17%|█▋        | 5/30 [00:37<02:01,  4.85s/step]INFO 2026-11-21 07:40:30 ot_train.py:894 step:5 smpl:40 ep:0 epch:0.00 loss:0.863 grdn:0.000 lr:1.0e-06 data_s:4.202 prep_s:0.130 updt_s:3.063 step_s:7.404 smp/s:1 mem_gb:25.42 action_flow_loss:0.863
+
+Training:  20%|██        | 6/30 [00:39<01:40,  4.19s/step]
+Training:  23%|██▎       | 7/30 [00:42<01:26,  3.78s/step]
+Training:  27%|██▋       | 8/30 [00:45<01:17,  3.51s/step]
+Training:  30%|███       | 9/30 [00:48<01:11,  3.41s/step]
+Training:  33%|███▎      | 10/30 [00:51<01:05,  3.25s/step]INFO 2026-11-21 07:40:45 ot_train.py:894 step:10 smpl:80 ep:0 epch:0.00 loss:0.877 grdn:0.000 lr:2.3e-06 data_s:0.001 prep_s:0.093 updt_s:2.865 step_s:2.969 smp/s:3 mem_gb:26.17 action_flow_loss:0.877
+
+Training:  37%|███▋      | 11/30 [00:54<00:59,  3.15s/step]
+Training:  40%|████      | 12/30 [00:57<00:55,  3.08s/step]
+Training:  43%|████▎     | 13/30 [01:00<00:51,  3.03s/step]
+Training:  47%|████▋     | 14/30 [01:03<00:47,  2.99s/step]
+Training:  50%|█████     | 15/30 [01:06<00:45,  3.04s/step]INFO 2026-11-21 07:41:00 ot_train.py:894 step:15 smpl:120 ep:0 epch:0.00 loss:0.730 grdn:0.000 lr:3.5e-06 data_s:0.001 prep_s:0.098 updt_s:2.852 step_s:2.961 smp/s:3 mem_gb:26.17 action_flow_loss:0.730
+
+Training:  53%|█████▎    | 16/30 [01:09<00:42,  3.00s/step]
+Training:  57%|█████▋    | 17/30 [01:12<00:38,  2.97s/step]
+Training:  60%|██████    | 18/30 [01:15<00:35,  2.96s/step]
+Training:  63%|██████▎   | 19/30 [01:18<00:32,  2.94s/step]
+Training:  67%|██████▋   | 20/30 [01:21<00:29,  2.93s/step]INFO 2026-11-21 07:41:15 ot_train.py:894 step:20 smpl:160 ep:0 epch:0.00 loss:0.555 grdn:0.000 lr:4.8e-06 data_s:0.001 prep_s:0.095 updt_s:2.804 step_s:2.910 smp/s:3 mem_gb:26.17 action_flow_loss:0.555
+
+Training:  70%|███████   | 21/30 [01:24<00:26,  2.93s/step]
+Training:  73%|███████▎  | 22/30 [01:27<00:23,  3.00s/step]
+Training:  77%|███████▋  | 23/30 [01:30<00:20,  2.98s/step]
+Training:  80%|████████  | 24/30 [01:33<00:17,  2.96s/step]
+Training:  83%|████████▎ | 25/30 [01:36<00:14,  2.95s/step]INFO 2026-11-21 07:41:29 ot_train.py:894 step:25 smpl:200 ep:0 epch:0.00 loss:0.390 grdn:0.000 lr:6.0e-06 data_s:0.001 prep_s:0.100 updt_s:2.855 step_s:2.968 smp/s:3 mem_gb:26.17 action_flow_loss:0.390
+
+Training:  87%|████████▋ | 26/30 [01:38<00:11,  2.93s/step]
+Training:  90%|█████████ | 27/30 [01:41<00:08,  2.92s/step]
+Training:  93%|█████████▎| 28/30 [01:44<00:05,  2.98s/step]
+Training:  97%|█████████▋| 29/30 [01:47<00:02,  2.95s/step]
+Training: 100%|██████████| 30/30 [01:50<00:00,  2.94s/step]INFO 2026-11-21 07:41:44 ot_train.py:894 step:30 smpl:240 ep:0 epch:0.00 loss:0.366 grdn:0.000 lr:7.3e-06 data_s:0.001 prep_s:0.093 updt_s:2.841 step_s:2.943 smp/s:3 mem_gb:26.17 action_flow_loss:0.366
+INFO 2026-11-21 07:41:44 ot_train.py:936 Checkpoint policy after step 30
+INFO 2026-11-21 07:42:01 n/_torch.py:299 Model weights successfully saved to /lr/runs/smoke_molmoact2_lora/checkpoints/000030/pretrained_model!
+
+Training: 100%|██████████| 30/30 [02:16<00:00,  4.56s/step]
+INFO 2026-11-21 07:42:10 t_train.py:1026 End of training
+(0, 173)
+Stopping app - local entrypoint completed.
+Runner terminated.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-TPFGYa51dNzqFvus6A4MH7

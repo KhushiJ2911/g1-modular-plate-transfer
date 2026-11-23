@@ -1,0 +1,15 @@
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_verify_same.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_zeroshot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+├── ✓ Created Function verify_job.
+├── ✓ Created Function prefetch_job.
+└── ✓ Created Function localize_pi05.
+✓ App deployed in 3.975s! 🎉
+
+View Deployment: 
+https://modal.com/apps/jaiswalkhushi2911/main/deployed/advaitic-lerobot

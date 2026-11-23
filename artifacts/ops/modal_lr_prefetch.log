@@ -1,0 +1,48 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-s4k2abCbxC8HemO2iLZeXJ
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function merge_job.
+├── ✓ Created Function convert_job.
+├── ✓ Created Function train_job.
+└── ✓ Created Function prefetch_job.
++ python -c "from huggingface_hub import snapshot_download as s; print(s('lerobot/smolvla_base'))"
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Fetching 10 files:  10%|█         | 1/10 [00:00<00:02,  4.20it/s]
+Fetching 10 files:  60%|██████    | 6/10 [00:00<00:00, 20.65it/s]
+Fetching 10 files:  90%|█████████ | 9/10 [00:01<00:00,  6.28it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:05<00:00,  1.88it/s]
+/__modal/volumes/vo-norOQ9QF5diTie4rc2L83Y/hf/hub/models--lerobot--smolvla_base/snapshots/5e8d12a6e2975b0e5e5fce7c8caf47c371d257b6
++ python -c "from huggingface_hub import snapshot_download as s; print(s('lerobot/pi05_base'))"
+
+Fetching 7 files:   0%|          | 0/7 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Fetching 7 files:  14%|█▍        | 1/7 [00:00<00:01,  5.97it/s]
+Fetching 7 files: 100%|██████████| 7/7 [00:45<00:00,  6.75s/it]
+Fetching 7 files: 100%|██████████| 7/7 [00:45<00:00,  6.47s/it]
+/__modal/volumes/vo-norOQ9QF5diTie4rc2L83Y/hf/hub/models--lerobot--pi05_base/snapshots/22c30e5b34f9e7ab738b1b34fc2fc5ecfe2d28f0
++ python -c "from huggingface_hub import snapshot_download as s; print(s('allenai/MolmoAct2'))"
+
+Fetching 22 files:   0%|          | 0/22 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Fetching 22 files:   5%|▍         | 1/22 [00:00<00:03,  6.57it/s]
+Fetching 22 files:  27%|██▋       | 6/22 [00:00<00:00, 22.04it/s]
+Fetching 22 files:  41%|████      | 9/22 [00:00<00:00, 22.73it/s]
+Fetching 22 files:  55%|█████▍    | 12/22 [00:00<00:00, 18.65it/s]
+Fetching 22 files:  64%|██████▎   | 14/22 [00:00<00:00, 16.84it/s]
+Fetching 22 files:  73%|███████▎  | 16/22 [00:00<00:00, 14.52it/s]
+Fetching 22 files:  77%|███████▋  | 17/22 [00:20<00:00, 14.52it/s]
+Fetching 22 files:  82%|████████▏ | 18/22 [00:27<00:14,  3.74s/it]
+Fetching 22 files:  86%|████████▋ | 19/22 [00:47<00:19,  6.60s/it]
+Fetching 22 files:  91%|█████████ | 20/22 [01:21<00:23, 11.73s/it]
+Fetching 22 files:  95%|█████████▌| 21/22 [01:39<00:13, 13.27s/it]
+Fetching 22 files: 100%|██████████| 22/22 [01:55<00:00, 13.74s/it]
+Fetching 22 files: 100%|██████████| 22/22 [01:55<00:00,  5.24s/it]
+/__modal/volumes/vo-norOQ9QF5diTie4rc2L83Y/hf/hub/models--allenai--MolmoAct2/snapshots/e432d85f6e039edca44afb93c262f3084ab72a9c
+[('lerobot/smolvla_base', (0, 6)), ('lerobot/pi05_base', (0, 46)), ('allenai/MolmoAct2', (0, 116))]
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-s4k2abCbxC8HemO2iLZeXJ

@@ -1,0 +1,17 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2500002, "steps": 1700, "orig_open": 0, "orig_closed": 153, "new_open": 0, "new_closed": 153}
+{"seed": 2500010, "steps": 637, "orig_open": 58, "orig_closed": 294, "new_open": 20, "new_closed": 294}
+{"seed": 2500018, "steps": 631, "orig_open": 123, "orig_closed": 238, "new_open": 123, "new_closed": 238}
+{"seed": 2500026, "steps": 582, "orig_open": 65, "orig_closed": 268, "new_open": 65, "new_closed": 268}
+{"seed": 2500034, "steps": 758, "orig_open": 97, "orig_closed": 318, "new_open": 0, "new_closed": 318}
+{"seed": 2500042, "steps": 604, "orig_open": 87, "orig_closed": 259, "new_open": 87, "new_closed": 259}
+{"seed": 2500050, "steps": 575, "orig_open": 66, "orig_closed": 274, "new_open": 11, "new_closed": 274}
+{"seed": 2500058, "steps": 591, "orig_open": 60, "orig_closed": 274, "new_open": 19, "new_closed": 274}
+{"seed": 2500066, "steps": 709, "orig_open": 78, "orig_closed": 321, "new_open": 78, "new_closed": 321}
+{"seed": 2500074, "steps": 750, "orig_open": 89, "orig_closed": 323, "new_open": 87, "new_closed": 323}
+{"seed": 2500082, "steps": 702, "orig_open": 2, "orig_closed": 428, "new_open": 0, "new_closed": 428}
+{"seed": 2500090, "steps": 659, "orig_open": 3, "orig_closed": 367, "new_open": 3, "new_closed": 367}
+{"seed": 2500098, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500106, "steps": 653, "orig_open": 108, "orig_closed": 270, "new_open": 105, "new_closed": 270}
+{"seed": 2500114, "steps": 675, "orig_open": 114, "orig_closed": 271, "new_open": 78, "new_closed": 271}
+{"src": "/home/keyu/advaitic/data/dagger3", "episodes": 15, "verified": true, "shard": "2/8", "open_dist": 0.04, "open_tilt": 10.0, "orig_rule": {"open_dist": 0.05, "open_tilt": 20.0, "closed_lift": 0.03}, "totals": {"orig_open": 950, "orig_closed": 4058, "new_open": 676, "new_closed": 4058, "open_to_undefined": 274, "undefined_to_open": 0, "other_changes": 0}}

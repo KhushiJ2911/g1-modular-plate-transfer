@@ -1,0 +1,16 @@
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lr_check.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/policy_smoke.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-harness
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+├── ✓ Created Function collect_shard_gpu.
+├── ✓ Created Function eval_run.
+├── ✓ Created Function smoke_run.
+├── ✓ Created Function eval_run_lr.
+└── ✓ Created Function lr_check_job.
+✓ App deployed in 110.053s! 🎉
+
+View Deployment: 
+https://modal.com/apps/jaiswalkhushi2911/main/deployed/advaitic-sim-harness2

@@ -1,0 +1,618 @@
+{
+  "protocol": "advaitic-plate-v1",
+  "planned_episodes": 30,
+  "completed_episodes": 30,
+  "successes": 17,
+  "success_rate": 0.5666666666666667,
+  "required_successes": 27,
+  "integrity_ok": true,
+  "balanced_slot_coverage": true,
+  "qualifying_run": true,
+  "meets_success_criterion": false,
+  "status": "FAIL",
+  "per_source_slot": {
+    "1": {
+      "episodes": 5,
+      "successes": 3
+    },
+    "2": {
+      "episodes": 5,
+      "successes": 5
+    },
+    "3": {
+      "episodes": 5,
+      "successes": 4
+    },
+    "4": {
+      "episodes": 5,
+      "successes": 3
+    },
+    "5": {
+      "episodes": 5,
+      "successes": 0
+    },
+    "6": {
+      "episodes": 5,
+      "successes": 2
+    }
+  },
+  "task": "move_plate",
+  "comparison": "Advaitic balanced-slot protocol; not BiGym leaderboard",
+  "method": "confirm_base_ens_b1",
+  "policy": "submission.policy_harness:make_policy",
+  "checkpoint": "student_v1b_bce1.pt",
+  "seed_start": 2600130,
+  "plan_sha256": "1e75d7283902727f936248467b6d331c304ecfc8bb28a1b6b2ded146d9500b19",
+  "plan": [
+    {
+      "seed": 2600130,
+      "source_slot": 1
+    },
+    {
+      "seed": 2600131,
+      "source_slot": 0
+    },
+    {
+      "seed": 2600132,
+      "source_slot": 1
+    },
+    {
+      "seed": 2600133,
+      "source_slot": 1
+    },
+    {
+      "seed": 2600134,
+      "source_slot": 2
+    },
+    {
+      "seed": 2600135,
+      "source_slot": 3
+    },
+    {
+      "seed": 2600136,
+      "source_slot": 1
+    },
+    {
+      "seed": 2600137,
+      "source_slot": 0
+    },
+    {
+      "seed": 2600138,
+      "source_slot": 4
+    },
+    {
+      "seed": 2600139,
+      "source_slot": 1
+    },
+    {
+      "seed": 2600140,
+      "source_slot": 5
+    },
+    {
+      "seed": 2600142,
+      "source_slot": 5
+    },
+    {
+      "seed": 2600144,
+      "source_slot": 2
+    },
+    {
+      "seed": 2600145,
+      "source_slot": 0
+    },
+    {
+      "seed": 2600147,
+      "source_slot": 3
+    },
+    {
+      "seed": 2600148,
+      "source_slot": 5
+    },
+    {
+      "seed": 2600149,
+      "source_slot": 0
+    },
+    {
+      "seed": 2600150,
+      "source_slot": 0
+    },
+    {
+      "seed": 2600151,
+      "source_slot": 4
+    },
+    {
+      "seed": 2600152,
+      "source_slot": 5
+    },
+    {
+      "seed": 2600153,
+      "source_slot": 2
+    },
+    {
+      "seed": 2600155,
+      "source_slot": 3
+    },
+    {
+      "seed": 2600156,
+      "source_slot": 5
+    },
+    {
+      "seed": 2600158,
+      "source_slot": 3
+    },
+    {
+      "seed": 2600159,
+      "source_slot": 4
+    },
+    {
+      "seed": 2600160,
+      "source_slot": 3
+    },
+    {
+      "seed": 2600162,
+      "source_slot": 2
+    },
+    {
+      "seed": 2600163,
+      "source_slot": 2
+    },
+    {
+      "seed": 2600172,
+      "source_slot": 4
+    },
+    {
+      "seed": 2600173,
+      "source_slot": 4
+    }
+  ],
+  "episodes": [
+    {
+      "episode": 0,
+      "seed": 2600130,
+      "source_slot": 1,
+      "success": true,
+      "completed": true,
+      "steps": 604,
+      "simulated_seconds": 12.08,
+      "policy_seconds": 6.108171697999987,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 1,
+      "seed": 2600131,
+      "source_slot": 0,
+      "success": true,
+      "completed": true,
+      "steps": 659,
+      "simulated_seconds": 13.18,
+      "policy_seconds": 6.6124220039999955,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 2,
+      "seed": 2600132,
+      "source_slot": 1,
+      "success": true,
+      "completed": true,
+      "steps": 620,
+      "simulated_seconds": 12.4,
+      "policy_seconds": 6.4684808030000625,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 3,
+      "seed": 2600133,
+      "source_slot": 1,
+      "success": true,
+      "completed": true,
+      "steps": 647,
+      "simulated_seconds": 12.94,
+      "policy_seconds": 6.7114957610001085,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 4,
+      "seed": 2600134,
+      "source_slot": 2,
+      "success": true,
+      "completed": true,
+      "steps": 661,
+      "simulated_seconds": 13.22,
+      "policy_seconds": 6.5122544670000195,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 5,
+      "seed": 2600135,
+      "source_slot": 3,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 17.20084270500027,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 6,
+      "seed": 2600136,
+      "source_slot": 1,
+      "success": true,
+      "completed": true,
+      "steps": 766,
+      "simulated_seconds": 15.32,
+      "policy_seconds": 7.259812742000207,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 7,
+      "seed": 2600137,
+      "source_slot": 0,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 17.276996924999906,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 8,
+      "seed": 2600138,
+      "source_slot": 4,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 18.852516959000184,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 9,
+      "seed": 2600139,
+      "source_slot": 1,
+      "success": true,
+      "completed": true,
+      "steps": 608,
+      "simulated_seconds": 12.16,
+      "policy_seconds": 8.247482511000214,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 10,
+      "seed": 2600140,
+      "source_slot": 5,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 23.907081337999898,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 11,
+      "seed": 2600142,
+      "source_slot": 5,
+      "success": true,
+      "completed": true,
+      "steps": 671,
+      "simulated_seconds": 13.42,
+      "policy_seconds": 8.79202741999967,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 12,
+      "seed": 2600144,
+      "source_slot": 2,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 22.446667049000894,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 13,
+      "seed": 2600145,
+      "source_slot": 0,
+      "success": true,
+      "completed": true,
+      "steps": 658,
+      "simulated_seconds": 13.16,
+      "policy_seconds": 10.212673546000246,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 14,
+      "seed": 2600147,
+      "source_slot": 3,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 20.058563507999907,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 15,
+      "seed": 2600148,
+      "source_slot": 5,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 19.417564421999487,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 16,
+      "seed": 2600149,
+      "source_slot": 0,
+      "success": true,
+      "completed": true,
+      "steps": 641,
+      "simulated_seconds": 12.82,
+      "policy_seconds": 6.918869081998423,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 17,
+      "seed": 2600150,
+      "source_slot": 0,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 19.642594560999896,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 18,
+      "seed": 2600151,
+      "source_slot": 4,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 18.2867749290009,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 19,
+      "seed": 2600152,
+      "source_slot": 5,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 18.429265589998522,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 20,
+      "seed": 2600153,
+      "source_slot": 2,
+      "success": true,
+      "completed": true,
+      "steps": 662,
+      "simulated_seconds": 13.24,
+      "policy_seconds": 7.24655729899996,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 21,
+      "seed": 2600155,
+      "source_slot": 3,
+      "success": true,
+      "completed": true,
+      "steps": 635,
+      "simulated_seconds": 12.700000000000001,
+      "policy_seconds": 6.834697216999302,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 22,
+      "seed": 2600156,
+      "source_slot": 5,
+      "success": true,
+      "completed": true,
+      "steps": 711,
+      "simulated_seconds": 14.22,
+      "policy_seconds": 7.885461191998957,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 23,
+      "seed": 2600158,
+      "source_slot": 3,
+      "success": true,
+      "completed": true,
+      "steps": 587,
+      "simulated_seconds": 11.74,
+      "policy_seconds": 6.760687029999076,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 24,
+      "seed": 2600159,
+      "source_slot": 4,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 19.629663987999493,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 25,
+      "seed": 2600160,
+      "source_slot": 3,
+      "success": true,
+      "completed": true,
+      "steps": 593,
+      "simulated_seconds": 11.86,
+      "policy_seconds": 6.276591735998977,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 26,
+      "seed": 2600162,
+      "source_slot": 2,
+      "success": true,
+      "completed": true,
+      "steps": 610,
+      "simulated_seconds": 12.200000000000001,
+      "policy_seconds": 6.313136029000475,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 27,
+      "seed": 2600163,
+      "source_slot": 2,
+      "success": true,
+      "completed": true,
+      "steps": 631,
+      "simulated_seconds": 12.620000000000001,
+      "policy_seconds": 6.323497608000139,
+      "fell": false,
+      "termination": "success",
+      "policy_error": null
+    },
+    {
+      "episode": 28,
+      "seed": 2600172,
+      "source_slot": 4,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 16.181714960002864,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    },
+    {
+      "episode": 29,
+      "seed": 2600173,
+      "source_slot": 4,
+      "success": false,
+      "completed": true,
+      "steps": 1700,
+      "simulated_seconds": 34.0,
+      "policy_seconds": 14.307940969000924,
+      "fell": false,
+      "termination": "timeout",
+      "policy_error": null
+    }
+  ],
+  "upstream_integrity": {
+    "ok": true,
+    "upstream_commit": "d71501359b215b9d78e27dcb70b220412d474dfa",
+    "verified_files": 555,
+    "failures": [],
+    "manifest_sha256": "4fb10989dfb8f6581f50b3befdf263db19b5129ec64311456fb58ddfb3ee0ccd"
+  },
+  "submission_sha256": "c465bf017061d6a6dc0308b0060f2c37aba705c87f60760289fcdd62a1e2fd0c",
+  "submission_unchanged": true,
+  "infrastructure_error": null,
+  "substrate": {
+    "substrate_version": "bigym2-mj381-v1",
+    "mujoco_version": "3.8.1",
+    "task": "move_plate",
+    "initialization_profile": "upstream",
+    "robot_model": "g1_dex1",
+    "lowerbody_backend": "groot_wbc_g1",
+    "success_hold_seconds": 1.0,
+    "lowerbody_base_action_mode": "lowerbody_cmd",
+    "lowerbody_init_stance": "keyframe",
+    "lowerbody_pitch_cmd": false,
+    "g1_passive_base_tilt": true,
+    "control_step_seconds": 0.02,
+    "lowerbody_checkpoint": null,
+    "lowerbody_weights": {
+      "GR00T-WholeBodyControl-Balance.onnx": "f645da599d4ca3d29ed273c8f4712620bb680d34977469ca3aeabe5bb9631c18",
+      "GR00T-WholeBodyControl-Walk.onnx": "7c82255b6905ffcc4468fa7f8ddcf7b70db168cf1042107ccab887cb6a8e5407"
+    },
+    "reset_warmup_steps": 200,
+    "reach_tolerance": null,
+    "compiled_model_sha256": "07f4ee09a22fc09dbf6e4b4b017c1576e1c5bb2544b536990098960e801ed63d",
+    "bigym_version": "1.0.0",
+    "bigym_git_sha": null,
+    "episode_length": 17000,
+    "demo_down_sample_rate": 10,
+    "action_representation": "absolute",
+    "upper_delta_scale_rad": null,
+    "action_dim": 20,
+    "low_dim_component_slices": {
+      "proprioception": [
+        0,
+        44
+      ],
+      "proprioception_grippers": [
+        44,
+        46
+      ],
+      "proprioception_floating_base": [
+        46,
+        50
+      ]
+    },
+    "solver": 2,
+    "contact_signature": "36156d4845f2db32"
+  },
+  "python": "3.12.16",
+  "numpy": "2.5.4",
+  "smoke": false
+}

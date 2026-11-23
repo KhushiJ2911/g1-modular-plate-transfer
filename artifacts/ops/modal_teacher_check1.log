@@ -1,0 +1,11 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-kQpVPk0bCJ2gpdVrGKvmM5
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_teacher.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-teacher
+├── ✓ Created Function gen_shard.
+└── ✓ Created Function check_shard.
+(2800001, 2800002, 1, 1, 0, 20.3)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-kQpVPk0bCJ2gpdVrGKvmM5

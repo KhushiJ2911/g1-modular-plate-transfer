@@ -1,0 +1,17 @@
+[bigym] compiled timestep 0.001s != nominal 0.002s: control substeps 10 -> 20 to keep 50 Hz true
+{"seed": 2500007, "steps": 780, "orig_open": 86, "orig_closed": 335, "new_open": 0, "new_closed": 335}
+{"seed": 2500015, "steps": 657, "orig_open": 73, "orig_closed": 282, "new_open": 33, "new_closed": 282}
+{"seed": 2500023, "steps": 737, "orig_open": 143, "orig_closed": 291, "new_open": 143, "new_closed": 291}
+{"seed": 2500031, "steps": 607, "orig_open": 127, "orig_closed": 241, "new_open": 11, "new_closed": 241}
+{"seed": 2500039, "steps": 754, "orig_open": 150, "orig_closed": 337, "new_open": 150, "new_closed": 337}
+{"seed": 2500047, "steps": 1171, "orig_open": 106, "orig_closed": 409, "new_open": 0, "new_closed": 409}
+{"seed": 2500055, "steps": 598, "orig_open": 56, "orig_closed": 320, "new_open": 55, "new_closed": 320}
+{"seed": 2500063, "steps": 671, "orig_open": 86, "orig_closed": 269, "new_open": 86, "new_closed": 269}
+{"seed": 2500071, "steps": 852, "orig_open": 141, "orig_closed": 348, "new_open": 0, "new_closed": 348}
+{"seed": 2500079, "steps": 600, "orig_open": 68, "orig_closed": 235, "new_open": 68, "new_closed": 235}
+{"seed": 2500087, "steps": 650, "orig_open": 124, "orig_closed": 273, "new_open": 54, "new_closed": 273}
+{"seed": 2500095, "steps": 1700, "orig_open": 0, "orig_closed": 0, "new_open": 0, "new_closed": 0}
+{"seed": 2500103, "steps": 613, "orig_open": 81, "orig_closed": 292, "new_open": 64, "new_closed": 292}
+{"seed": 2500111, "steps": 633, "orig_open": 89, "orig_closed": 256, "new_open": 89, "new_closed": 256}
+{"seed": 2500119, "steps": 685, "orig_open": 82, "orig_closed": 311, "new_open": 73, "new_closed": 311}
+{"src": "/home/keyu/advaitic/data/dagger3", "episodes": 15, "verified": true, "shard": "7/8", "open_dist": 0.04, "open_tilt": 10.0, "orig_rule": {"open_dist": 0.05, "open_tilt": 20.0, "closed_lift": 0.03}, "totals": {"orig_open": 1412, "orig_closed": 4199, "new_open": 826, "new_closed": 4199, "open_to_undefined": 586, "undefined_to_open": 0, "other_changes": 0}}

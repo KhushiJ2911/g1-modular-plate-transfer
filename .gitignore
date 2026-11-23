@@ -5,8 +5,8 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 dist/
-results/
-checkpoints/
+/results/
+
 datasets/
 .env
 *.mp4

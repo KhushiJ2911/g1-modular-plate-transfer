@@ -1,0 +1,28 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-mfhxxtrM0dWxYuCZi1Fbb9
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+NVIDIA L4, 23034 MiB
++ python -m method.vla.train --device cuda --cache-dir /cache --run-dir /runs/bench_vla_L4_1795227048 --data-dirs /data/human60 /data/teacher_v1 /data/teacher_v1_dart0 /data/dagger /data/dagger2 --steps 300 --val-every 100000 --sample-every 100000 --save-every 100000 --microbatch-size 64 --num-workers 4
+{"params": {"vision": 1893952, "backbone": 5704704, "action_expert": 2265600, "embeddings_and_heads": 1333770, "total": 11198026}, "tokens": {"image": 432, "language": 11, "state": 19, "prefix": 462, "action": 20, "total": 482}, "cache": "/cache/0c6a5f399d0e7038ac16af50.u8", "device": "cuda"}
+{"phase": "train", "step": 25, "distill_step": 0, "train_flow_loss": 1.5822965243329592, "lr": 1.4999999999999999e-05, "elapsed_seconds": 7.466716254000001}
+{"phase": "train", "step": 50, "distill_step": 0, "train_flow_loss": 1.5240326758510765, "lr": 2.9999999999999997e-05, "elapsed_seconds": 12.228575795000001}
+{"phase": "train", "step": 75, "distill_step": 0, "train_flow_loss": 1.3850771207259869, "lr": 4.4999999999999996e-05, "elapsed_seconds": 16.988644071}
+{"phase": "train", "step": 100, "distill_step": 0, "train_flow_loss": 1.120273665981859, "lr": 5.9999999999999995e-05, "elapsed_seconds": 21.747255531}
+{"phase": "train", "step": 125, "distill_step": 0, "train_flow_loss": 0.57992913539509, "lr": 7.5e-05, "elapsed_seconds": 26.513132588999998}
+{"phase": "train", "step": 150, "distill_step": 0, "train_flow_loss": 0.273076104716651, "lr": 8.999999999999999e-05, "elapsed_seconds": 31.298952938000003}
+{"phase": "train", "step": 175, "distill_step": 0, "train_flow_loss": 0.19589261422893847, "lr": 0.00010499999999999999, "elapsed_seconds": 36.079813532}
+{"phase": "train", "step": 200, "distill_step": 0, "train_flow_loss": 0.14941577663904393, "lr": 0.00011999999999999999, "elapsed_seconds": 40.855125122000004}
+{"phase": "train", "step": 225, "distill_step": 0, "train_flow_loss": 0.12008907125017597, "lr": 0.000135, "elapsed_seconds": 45.624810188}
+{"phase": "train", "step": 250, "distill_step": 0, "train_flow_loss": 0.10540185010366986, "lr": 0.00015, "elapsed_seconds": 50.386932032999994}
+{"phase": "train", "step": 275, "distill_step": 0, "train_flow_loss": 0.09035201327977019, "lr": 0.000165, "elapsed_seconds": 55.14793703699999}
+{"phase": "train", "step": 300, "distill_step": 0, "train_flow_loss": 0.07735648662557332, "lr": 0.00017999999999999998, "elapsed_seconds": 65.06104607099999, "val_flow_loss": 1.4692556505279255, "val_elements": 406520, "sampled_l1_per_dim": {"0": 0.7778924107551575, "1": 0.907565712928772, "4": 0.9307531118392944, "5": 1.1281083822250366, "6": 1.040412187576294, "7": 1.0449997186660767, "8": 0.8506200909614563, "9": 1.0434353351593018, "10": 0.8530329465866089, "18": 1.0471742153167725}, "sampled_elements_per_dim": [1280.0, 1280.0, 1280.0, 1280.0, 1280.0, 1280.0, 1280.0, 1280.0, 1280.0, 1280.0], "gripper_sign_accuracy": 0.61875, "gripper_open_accuracy": 0.61875, "gripper_count": 1280, "gripper_open_count": 1280}
+{"peak_cuda_allocated_gb": 4.322343424, "peak_cuda_reserved_gb": 4.492099584}
+(0, 74)
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-mfhxxtrM0dWxYuCZi1Fbb9

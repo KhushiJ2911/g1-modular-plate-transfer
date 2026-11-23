@@ -1,0 +1,13 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-PApgfGLfB3esNMzDUa1A8v
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_sim.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function check.
+├── ✓ Created Function collect_shard.
+└── ✓ Created Function collect_shard_gpu.
+shard 2500000: exit=0 48s
+all shards done in 53s
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-PApgfGLfB3esNMzDUa1A8v

@@ -1,0 +1,41 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-Prc2GyfnIwRa4XVBzorNwV
+Building image im-BvjyInSwTb3goCxlFp6tHN
+
+=> Step 0: FROM base
+
+=> Step 1: RUN python -c "from transformers import SiglipVisionModel;SiglipVisionModel.from_pretrained('google/siglip-base-patch16-224')"
+Saving image...
+Image saved, took 1.49s
+
+Built image im-BvjyInSwTb3goCxlFp6tHN in 17.74s
+
+
+Building image im-tR0yJr4DQPGrHQKu5Nz7vg
+
+=> Step 0: FROM base
+
+=> Step 1: ENV PYTHONPATH=/root/code
+
+=> Step 2: ENV PYTHONDONTWRITEBYTECODE=1
+Saving image...
+Image saved, took 599.87ms
+
+Built image im-tR0yJr4DQPGrHQKu5Nz7vg in 1.76s
+
+
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_train.py
+├── ✓ Uploaded /home/keyu/advaitic/wt-vla
+├── ✓ Created Function build_cache.
+└── ✓ Created Function train_job.
++ python -c 'import yaml; from method.bc.dataset import EpisodeStore
+c=yaml.safe_load(open('"'"'method/vla/microvla_v1.yaml'"'"'))
+s=EpisodeStore(['"'"'/data/human60'"'"', '"'"'/data/teacher_v1'"'"', '"'"'/data/teacher_v1_dart0'"'"', '"'"'/data/dagger'"'"', '"'"'/data/dagger2'"'"'], '"'"'/cache'"'"', val_episodes=c['"'"'val_episodes'"'"'], proprio_dims=[0,1,2,3,4,5,6,7,8,18,19,20,21,40,41,42,43,44,45])
+print('"'"'cache digest'"'"', s.digest)
+'
+cache digest 0c6a5f399d0e7038ac16af50
+Stopping app - local entrypoint completed.
+[modal-client] 2026-11-21T07:40:33+0530 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-Prc2GyfnIwRa4XVBzorNwV

@@ -1,0 +1,12 @@
+[2026-11-22 12:39:28] 24 shards done
+[2026-11-22 12:44:13] get retry 1
+[2026-11-22 12:44:14] get retry 2
+[2026-11-22 12:44:15] get retry 3
+[2026-11-22 12:44:15] src data/flywheel2_raw/flywheel2
+Traceback (most recent call last):
+  File "/home/keyu/advaitic/ops/flywheel_filter.py", line 11, in <module>
+    dst.mkdir(parents=True, exist_ok=False)
+  File "/home/keyu/.local/share/uv/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/pathlib.py", line 1311, in mkdir
+    os.mkdir(self, mode)
+OSError: [Errno 28] No space left on device: 'data/flywheel2_succ'
+[2026-11-22 12:44:15] filter failed

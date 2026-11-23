@@ -1,0 +1,36 @@
+✓ Initialized. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-tY6pmMBPsSr8Y9BUin9DJZ
+✓ Created objects.
+├── ✓ Uploaded /home/keyu/advaitic/ops/modal_lerobot.py
+├── ✓ Uploaded /home/keyu/advaitic/ops/lerobot_convert.py
+├── ✓ Created Function convert_job.
+├── ✓ Created Function merge_job.
+├── ✓ Created Function train_job.
+└── ✓ Created Function prefetch_job.
++ python -c "from huggingface_hub import snapshot_download as s; print(s('HuggingFaceTB/SmolVLM2-500M-Video-Instruct'))"
+
+Fetching 38 files:   0%|          | 0/38 [00:00<?, ?it/s]Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+Fetching 38 files:   3%|▎         | 1/38 [00:00<00:06,  5.53it/s]
+Fetching 38 files:  21%|██        | 8/38 [00:09<00:34,  1.16s/it]
+Fetching 38 files:  24%|██▎       | 9/38 [00:13<00:46,  1.61s/it]
+Fetching 38 files:  29%|██▉       | 11/38 [00:20<01:01,  2.27s/it]
+Fetching 38 files:  32%|███▏      | 12/38 [00:27<01:22,  3.17s/it]
+Fetching 38 files:  34%|███▍      | 13/38 [00:28<01:08,  2.72s/it]
+Fetching 38 files:  37%|███▋      | 14/38 [00:32<01:10,  2.93s/it]
+Fetching 38 files:  39%|███▉      | 15/38 [00:36<01:15,  3.28s/it]
+Fetching 38 files:  47%|████▋     | 18/38 [00:37<00:34,  1.72s/it]
+Fetching 38 files:  55%|█████▌    | 21/38 [00:37<00:17,  1.02s/it]
+Fetching 38 files:  63%|██████▎   | 24/38 [00:38<00:10,  1.39it/s]
+Fetching 38 files:  66%|██████▌   | 25/38 [00:41<00:15,  1.16s/it]
+Fetching 38 files:  74%|███████▎  | 28/38 [00:42<00:08,  1.23it/s]
+Fetching 38 files:  82%|████████▏ | 31/38 [00:43<00:03,  1.80it/s]
+Fetching 38 files:  84%|████████▍ | 32/38 [00:43<00:03,  1.96it/s]
+Fetching 38 files:  95%|█████████▍| 36/38 [00:43<00:00,  3.14it/s]
+Fetching 38 files:  97%|█████████▋| 37/38 [00:44<00:00,  3.01it/s]
+Fetching 38 files: 100%|██████████| 38/38 [00:44<00:00,  1.16s/it]
+/__modal/volumes/vo-norOQ9QF5diTie4rc2L83Y/hf/hub/models--HuggingFaceTB--SmolVLM2-500M-Video-Instruct/snapshots/4cde9d208e19519c36917aa170fffc7e381aa0ad
+[('HuggingFaceTB/SmolVLM2-500M-Video-Instruct', (0, 45))]
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/jaiswalkhushi2911/main/ap-tY6pmMBPsSr8Y9BUin9DJZ
