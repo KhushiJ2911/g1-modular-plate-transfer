@@ -1,100 +1,109 @@
 # Modular G1 plate transfer
 
-The final frozen submission is `aa1e2731e0bdfa2a9f315f8cc9c758e3270474dc`, factory `method.modular.vertical_clearance:make_policy`. It scored **231/240 (96.25%) across eight qualifying-format development blocks**, with all eight passing. The one-time reviewer run at `7310000` scored **27/30 (90.0%), PASS at exactly the required threshold**. The earlier `54080e5` confirmation at `2600000` scored **25/30 (FAIL)**. [Experiment log](../EXPERIMENTS.md) · [Final evaluator report](final_7310000/report.json)
+**Final policy:** commit `aa1e2731e0bdfa2a9f315f8cc9c758e3270474dc`, factory `method.modular.vertical_clearance:make_policy`.
 
-## Observations, actions and control
-
-The policy receives three CHW `uint8` RGB views (head, right wrist and left wrist, each 84×84) and a 50-value proprioceptive vector with pelvis pose and motion, joints and finger state. A shared ResNet-18 encoder and selected proprioception feed the frozen `est_v1b` heads for pelvis-frame plate and nearest-site XYZ, tilt and held probability. The calibrated sidecar adds target-rack contact from public features and a common loaded-grasp normal. The task adapter transforms positions to world coordinates, locks the destination from an initial stationary median, and uses measured arm orientation to propagate the plate normal after pickup.
-
-`RGB + proprioception` → `est_v1b + contact head + calibrated FK` → `task estimate` → `phase machine` → `geometric targets and normalized action`
-
-- **APPROACH → PREGRASP → GRASP → LIFT.** Drive the pelvis to a geometric standoff. Sample the source while stationary at reset and pregrasp. Reach relative to the estimated plate with damped least-squares IK and verify the pinch and lift with finger measurements and FK. Phase timeouts and grasp retries are bounded.
-- **CARRY → ALIGN → LOWER.** Track the destination standoff, center over the locked site, then descend with bounded position and orientation feedback. The combined candidate tries ordinary release confirmation first. A late fallback uses FK height, descent stall or rack contact, and the stationary source support height when the locked site is low.
-- **RELEASE → SETTLE → RETREAT → HOLD.** Open both grippers and hold the measured left-arm pose from the opening frame. Retreat along the approach normal requires settled-pose checks and no detected open-finger contact. The ordinary settle gate requires 75 measured-open steps, rack support and pose checks. After a settle timeout or guarded retreat, the recovery can withdraw the base a bounded distance while monitoring plate displacement, tilt and support. The final controller adds a bounded world-vertical lift of the open hand once base withdrawal has stopped and the estimated plate remains supported near the locked site. [Vertical clearance](../method/modular/vertical_clearance.py)
-
-The output is one 20-value action in `[-1,1]`: pelvis planar velocity, height target and yaw rate; seven absolute joint targets per arm; and two gripper commands. FK and IK use a separate fixed-robot MuJoCo model driven by measured joints. Inference uses public observations and fixed geometry. Simulator truth supplied training labels and guided controller development on generation seeds. Archived action sequences supported retrospective diagnostics and matched-prefix intervention tests. [Layout and controller](../method/modular/controller.py) · [Runtime and interface provenance](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23)
-
-## Data and training
-
-| Artifact | Data and use |
+| Run | Result |
 | --- | --- |
-| **Frozen `est_v1b`** | Supervised harness estimator initialized from Torchvision ImageNet ResNet-18. Trained on `teacher_v1_dart0` (123 training episodes within seeds 2200000–2200150), `teacher_v1_gen2` (185 within 2800001–2800239), and `dagger3_priv` (114 within 2500000–2500119), with six held-out episodes per source. These are seed envelopes with gaps. The checkpoint records exact membership and the saved step (8,000). Privileged targets are plate XYZ, destination XYZ, tilt and held. The DAgger3 labels were recovered by replaying recorded student actions and checking pre-action states. |
-| **Contact head and loaded normal** | Fit the contact head from frozen public features and simulator contact labels on 3021000–3021039 (privileged-driven rollouts) and 3022000–3022023 (observation-driven rollouts). Whole-episode split was 51 fit and 13 validation. Fit one loaded hand-frame normal on 12 generation grasps in the 3056500 series and checked it on six independent grasps. The final controller loads both from the same sidecar. |
-| **Separate modular DAgger experiment** | The observation-only collector ran on 3110000–3110299. Saved actions were replayed in a separate camera-free environment to create step-aligned pose, site, held and contact labels. Heads for pickup XYZ residual, held and target contact used a 240/30/30 train/selection/test split by seed plus 60 historical teacher episodes, with missing teacher contact labels masked. The final controller uses the frozen `est_v1b` and contact sidecar described above. |
+| Reviewer block `7310000` (run once) | **27/30, PASS**, exactly at the 27/30 bar |
+| Last dev round (8 new blocks) | 231/240 (96.25%), all 8 blocks ≥ 27/30 |
+| Confirmation block `2600000` (run once, earlier commit `54080e5`) | 25/30, FAIL |
 
-A single nominal pre-close grasp transform was pooled from teacher-v1 rollouts on generation seeds 3000000–3000002. The controller applies this geometric constant relative to the current estimated plate. [Estimator provenance](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23) · [Contact-head fits](../EXPERIMENTS.md#modular-controller--2026-11-22--astra-frozen-j-perception-diagnosis) · [Loaded calibration and DAgger](../EXPERIMENTS.md#modular-controller--2026-11-22--integrated-visual-release) · [Grasp-transform calibration](../EXPERIMENTS.md#2026-11-22--sol-privileged-development)
+The reviewer result has no margin. One more failure would have failed the block. Slot 3 is the weakest slot (3/5 on `7310000`).
 
-## Ablations and evaluation
+Full log: [EXPERIMENTS.md](../EXPERIMENTS.md). Evaluator output: [report.json](final_7310000/report.json), [episodes.csv](final_7310000/episodes.csv).
 
-The early chain below uses non-qualifying sharded runs and archived-prefix diagnostics. The next table continues it with single-process results where available. Same-seed comparisons test paired outcomes. Results on different blocks describe separate cohorts.
+## How it works
 
-| Frozen policy or change | Same-seed comparison | Reported cohort result |
+The policy uses only the evaluator's observations: three 84×84 RGB cameras (head, right wrist, left wrist) and the 50-value proprioception vector.
+
+```
+RGB + proprio → estimator (est_v1b) + contact head → task state → phase machine → IK → action
+```
+
+**Perception.** `est_v1b` is a ResNet-18 trained earlier in this project. It predicts plate position, nearest rack-site position, plate tilt and whether the plate is held. A small linear head on the same features predicts rack contact. The controller locks the destination site from a median over the first stationary frames. After pickup it tracks plate orientation through arm forward kinematics (FK) instead of vision.
+
+**Control.** A fixed sequence of phases:
+
+1. **Approach, pregrasp, grasp, lift.** Walk to a standoff, reach the plate with damped least-squares IK, close, and check the pinch and lift with finger joints and FK. Retry the grasp a bounded number of times.
+2. **Carry, align, lower.** Walk to the destination, center over the locked site, and lower. If release is not confirmed normally, a fallback triggers on FK height, a stalled descent or rack contact.
+3. **Release, settle, retreat.** Open both hands and hold the arm pose measured at opening. Wait for the plate to settle, then back the base away while watching plate motion. The final change adds a short vertical lift of the open hand so it clears the plate before leaving ([vertical_clearance.py](../method/modular/vertical_clearance.py)).
+
+The action is the standard 20-value vector: base velocity, height and yaw rate, seven joint targets per arm, and two gripper commands. IK and FK use a separate fixed-base MuJoCo model driven by measured joint angles.
+
+Simulator state was used only to make training labels and to debug on development seeds. It is never read at inference. There is no per-seed lookup or replay.
+
+## Training data
+
+| Model | Data |
+| --- | --- |
+| `est_v1b` estimator | ImageNet ResNet-18, fine-tuned for 8,000 steps on 422 episodes from three sources: `teacher_v1_dart0` (seeds 2200000–2200150), `teacher_v1_gen2` (2800001–2800239) and `dagger3_priv` (2500000–2500119). 6 held-out episodes per source. Labels come from simulator state. |
+| Contact head | Fit on frozen estimator features with simulator contact labels, seeds 3021000–3021039 and 3022000–3022023 (51 train / 13 validation episodes). |
+| Loaded-grasp normal | One constant fit on 12 grasps (3056500 series) and checked on 6 others. |
+| Grasp offset | One constant pre-close hand-to-plate transform, averaged from teacher rollouts on seeds 3000000–3000002. |
+
+A separate DAgger run (seeds 3110000–3110299) trained extra heads, but the final policy does not use them.
+
+## Results
+
+### Early rounds (sharded, not qualifying)
+
+These runs used one process per episode. They later turned out to be about 3 points too optimistic compared with the real evaluator format, so they are only useful for comparing versions with each other.
+
+| Commit | Change | Result |
 | --- | --- | --- |
-| `e588ae9`, estimated-state feedback baseline | **12/72** on the common, locally auditable development set | **18/88** returned on planned starts 1000000, 1010000, 1020000. |
-| `9de5c51`, grasp-calibrated placement orientation, site lock and learned contact | **42/72** on the same seeds | **52/88** on the same planned blocks. |
-| `bd951bc`, median pickup, proprioceptive grasp/lift checks and loaded-normal calibration | **65/72** on the same three-way intersection. On the full 88-seed two-way join, **52/88 → 80/88** against `9de5c51`. | **81/90** dev (28/30, 28/30, 25/30). Fresh signal **158/180 (87.8%)** on starts 1030000, 1040000, 1050000, 1060000, 1070000, 1080000. |
-| `528c854`, guarded open-hand base withdrawal | Generation plan 3002200, same original prefix and rendered feedback after the recovery point: **24/30 → 26/30**. The stopped round-two baseline and clearance both scored **34/34** among their returned pairs. | Fresh starts 1031000, 1041000, 1051000, 1061000: **112/119** returned, or **112–113/120** with one unresolved. |
-| `54080e5`, late FK/proprio release and low-site settling plus the withdrawal | On 3002200, standalone fallback from reset was **25/30** versus **24/30** baseline, with zero activations. Adding clearance in the archived comparison raised **25/30 → 26/30**. Clearance alone also reached **26/30** in its matched-prefix test. | At 03:15 IST, **114/114 completed** of 120 on fresh starts 1071000, 1081000, 1091000, 1032000. The four blocks had 27, 29, 29 and 29 successes. These completed outcomes guarantee **at least 95.0%** across the full plan. |
+| `e588ae9` | Baseline estimated-state controller | 18/88 |
+| `9de5c51` | Grasp-calibrated place orientation, site lock, contact head | 52/88 |
+| `bd951bc` | Median pickup estimate, proprio grasp checks, loaded-normal calibration | 81/90 dev; 158/180 on fresh blocks |
+| `528c854` | Guarded base withdrawal after release | 112/119 on fresh blocks |
+| `54080e5` | Late release fallback + withdrawal | 114/114 completed on fresh blocks |
 
-The early sharded totals had outstanding calls. The 72-seed intersection includes recovered failure archives and is a comparison on available reports. Full-time FK seating (`6b02f33`) improved selected dev **81/90 → 83/90**, then fell to **153/180** against `bd951bc`’s **158/180** on the same fresh seeds. The late release fallback recovered each controlled height-bias pair **0/2 → 2/2** at +20 mm plate height and −20 mm locked-site height. These camera-free continuations test the failure mechanism. The single full-reset gain on 3002200 diverged before the fallback could act.
+### Qualifying format
 
-[Common-seed joins](../EXPERIMENTS.md#report-provenance-and-exact-seed-joins--2026-11-23) · [Round-one fresh signal](../EXPERIMENTS.md#2026-11-23-0051--paired-180-episode-fresh-block-signal-eval-blocks-10300001080000-retired-after-this-use) · [Round-two fresh signal](../EXPERIMENTS.md#2026-11-23-023x--round-2-fresh-block-signal-528c854-methodmodularbase_clearance--112113120-9394)
+From round 4 on, every dev block ran exactly like the reviewer run: one unmodified `advaitic-eval` process for 30 balanced episodes. Each round used blocks that had not been used before.
 
-## Qualifying-format results
+| Round | Commit | Change | Result | Blocks ≥ 27/30 |
+| --- | --- | --- | ---: | ---: |
+| 4 | `414f15a` | `54080e5` + clear internal state on reset | 220/240 (91.7%) | 6/8 |
+| 4 (same blocks) | `528c854` | for comparison | 214/240 (89.2%) | 4/8 |
+| 5 | `99e72f6` | grasp-loss guard, rack-contact release, seating-drop check | 220/240 (91.7%) | 6/8 |
+| 6 | `876a00f` | hold measured arm pose at opening | 222/240 (92.5%) | 8/8 |
+| 7 | `aa1e273` | vertical hand lift before retreat | **231/240 (96.25%)** | **8/8** |
 
-Each development block below ran the unmodified balanced evaluator with one policy process for all 30 episodes and a reset before each episode. Both round-four candidates used the same eight blocks. Rounds five, six and seven each used fresh blocks.
+Round 7 per block (start seed: successes): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
 
-| Development round | Frozen controller | Successes | Blocks passing |
-| --- | --- | ---: | ---: |
-| Early FK trial | `6b02f33`, full-time FK seating, completed block `1000000` | 27/30 (90.0%) | 1/1 completed |
-| Pre-round-four diagnostic | `54080e5`, combined placement and clearance, blocks `1031000` and `1041000` | 57/60 (95.0%) | 2/2 |
-| 4 | `414f15a`, combined placement and clearance with explicit reset cleanup | 220/240 (91.7%) | 6/8 |
-| 4, paired comparison | `528c854`, calibrated controller with guarded base clearance | 214/240 (89.2%) | 3/8 as logged |
-| 5 | `99e72f6`, retained-pinch guard, sustained rack-contact release and seating-drop detection | 220/240 (91.7%) | 6/8 |
-| 6 | `876a00f`, round-five controller with measured-arm hold at opening | 222/240 (92.5%) | 8/8 |
-| 7 | `aa1e273`, round-six controller with guarded vertical hand withdrawal | **231/240 (96.25%)** | **8/8** |
+Rounds 6 and 7 ran on different blocks, so part of the 222 → 231 gain may be block-to-block noise. On one shared block (`3004800`) both scored 27/30 with the same successful seeds.
 
-The other two uninterrupted `6b02f33` attempts stopped at freeze. The `528c854` entry reports 3/8 passing, and its listed scores put four blocks at the 27-success threshold or above. The table preserves the reported pass count pending a check of the original block statuses. [Single-process experiment log](../EXPERIMENTS.md)
+### Protected blocks
 
-| Round-seven start seed | 1039000 | 1045000 | 1055000 | 1065000 | 1075000 | 1085000 | 1095000 | 1046000 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `aa1e273` successes out of 30 | 29 | 30 | 27 | 29 | 30 | 29 | 30 | 27 |
+| Block | Commit | Result | Per slot (0–5) |
+| --- | --- | --- | --- |
+| 2600000 | `54080e5` | 25/30, FAIL | 3, 5, 5, 2, 5, 5 |
+| 7310000 | `aa1e273` | 27/30, PASS | 5, 5, 5, 3, 4, 5 |
 
-Targeted fresh-process reruns of prior failures scored **0/13 → 4/13** with the round-five fixes and **1/8 → 4/8** with the round-six measured hold, each on its own paired cohort. One matched-prefix replay isolated a recovery from the measured hold. [Round-five and round-six diagnostics](../EXPERIMENTS.md)
+Each block ran once, on a T4 with EGL rendering, after the policy was frozen. Neither was used for tuning. Integrity checks passed and there were no infrastructure errors. Submission SHA-256: `1b05190d2013d5d08f230e9253615c13dd8fc5b009686e72a55bfa7fa5586f25`. In `report.json` the slots are numbered 1–6.
 
-On the same balanced generation block `3004800`, `876a00f` and `aa1e273` each scored **27/30** with identical successful seeds. On seven preselected hard seeds, fresh-process retries scored **1/7 → 3/7**. Matched-prefix replay isolated one vertical-lift recovery, and the other gain finished before the lift could act. The **222/240 → 231/240** round-six to round-seven increase came from separate development cohorts. [Vertical-withdrawal screening and round-seven results](../EXPERIMENTS.md)
+## Failures
 
-The early fresh-process sharded signal suggested at least **95%**, above the roughly **92%** recorded in the round-four to round-six single-process development batches. Sharded runs use a full-horizon one-episode `--smoke` invocation per seed and are non-qualifying. Early returns favor short successes. Development blocks informed selection, and each fresh signal block was retired after its comparison.
+Most failures happen after the plate is placed. The hand opens, clears the plate, then touches it again as the robot moves away, and the episode times out.
 
-The reset audit found **no action-changing leak** in the tested controls. The `414f15a` cleanup clears six retained state categories, and all 81 actions in the frozen-versus-cleanup comparison matched bit-for-bit. Additional process-isolation tests matched actions and raw estimator outputs between fresh execution and execution after prior calls and reset. Only **7 of the 20** round-four failures passed when rerun fresh. The other 13 failed again. Different seed cohorts and renderer variability also limit what the sharded comparison can say about the cause of any one failure. [Reset and process-isolation evidence](../EXPERIMENTS.md)
+- `bd951bc`, 22 failures replayed: 15 touched the plate again after opening, 5 never opened at the rack, 1 did not finish the carry, 1 failed pickup.
+- Round 5, 20 failures: 11 touched again after opening, 3 tilted after opening, 5 stayed closed (2 on the rack, 3 off it), 1 opened during lift.
+- Round 6, 18 failures: 7 touched again after opening, 7 stayed closed (3 on the rack, 4 off it), 2 tilted on the rack, 2 opened during lift.
+- `7310000`: 3 timeouts, no falls (`7310000` slot 4, `7310003` slot 3, `7310008` slot 3).
 
-| Run | Frozen controller | Seed start | Result | Source slots 0–5 | Original report status |
-| --- | --- | ---: | --- | --- | --- |
-| One-time confirmation | `54080e5` | 2600000 | **25/30 (FAIL)** | 3/5, 5/5, 5/5, 2/5, 5/5, 5/5 | Integrity passed, no infrastructure error |
-| One-time final reviewer run | `aa1e273` | 7310000 | **27/30 (PASS)** | 5/5, 5/5, 5/5, 3/5, 4/5, 5/5 | Integrity passed, no infrastructure error |
+The estimator reported held=false at every re-touch, so the held signal cannot catch this. That is why the last two fixes hold the arm still at opening and lift the hand straight up before the base moves.
 
-Each protected block ran once in the unmodified evaluator on T4/EGL. The final reviewer block passed at exactly the required **27 successes** and was used only after development was complete. The evaluator recorded submission SHA-256 `1b05190d2013d5d08f230e9253615c13dd8fc5b009686e72a55bfa7fa5586f25`. The `per_source_slot` keys 1–6 in the original report correspond to zero-based slots 0–5 above. [Experiment log](../EXPERIMENTS.md) · [Original final report](final_7310000/report.json) · [Final episode CSV](final_7310000/episodes.csv) · [Development video](video/README.md)
-
-## Failure modes
-
-Of 28 audited baseline `e588ae9` failures, 19 reached the destination area and stayed held to timeout, seven lost their grasp, and two fell into other categories. Original-action replay of all 22 fresh `bd951bc` failures found **15 pad recontacts after opening and initially clearing, five reached the destination without opening, one incomplete transfer, and one pickup failure**. For the seven audited `528c854` timeouts, **six recontacted after opening and one remained clear but tilted**. At all six pad returns the estimator reported held=false. In six episodes that did withdraw, action-matched replays found that the motion check stopped the base after an apparent 1.41–1.52 cm of plate travel. Physical travel was 0.000–0.831 cm. Extending withdrawal on three archived generation failures changed the commands and recovered zero episodes. [Baseline and event replay log](../EXPERIMENTS.md)
-
-The five confirmation failures included two near-rack timeouts, two held hovers and one grasp loss. Round four had nine near-rack timeouts, six grasp losses, three hovers, one transfer that never reached the target and one tilted release. Action traces showed that five of the nine near-rack cases had already commanded open. Late pad contact can look like a closed grasp in the terminal state. [Confirmation and round-four replay notes](../EXPERIMENTS.md)
-
-All 20 round-five timeouts reproduced in camera-free replay. **Eleven** recontacted a pad after opening, **three** tilted after opening, **two** stayed closed on the destination rack, **three** stayed closed off the rack after earlier contact, and **one** opened during a source-side lift. Nine recontacts preceded renewed arm or base motion. All 18 round-six failures also reproduced. **Seven** recontacted after opening, **three** ended closed on the rack, **four** ended closed after leaving the rack, **two** ended tilted on the rack after opening, and **two** opened during source-side lift. All seven recontacts preceded renewed arm or base commands. [Round-five and round-six failure replays](../EXPERIMENTS.md)
-
-The final reviewer run had three timeouts and no falls. The timeouts were `7310000` (slot 4), `7310003` (slot 3) and `7310008` (slot 3). The evaluator records termination, so these rows establish timeout only. Recent development replays point to hand separation and closed-grasp rack stalls as the main areas for further testing on development seeds. [Experiment log](../EXPERIMENTS.md) · [Final episode CSV](final_7310000/episodes.csv)
+Resetting the policy state between episodes did not explain the gap between sharded and single-process runs. The reset cleanup changed none of the 81 actions in the tested comparison, and only 7 of 20 round-4 failures passed when rerun in a fresh process.
 
 ## Reproduce
 
-Use a clean checkout of the frozen SHA. The commands below run the final factory on a round-seven development block with CPU OSMesa. The published scores used the qualifying runner's T4/EGL setup with CPU Torch and the pinned weights. The earlier confirmation used `54080e5` and `submission.policy_modular_combined:make_policy`. [Qualifying runner](../ops_modular/lead_qualify.py) · [Recorded invocation](../EXPERIMENTS.md)
+From a clean checkout of the final commit. This runs one round-7 dev block on CPU with OSMesa. The reported numbers used T4/EGL with the same pinned weights ([lead_qualify.py](../ops_modular/lead_qualify.py)).
 
 ```bash
 git checkout --detach aa1e2731e0bdfa2a9f315f8cc9c758e3270474dc
 uv sync --locked --python 3.12 --no-dev
 uv run --locked --no-dev advaitic-check
 
-export MODAL_CONFIG_PATH=/home/keyu/.modal_modular.toml
 est_sha=bd8ed33c87383b3b208ba251d8fa0b6f957d9f03a35cf6c8d23a81ce9cd867cd
 head_sha=64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff
 mkdir -p checkpoints/{est_v1b,astra}
@@ -114,38 +123,41 @@ export ADV_ESTIMATOR="$PWD/checkpoints/est_v1b/last.pt" ADV_HEADS="$PWD/checkpoi
 export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa ORT_DISABLE_TELEMETRY=1
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 LP_NUM_THREADS=2
 export CUDA_VISIBLE_DEVICES=''
-factory=method.modular.vertical_clearance:make_policy
 
-# Development reproduction with the frozen policy.
 seed=1039000
 uv run --locked --no-dev advaitic-eval \
-  --policy "$factory" --policy-python "$PWD/.policy/bin/python" \
+  --policy method.modular.vertical_clearance:make_policy --policy-python "$PWD/.policy/bin/python" \
   --method modular-controller --checkpoint "est_v1b@sha256:$est_sha+heads:$head_sha.npz" \
   --episodes 30 --seed-start "$seed" --out "results/modular-$seed"
 ```
 
-For historical comparisons, select the SHA in the tables and keep `est_v1b` fixed. Use `submission.policy_modular:make_policy` for `e588ae9`, `submission.policy_modular_heads:make_policy` for `9de5c51` with `heads/contact_v1_51257d33.npz`, `submission.policy_modular_calibrated:make_policy` for `bd951bc`, `method.modular.fk_seating:make_policy` for `6b02f33`, and `method.modular.base_clearance:make_policy` for `528c854`. Use `submission.policy_modular_combined:make_policy` for `54080e5` and `414f15a`, `submission.policy_modular_round4:make_policy` for `99e72f6`, and `submission.policy_modular_round4:make_measured_policy` for `876a00f`. [Archived shard worker](../ops_modular/lead_shard.py) · [Archived shard launcher](../ops_modular/lead_shard_run.py)
+Factories for older commits:
 
-To rebuild the contact head and calibration from the original labeled archives, point `runs` at the project’s saved results directory:
+| Commit | Factory |
+| --- | --- |
+| `e588ae9` | `submission.policy_modular:make_policy` |
+| `9de5c51` | `submission.policy_modular_heads:make_policy` (heads `contact_v1_51257d33.npz`) |
+| `bd951bc` | `submission.policy_modular_calibrated:make_policy` |
+| `528c854` | `method.modular.base_clearance:make_policy` |
+| `54080e5`, `414f15a` | `submission.policy_modular_combined:make_policy` |
+| `99e72f6` | `submission.policy_modular_round4:make_policy` |
+| `876a00f` | `submission.policy_modular_round4:make_measured_policy` |
+
+Rebuild the contact head and grasp normal from the labeled archives (`runs` is the saved results directory):
 
 ```bash
-runs=/home/keyu/advaitic/plans/modular_controller/runs
 out=$(mktemp -d)
 OPENBLAS_NUM_THREADS=1 uv run --locked python -m method.modular.fit_refinement \
   contact "$out/contact_v1.npz" "$runs/astra_r3/training" "$runs/astra_r3/training_obs"
 uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/grasp_hand_frame.fit.json" \
   --contact "$out/contact_v1.npz" --output "$out"
-sha256sum "$out/"*.npz
 ```
 
-The historical CUDA training invocation below assumes the original archives and cache are mounted. The pinned checkpoint is the exact reproducibility target for evaluation. The launch budget was 10,000 steps, and the archived checkpoint was saved at 8,000.
+Retrain the estimator (CUDA, with the original data mounted; the saved checkpoint is from step 8,000 of a 10,000-step run):
 
 ```bash
-# Recreate privileged labels from the original DAgger3 action archives if needed.
 MUJOCO_GL=egl ORT_DISABLE_TELEMETRY=1 uv run --locked python -m method.harness.label_replay \
   /data/dagger3 --out /data/dagger3_priv
-
-# Run in the CUDA training environment with the original data snapshot.
 python -m method.harness.train_estimator --device cuda --cache-dir /cache \
   --run-dir /runs/est_v1b \
   --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv \
@@ -153,17 +165,9 @@ python -m method.harness.train_estimator --device cuda --cache-dir /cache \
   --val-every 1000 --num-workers 2 --seed 42
 ```
 
-The separate DAgger collector and seed dispatch are in [astra_dagger.py](../ops_modular/astra_dagger.py) and [astra_dagger_dispatch.py](../ops_modular/astra_dagger_dispatch.py). With saved embeddings at `/data/astra-dagger/sol` and the backbone at `/base/est_v1b/last.pt`, prepare the teacher samples and fit the sidecar in the CUDA training environment:
+## Credits
 
-```bash
-uv run --locked python -m method.modular.v2_teacher /data/teacher_v1_dart0 /data/est_v2/teacher --count 60
-python -m method.modular.train_dagger_heads /data/astra-dagger/heads.npz
-```
-
-[Training and data-generation log](../EXPERIMENTS.md)
-
-## Attribution
-
-SWIRL BiGym2 supplies the task, fixed robot geometry, simulation and human demonstrations, and the distributed package retains the upstream NVIDIA controller and asset terms. The Advaitic assignment supplies the evaluator, scoring and observation/action interfaces. The harness project supplies `est_v1b`, teacher/DAgger archives and the label-replay workflow. Torchvision supplies ImageNet-pretrained ResNet-18 initialization. [Upstream and third-party notices](../THIRD_PARTY_NOTICES.md)
-
-AI assistance included Codex workers **Astra** (kinematics, perception heads, integration and clearance), **Sol** (geometric phase control, release/settle fallback and paired tests), and **Astra-grasp** (pickup and loaded-grasp calibration), with **Claude** as lead for coordination, selection and evaluation. The implementation and experimental decisions are documented in the source and [experiment log](../EXPERIMENTS.md).
+- **SWIRL BiGym2:** task, robot model, simulator and demonstrations. Upstream NVIDIA controller and asset terms still apply ([notices](../THIRD_PARTY_NOTICES.md)).
+- **Advaitic:** evaluator, scoring and the observation/action interface.
+- **Torchvision:** ImageNet ResNet-18 weights.
+- **AI assistance:** Codex workers Astra (kinematics, perception heads, integration, clearance), Sol (phase control, release fallback, paired tests) and Astra-grasp (pickup and grasp calibration). Claude led coordination, candidate selection and evaluation.
