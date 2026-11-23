@@ -768,3 +768,9 @@ Added `submission.policy_modular_round4:make_measured_policy` on 99e72f6. Sol’
   ep 3 (7310003, s3), ep 8 (7310008, s3). Report + episodes.csv copied to docs/final_7310000/.
 - This block was used exactly once, after all development; no change follows from it. Full qualifying-format record of the frozen
   policy family: 2600000 25/30 (54080e5, FAIL), dev rounds 4–7, and 7310000 27/30 (aa1e273, PASS).
+
+### 2026-11-23 10:06 — REVIEWER BLOCK 7310000 reruns ×2 on frozen aa1e273 (consistency check, no code changes)
+- Requested by the user after the final report, to check the 27/30 repeats. Same deployed app `modular-qualify-aa1e273` (jaiswalkhushi2911 account, T4/EGL), same policy `method.modular.vertical_clearance:make_policy`, same heads `64dfe105…`, unmodified `advaitic-eval`, one process per block. Calls fc-01M83B1WN82ZPNXF50VXJR2ECF, fc-01M83B217ZM295XV0ZMXB9MSW0; outputs `advaitic-runs:/modular/final_rerun_7310000`, `/modular/final_rerun2_7310000`. ~14 min each, run in parallel.
+- Rerun 1: **28/30 PASS**, slots (0–5) 5/5/5/3/5/5; failures 7310003 (s3), 7310008 (s3), both timeouts.
+- Rerun 2: **27/30 PASS**, slots 5/5/5/3/4/5; failures 7310000 (s4), 7310003 (s3), 7310008 (s3), all timeouts — identical to the original run.
+- Both: integrity ok, no infrastructure error, submission SHA-256 1b05190d… (same as original). Three runs: 27, 28, 27. 7310003/7310008 fail every time; 7310000 fails 2/3 (run-to-run nondeterminism).

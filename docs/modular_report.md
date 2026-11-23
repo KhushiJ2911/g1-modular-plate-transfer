@@ -127,7 +127,7 @@ We worked as a small team: Claude Code as the lead, plus three OpenAI Codex work
 4. Fix the biggest bucket and check that the fix did not break anything on the same seeds.
 5. Go back to step 1 with new seeds.
 
-**Seeds and blocks.** Each episode is set up by a seed number, and the evaluator turns a starting seed into a balanced block of 30 episodes (5 per slot). We used a separate range of seeds for development, and each block was used once and then retired, so we could not slowly tune to particular episodes. Two blocks were protected and run only once each on a frozen version: `2600000` as a confirmation test, and `7310000`, the reviewer's test block. We never trained or tuned on either.
+**Seeds and blocks.** Each episode is set up by a seed number, and the evaluator turns a starting seed into a balanced block of 30 episodes (5 per slot). We used a separate range of seeds for development, and each block was used once and then retired, so we could not slowly tune to particular episodes. Two blocks were protected and only run on frozen versions: `2600000` as a confirmation test, and `7310000`, the reviewer's test block. We never trained or tuned on either. `7310000` was run once for the result, then twice more on the same frozen code to check it repeats.
 
 **A mistake we caught.** For speed, our early tests ran every episode in a separate process, many at once ("sharded" runs). The official evaluator runs all 30 episodes in **one** process. The sharded numbers turned out to be about 3 points too optimistic. A version that looked like 95% scored 25/30 on the confirmation block. From then on we ran every test exactly like the official evaluator: one process per 30-episode block.
 
@@ -159,14 +159,19 @@ Hollow points are sharded runs and solid points are official-format runs. At `54
 
 | Test | Result |
 | --- | --- |
-| Reviewer block 7310000 | **27/30, PASS** |
+| Reviewer block 7310000, first run | **27/30, PASS** |
+| Reviewer block 7310000, two reruns (same frozen code, no changes) | 28/30 PASS, 27/30 PASS |
 | 8 new development blocks | 231/240 (96.25%), every block ≥ 27/30 |
 
 Successes per source slot on the reviewer block:
 
 | Slot | 0 | 1 | 2 | 3 | 4 | 5 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Successes (of 5) | 5 | 5 | 5 | 3 | 4 | 5 |
+| First run (of 5) | 5 | 5 | 5 | 3 | 4 | 5 |
+| Rerun 1 | 5 | 5 | 5 | 3 | 5 | 5 |
+| Rerun 2 | 5 | 5 | 5 | 3 | 4 | 5 |
+
+The reruns were done after the report was written, only to check that the result repeats. Nothing was changed between runs. Seeds 7310003 and 7310008 (slot 3) timed out in all three runs. Seed 7310000 (slot 4) timed out in two of the three, so small run-to-run differences in the simulation can flip that episode.
 
 Development blocks for the final version (starting seed: successes of 30): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
 
