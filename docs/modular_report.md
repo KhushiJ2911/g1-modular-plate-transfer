@@ -2,7 +2,7 @@
 
 A Unitree G1 robot in simulation picks a plate off one rack, walks it over and puts it into a slot on a second rack. Our controller does this using only its three cameras and its own joint readings. On the reviewer's 30-episode test it succeeded **27/30 times (90%)**, which is exactly the pass bar.
 
-The controller is not one big neural network. A small network looks at the camera images and says where the plate is. Everything else is ordinary robotics: a model of the robot's own arm and a step-by-step plan (a state machine) that checks each step worked before moving on.
+The controller is not a single end-to-end network. Only perception is learned: a 2.9M-parameter estimator (the first three stages of an ImageNet-pretrained ResNet-18, shared across all three cameras, plus a 97K-parameter output head) reads the three 84×84 images and 19 of the 50 body-state values. It predicts the plate position, the nearest rack slot, plate tilt and whether the plate is held. A logistic-regression head (418 weights) on the same features predicts rack contact. The rest is not learned: forward and inverse kinematics on a fixed copy of the robot model, and an 11-phase state machine (about 800 lines of Python) that advances only when each phase's exit check passes.
 
 [Video](video/plate_transfer_aa1e273.mp4) · [Full experiment log](../EXPERIMENTS.md) · [Assignment](../README.md)
 
