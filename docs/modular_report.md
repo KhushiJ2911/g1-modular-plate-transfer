@@ -1,39 +1,38 @@
-# Me, a humanoid and a plate: building a controller that passes 27/30
+# Moving a plate with a humanoid robot
 
-*A Unitree G1 in simulation picks up a plate, walks it over and puts it into a rack, using only three tiny cameras and its own joint readings.*
+A Unitree G1 robot in simulation picks a plate off one rack, walks it over and puts it into a slot on a second rack. Our controller does this using only its three cameras and its own joint readings. On the reviewer's 30-episode test it succeeded **27/30 times (90%)**, which is exactly the pass bar.
+
+The controller is not one big neural network. A small network looks at the camera images and says where the plate is. Everything else is ordinary robotics: a model of the robot's own arm and a step-by-step plan (a state machine) that checks each step worked before moving on.
 
 [Video](video/plate_transfer_aa1e273.mp4) · [Full experiment log](../EXPERIMENTS.md) · [Assignment](../README.md)
 
-## Background and motivation
+## The problem
 
-The task comes from the Advaitic robot-learning assignment. A Unitree G1 humanoid stands in front of a table with two racks on it. A plate sits in one of six slots on the first rack, and the robot has to move it into any slot on the second rack. To pass, a policy needs **27 successes out of 30 episodes**, with 5 episodes starting from each of the six slots.
+The scene is a MuJoCo simulation from [BiGym2](https://github.com/swirl-uk/BiGym2). It has a Unitree G1 humanoid with two-finger grippers, two racks and one plate.
 
-The success check is strict. The plate has to be upright, sitting in a slot, touching the target rack, not touching the table, and let go by both hands, and all of this has to still be true one simulated second later. Falling, dropping the plate on the floor or running out of time all count as failures.
+- At the start, the plate sits in one of **six slots** ("source slots") on rack 1. Both racks are also shifted by up to ±5 cm each episode.
+- The robot has to put the plate into **any** of the six slots on rack 2.
+- An episode counts as a success only if the plate is upright, sitting in a slot, touching rack 2, not touching the table, and let go by both hands, and all of this still holds one simulated second later. If the robot falls or the plate hits the floor, it fails. There is a time limit.
+- To pass, a policy needs **27 successes out of 30 episodes**, with exactly 5 episodes from each source slot.
 
-The robot does not get to cheat either. Every step it receives:
+Walking and balance are handled by a fixed controller that comes with BiGym2, so we only command where the body should go, not individual leg joints.
 
-- three 84×84 colour images, from the head camera and the two wrist cameras, and
-- 50 numbers of body state: joint angles, gripper opening, body speed and so on.
+**What the policy sees:** three 84×84 colour images (one from the head camera and one from each wrist camera) and 50 numbers of body state, such as joint angles, gripper opening and body speed.
 
-It has to answer with 20 numbers: how fast to walk forward, sideways and turn, how high to hold the pelvis, a target angle for each of the 7 joints in each arm, and open/close for each gripper. Walking and balance are handled by a frozen controller that ships with [BiGym2](https://github.com/swirl-uk/BiGym2), so the policy only says where the body should go.
+**What the policy outputs:** 20 numbers each step: how fast the body should walk forward, sideways and turn, how high the pelvis should be, a target angle for each of the 7 joints in each arm, and open/close for each gripper.
 
-It may not read the simulator's internal state (the true plate position, which slot it started in, the reward). Replaying recorded motions or looking up a solution per starting slot is also not allowed. Simulator state can be used to make training labels, as long as the final policy never sees it.
+**The rules that matter most:** the policy may not read the simulator's internal state (for example the true plate position or which slot it started in). It has to work out everything from the cameras and body state. Replaying recorded motions or looking up a solution per starting position is not allowed. Using simulator state to make training labels is allowed, as long as the final policy does not use it.
 
-## The first attempt: copying a teacher
+## What we tried first
 
-My first idea was the standard one: imitation learning. I wrote a scripted "teacher" that replays the arm motion from a human demonstration and steers the body with simple feedback. It succeeded on **191/240** episodes (about 80%). Then I trained networks to copy the teacher from camera images.
+Before this controller we spent several days on learned policies (these runs are in earlier branches of the project, not in this repo):
 
-They got stuck around 60% (**57/90** for the best behavioural-cloning model), and a fine-tuned SmolVLA got **44/90**. More data, bigger models and a different optimizer did not move the number.
+- A scripted "teacher" that replays a human demonstration's arm motion and steers the body with simple feedback. It succeeded about 80% of the time (191/240). Its most common failure was knocking the plate over with the arm after letting go.
+- Neural networks trained to copy the teacher from camera images. They plateaued at about 60% (for example 57/90), and a fine-tuned pretrained vision-language-action model (SmolVLA) got 44/90. More data, bigger models and other optimizers did not help.
 
-Looking at the failures, the students were copying the teacher's mistakes along with everything else. The teacher's most common failure was placing the plate fine and then knocking it over with its arm after letting go, and the students did the same.
-
-But this task has a fixed scene. The robot, the table and the racks are always the same; the only things that change are which slot the plate starts in and a few centimetres of rack position. So I changed the plan: **learn only what has to be learned (where things are), and do everything else with geometry and feedback.** If something goes wrong, I can then point at the exact check or number that caused it.
+The students were learning the teacher's mistakes along with everything else. But this task has a fixed scene: the only things that change are where the plate and racks are. So we decided to **learn only what has to be learned (where things are) and do the rest with geometry and feedback**, which we can inspect and fix one piece at a time.
 
 ## How it works
-
-TL;DR for those who have not seen one: a **state machine** splits a job into steps. Each step has one goal and one check. The robot keeps working on the current step until the check passes, then moves to the next. If a step takes too long, it retries or stops safely.
-
-The controller has three parts:
 
 ```mermaid
 flowchart LR
@@ -46,24 +45,35 @@ flowchart LR
     F --> G["20-number action"]
 ```
 
-### Seeing: the estimator
+There are three parts.
 
-A ResNet-18 reads the three camera images plus some body state and predicts four things: where the plate is, where the nearest rack slot is, how tilted the plate is, and how likely it is that the robot is holding the plate. A small linear model on the same image features predicts whether the plate is touching the target rack.
+### 1. Seeing: the estimator network
 
-In the code this network is called **`est_v1b`**. I trained it during the imitation-learning phase and kept it frozen for this whole project.
+A ResNet-18 (a standard image network) reads all three camera images plus some body-state numbers. It predicts:
 
-The labels come from the simulator. I ran the teacher many times and saved each camera frame together with the true plate and rack positions. A network trained only on the teacher's runs only sees the situations the teacher gets into, so I also used **DAgger**: let the learned policy drive, record where it actually goes, and label those frames afterwards. In total that is 422 episodes, all on seeds that are never used for evaluation.
+- where the plate is,
+- where the nearest rack slot is,
+- how tilted the plate is,
+- the probability that the robot is holding the plate.
 
-Two small ideas made the estimates good enough to act on:
+A second, tiny linear model on top of the same image features predicts whether the plate is touching the destination rack.
 
-- **Look while standing still.** The images are cleanest when the robot is not moving, so the controller takes the median of several estimates while standing, both at the start and before grasping. It locks the target slot at the start and never changes it.
-- **Once the plate is in hand, trust the arm.** The plate blocks the wrist cameras when held. From then on the controller assumes the plate moves with the hands and gets its pose from the arm joints.
+In the code and logs this network is called **`est_v1b`** ("estimator, version 1b"). We trained it before this controller existed and kept it frozen the whole time.
 
-### Knowing where the hands are: the arm model
+**Where its training data came from.** We ran the scripted teacher many times in simulation and saved the camera images together with the true plate and rack positions from the simulator. Those true positions are the labels. A network trained only on the teacher's runs sees only the situations the teacher gets into, so we also used **DAgger**: let the learned policy drive, record where it actually goes, and label those frames with the true positions afterwards. In total it saw 422 episodes on seeds that are never used for evaluation. The data is on Hugging Face (see [Reproduce](#reproduce)).
 
-The controller keeps its own copy of the G1's MuJoCo model, fixed in place. Feeding it the measured joint angles gives the exact hand positions (**forward kinematics**, FK). Asking it "which joint angles put the hand here?" gives arm commands (**inverse kinematics**, IK). The copy never looks at the live simulation, only at the robot's fixed geometry, which the rules allow.
+Two ideas made the estimates reliable enough:
 
-### Deciding what to do: the state machine
+- **Look while standing still.** Images are clearest when the robot is not moving, so the controller takes the median of several estimates while standing at the start and before grasping. It locks in the destination slot position at the start and does not change it later.
+- **After pickup, trust the arm, not the camera.** Once the plate is in the hand it partly blocks the cameras. From then on the controller assumes the plate moves with the hand, and works out its angle from the arm joints.
+
+### 2. Knowing where the hands are: the arm model
+
+The controller keeps its own copy of the robot's MuJoCo model, with the robot fixed in place. Feeding it the measured joint angles tells us exactly where each hand is (**forward kinematics**, FK). Asking it "which joint angles put the hand here?" gives arm commands (**inverse kinematics**, IK). This copy never reads the live simulation. It only uses the robot's fixed geometry, which the rules allow.
+
+### 3. Deciding what to do: the state machine
+
+The episode is a fixed sequence of steps (phases). Each phase moves toward a goal, and it only moves on when a check passes. If a phase takes too long, the controller retries or stops safely instead of doing something random.
 
 ```mermaid
 stateDiagram-v2
@@ -103,43 +113,27 @@ stateDiagram-v2
 | RETREAT | Pulls the open hands back out the way they came in | Hands clear, plate did not move |
 | HOLD | If the hands are still near the plate (settling or retreat got stuck): backs the body away slowly while watching the plate, then lifts the open hands straight up out of the rack. Otherwise stays still | — |
 
-To understand it simply, take carrying. Nothing here is learned. Every step the body gets a walking speed proportional to its distance from a standing spot in front of the target slot (between 0.07 and 0.24 m/s). The arms get a hand target that keeps the plate at a fixed spot relative to the pelvis, and IK turns that into joint angles. When the body is within 2.5 cm of the spot and has slowed down, CARRY is done.
+Release and retreat took most of our effort. The most common failure was: the robot opens its hands, the plate sits fine, and then a finger brushes the plate on the way out and knocks it out of the slot. The fixes were to hold the arm exactly where it was when the hands opened, wait for the plate to settle, and, if the hands were still close to the plate, back the body away slowly and then lift the hands **straight up** out of the rack.
 
-Here is one real episode (seed 1044006, plate starting in slot 3). The first lift fails its check, the robot opens its hands and grasps again, and the second try works:
+The output each step is the 20-number action. The body commands come from simple feedback toward the target standing spot, and the arm commands come from IK.
 
-![episode 1044006](episode_1044006.gif)
+## How we worked on it
 
-*one development episode of the final policy, labelled with the current phase*
+We worked as a small team: Claude Code as the lead, plus three OpenAI Codex workers (Astra, Sol and Astra-grasp), each owning a part. The loop was always the same:
 
-## Getting it to work
+1. Freeze a version of the controller.
+2. Run it on **fresh seeds** it had never been run on.
+3. Replay every failure in simulation and sort them into buckets (missed the grasp, never let go, re-touched the plate after letting go, and so on).
+4. Fix the biggest bucket and check that the fix did not break anything on the same seeds.
+5. Go back to step 1 with new seeds.
 
-The loop was the same every time: freeze a version, run it on seeds it had never seen, replay every failure in simulation, sort the failures into buckets, fix the biggest bucket, repeat.
+**Seeds and blocks.** Each episode is set up by a seed number, and the evaluator turns a starting seed into a balanced block of 30 episodes (5 per slot). We used a separate range of seeds for development, and each block was used once and then retired, so we could not slowly tune to particular episodes. Two blocks were protected and only run on frozen versions: `2600000` as a confirmation test, and `7310000`, the reviewer's test block. We never trained or tuned on either. `7310000` was run once for the result, then twice more on the same frozen code to check it repeats.
 
-### Does it do anything at all?
+**A mistake we caught.** For speed, our early tests ran every episode in a separate process, many at once ("sharded" runs). The official evaluator runs all 30 episodes in **one** process. The sharded numbers turned out to be about 3 points too optimistic. A version that looked like 95% scored 25/30 on the confirmation block. From then on we ran every test exactly like the official evaluator: one process per 30-episode block.
 
-The first full version scored **18/88**. That sounds bad, but the failures were very regular. Of 28 failures I audited, 19 had carried the plate all the way to the target rack and then just stood there holding it until time ran out. Seven had lost the plate on the way.
+### Progress
 
-So the robot could pick up and carry; it could not place. The plate arrived at the wrong angle and the "seated" check never passed. Holding the plate at a calibrated angle, locking the target slot at the start, and adding the rack-contact detector took it to **52/88**. Taking the median of standing-still estimates before pickup and checking the grasp and lift with the finger readings took it to **158/180** on fresh seeds.
-
-### The plate was fine, until I let go
-
-Now the failures changed shape. I replayed all 22 failures of that version: **15 of them had placed the plate, opened the hands, cleared the plate, and then touched it again.** A finger brushed the plate on the way out and knocked it out of the slot. It was the same failure the teacher had, coming back in a new form.
-
-The "am I holding it?" estimate could not help here: at every one of these re-touches it correctly said "not holding". The problem was the hand's path after release. The first fix was simple: if the hands are still near the plate after letting go, back the body away slowly while watching the plate, and stop if the plate moves. That scored **112/119** on fresh seeds.
-
-### Did the fast numbers lie?
-
-To move quickly I had been running each episode in its own process, many at once ("sharded" runs). The next version, which added a backup way to detect that the plate is seated, scored **114/114** that way. Then I ran it once on a protected confirmation block, the way the official evaluator does it (one process for all 30 episodes), and it scored **25/30**.
-
-So no, the sharded numbers did not survive. My first guess was that some state was leaking from one episode to the next inside the single process. I added a cleanup that clears all episode state on reset, but the audit found no leak that changed any action, and only 7 of 20 failures passed when re-run alone. The honest answer is that the sharded runs were about 3 points optimistic, and I could not pin down one cause.
-
-From then on every test ran exactly like the official evaluator: one process per 30-episode block, on blocks of seeds that were used once and then retired.
-
-### Pushing past 92
-
-In the official format the controller sat at **220/240** (91.7%), on eight fresh blocks of 30. The replays still pointed at the release, so the next fixes stayed there. Guards for losing grip and for releasing on rack contact did not move the total (**220/240**). Holding the arm exactly at the pose measured when the grippers opened, so the arm cannot push the plate, gave **222/240**. Finally, after backing away, the robot lifts its open hands straight up out of the rack before anything else moves. That version scored **231/240**, and every one of its eight blocks scored at least 27/30. The last two numbers come from different blocks, so part of that jump may be luck.
-
-Here is the whole history:
+Each line is a frozen version (commit) and the one thing it changed. Early numbers are from sharded runs, so they are useful for comparing versions but not as final scores.
 
 | Version | What changed | Result |
 | --- | --- | --- |
@@ -153,9 +147,11 @@ Here is the whole history:
 | `876a00f` | Hold the arm exactly still when the grippers open | 222/240 (92.5%) |
 | **`aa1e273`** | **After backing away, lift the open hands straight up out of the rack** | **231/240 (96.25%)** |
 
+From `414f15a` onward each row is 8 new blocks of 30, run exactly like the official evaluator.
+
 ![Success rate across versions](progress.png)
 
-*hollow points are sharded runs, solid points use the official format; at `54080e5` they disagree, which is why I switched*
+Hollow points are sharded runs and solid points are official-format runs. At `54080e5` the two disagree: 114/114 sharded but 25/30 on the confirmation block. That gap is why we switched to the official format.
 
 ## Results
 
@@ -179,28 +175,23 @@ The reruns were done after the report was written, only to check that the result
 
 Development blocks for the final version (starting seed: successes of 30): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
 
+
 The full evaluator output is in [docs/final_7310000/](final_7310000/). Every run, including failed ones, is in [EXPERIMENTS.md](../EXPERIMENTS.md).
 
-The [video](video/plate_transfer_aa1e273.mp4) (57 s) shows eight development episodes covering all six source slots, including the re-grasp above and one timeout. Details: [docs/video/README.md](video/README.md).
+### Video
+
+[plate_transfer_aa1e273.mp4](video/plate_transfer_aa1e273.mp4) (57 s). It shows eight development episodes covering all six source slots, including one where the first grasp slips and the robot re-grasps and succeeds, and one timeout. Details: [docs/video/README.md](video/README.md).
 
 ## What still fails
 
-The remaining failures fall into a few types:
+We replayed the failures of the last few versions in simulation. They fall into a few types:
 
-1. **Re-touching the plate after letting go.** Still the largest group, even after all the release fixes.
-2. **Never letting go.** The plate reaches the rack, but the "seated" checks never pass and the robot waits until time runs out.
+1. **Re-touching the plate after letting go.** This is still the largest group. The estimator says "not holding" at these moments, so the "am I holding it?" signal cannot catch it.
+2. **Never letting go.** The plate reaches the rack but the "seated" checks never pass, and the robot waits until time runs out.
 3. **Plate left tilted** after release.
-4. **Losing the plate during the lift** (rare).
+4. **Losing the plate during lift** (rare).
 
-I also tried one fix aimed at slot 3: a check at the start of the lift that compares how the plate moves in the images with how the wrist moves. On four paired development blocks it scored **112/120** against **116/120** for the frozen version, and it lost two slot-3 episodes, so I kept the frozen version.
-
-Next I would check finger-to-plate distance with the arm model before the body moves, add a time-based release once the plate is clearly seated, and run more fresh blocks to know the real margin above 27/30.
-
-## Conclusion
-
-The biggest lesson was where the difficulty actually was. Seeing the plate, grasping it and carrying it were solved early. Almost all the remaining work went into the moments after the hands open, a moment the imitation-learning approach kept getting wrong and could not explain. Splitting the controller into small steps with explicit checks made those failures visible, one replay at a time.
-
-The second lesson was about measurement. A fast test that does not match the real evaluator can look great and still be wrong, and I only found out because I kept one protected block aside.
+Next steps would be: check finger-to-plate distance with the arm model before the body moves, add a time-based release once the plate is clearly seated, run a sweep on slot 3 with new seeds, and measure the pass rate on more fresh blocks to know the real margin.
 
 ## Reproduce
 
