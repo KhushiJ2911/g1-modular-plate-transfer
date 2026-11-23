@@ -41,6 +41,8 @@ Simulator state was used only to make training labels and to debug on developmen
 | Loaded-grasp normal | One constant fit on 12 grasps (3056500 series) and checked on 6 others. |
 | Grasp offset | One constant pre-close hand-to-plate transform, averaged from teacher rollouts on seeds 3000000–3000002. |
 
+Training data (about 4 GB) is on Hugging Face: [KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data) (private; ask for access). It holds the three estimator datasets, the contact-head episodes and the grasp calibration.
+
 A separate DAgger run (seeds 3110000–3110299) trained extra heads, but the final policy does not use them.
 
 ## Results
@@ -91,7 +93,7 @@ Most failures happen after the plate is placed. The hand opens, clears the plate
 - Round 6, 18 failures: 7 touched again after opening, 7 stayed closed (3 on the rack, 4 off it), 2 tilted on the rack, 2 opened during lift.
 - `7310000`: 3 timeouts, no falls (`7310000` slot 4, `7310003` slot 3, `7310008` slot 3).
 
-The estimator reported held=false at every re-touch, so the held signal cannot catch this. That is why the last two fixes hold the arm still at opening and lift the hand straight up before the base moves.
+The estimator reported held=false at every re-touch, so the held signal cannot catch this. That is why the last two fixes hold the arm still at opening and, after the base backs away, lift the open hand straight up out of the rack.
 
 ## Next steps
 
@@ -160,7 +162,7 @@ uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/grasp_hand_f
   --contact "$out/contact_v1.npz" --output "$out"
 ```
 
-Retrain the estimator (CUDA, with the original data mounted; the saved checkpoint is from step 8,000 of a 10,000-step run):
+Retrain the estimator (CUDA, with the Hugging Face dataset downloaded and its `est_v1b/` folders mounted under `/data`; the saved checkpoint is from step 8,000 of a 10,000-step run):
 
 ```bash
 MUJOCO_GL=egl ORT_DISABLE_TELEMETRY=1 uv run --locked python -m method.harness.label_replay \
