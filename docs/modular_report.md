@@ -301,3 +301,4 @@ uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/calibration/
 - [SWIRL BiGym2](https://github.com/swirl-uk/BiGym2): the task, robot model, simulator, walking controller and human demonstrations. Upstream terms apply ([notices](../THIRD_PARTY_NOTICES.md)).
 - Advaitic: the evaluator, scoring rules and observation/action interface.
 - Torchvision: ImageNet-pretrained ResNet-18 weights.
+- AI tools: I used Claude Code, with OpenAI Codex subagents Sol and Astra.
