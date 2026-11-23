@@ -198,7 +198,7 @@ Next steps would be: check finger-to-plate distance with the arm model before th
 Linux, Python 3.12, [uv](https://docs.astral.sh/uv/). The evaluator, simulator and controller come from the original assignment and are unchanged.
 
 ```bash
-git clone <this repo> && cd <this repo>
+git clone https://github.com/KhushiJ2911/g1-modular-plate-transfer.git && cd g1-modular-plate-transfer
 uv sync --locked --python 3.12 --no-dev
 uv run --locked --no-dev advaitic-check        # checks the simulator files are unchanged
 ```
