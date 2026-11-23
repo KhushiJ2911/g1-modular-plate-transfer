@@ -254,7 +254,7 @@ Our scored runs used a T4 GPU for rendering (`MUJOCO_GL=egl`), with the network 
 | `99e72f6` | `submission.policy_modular_round4:make_policy` |
 | `876a00f` | `submission.policy_modular_round4:make_measured_policy` |
 
-**Training data.** About 4 GB on Hugging Face: [KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data) (private, ask for access).
+**Training data.** About 4 GB on Hugging Face: [KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data).
 
 | Folder | Used for |
 | --- | --- |
