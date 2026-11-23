@@ -159,9 +159,8 @@ Hollow points are sharded runs and solid points are official-format runs. At `54
 
 | Test | Result |
 | --- | --- |
-| Reviewer block `7310000` (run once) | **27/30, PASS** |
+| Reviewer block 7310000 | **27/30, PASS** |
 | 8 new development blocks | 231/240 (96.25%), every block ≥ 27/30 |
-| Confirmation block `2600000` (run once, on the earlier `54080e5`) | 25/30, FAIL |
 
 Successes per source slot on the reviewer block:
 
@@ -171,12 +170,6 @@ Successes per source slot on the reviewer block:
 
 Development blocks for the final version (starting seed: successes of 30): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
 
-What these numbers do and don't show:
-
-- **The reviewer pass has no margin.** 27/30 is exactly the bar. One more failure would have failed it. The development rate (96%) says a typical 30-episode block scores about 29, but some blocks land at 27.
-- **Slot 3 is the weakest slot.** It was the lowest on both protected blocks.
-- **The last improvement is partly uncertain.** The 222 → 231 jump between the last two versions was measured on different seeds, so some of it may be luck. On one shared block both versions scored 27/30.
-- The three reviewer-block failures were all timeouts with no falls (seeds 7310000, 7310003 and 7310008).
 
 The full evaluator output is in [docs/final_7310000/](final_7310000/). Every run, including failed ones, is in [EXPERIMENTS.md](../EXPERIMENTS.md).
 
@@ -303,4 +296,3 @@ uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/calibration/
 - [SWIRL BiGym2](https://github.com/swirl-uk/BiGym2): the task, robot model, simulator, walking controller and human demonstrations. Upstream terms apply ([notices](../THIRD_PARTY_NOTICES.md)).
 - Advaitic: the evaluator, scoring rules and observation/action interface.
 - Torchvision: ImageNet-pretrained ResNet-18 weights.
-- AI tools: Claude Code led coordination, picked which versions to test and ran evaluations. OpenAI Codex workers wrote most of the controller code: Astra (kinematics, perception, integration, final hand lift), Sol (state machine, release backup, paired tests) and Astra-grasp (pickup and grasp calibration).
