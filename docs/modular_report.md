@@ -4,7 +4,7 @@ A Unitree G1 robot in simulation picks a plate off one rack, walks it over and p
 
 The controller is not one big neural network. A small network looks at the camera images and says where the plate is. Everything else is ordinary robotics: a model of the robot's own arm and a step-by-step plan (a state machine) that checks each step worked before moving on.
 
-[Video](video/plate_transfer_aa1e273.mp4) · [Full experiment log](../EXPERIMENTS.md) · [Assignment](../README.md)
+[Video](video/plate_transfer_aa1e273.mp4) · [Full experiment log](../EXPERIMENTS.md) · [Assignment](ASSIGNMENT.md)
 
 ## The problem
 
