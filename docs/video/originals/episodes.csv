@@ -1,0 +1,9 @@
+episode,seed,source_slot,success,completed,steps,simulated_seconds,policy_seconds,fell,termination,policy_error
+0,1044003,0,True,True,655,13.1,13.130736859000027,False,success,
+1,1044004,2,True,True,558,11.16,11.801104380999874,False,success,
+2,1044005,5,True,True,565,11.3,11.505541276999878,False,success,
+3,1044006,3,True,True,858,17.16,17.574116235999853,False,success,
+4,1044007,4,True,True,523,10.46,10.99685599600042,False,success,
+5,1044008,1,True,True,566,11.32,11.31227837300014,False,success,
+6,1044009,1,True,True,524,10.48,10.799297255000113,False,success,
+7,1044010,2,False,True,1700,34.0,34.258837465001704,False,timeout,

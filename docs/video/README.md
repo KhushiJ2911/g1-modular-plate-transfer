@@ -17,13 +17,11 @@ The recovery chapter begins at 0:17.75. The first close, reopening and second cl
 
 The three panels show the native head, right-wrist and left-wrist camera observations, in that order. The reel adds magnification, captions and chapter markers. The eight original 10 fps MP4s contain each complete episode at simulator speed. We reused the eight development seeds from the previous candidate’s video so the starts can be compared. [Original evaluator report](originals/report.json) · [Clip and report checksums](checksums.sha256)
 
-## Retrieve the footage
+## Files
 
-The files are on the `chinmaykarkar7` Modal account in `advaitic-runs:/modular/deliverable_video_aa1e273_dev_1044003`. From the repository root with access to that account, run the following in a checkout without the downloaded files.
+The reel and the eight original evaluator clips are committed in this folder. Verify them with:
 
 ```bash
-uv run --frozen --with modal modal volume get advaitic-runs /modular/deliverable_video_aa1e273_dev_1044003/plate_transfer_aa1e273.mp4 docs/video/plate_transfer_aa1e273.mp4
-ops_modular/lead_video_download.sh deliverable_video_aa1e273_dev_1044003 docs/video/originals
 (cd docs/video && sha256sum -c checksums.sha256)
 ```
 

@@ -93,6 +93,15 @@ Most failures happen after the plate is placed. The hand opens, clears the plate
 
 The estimator reported held=false at every re-touch, so the held signal cannot catch this. That is why the last two fixes hold the arm still at opening and lift the hand straight up before the base moves.
 
+## Next steps
+
+- **Re-touch after release.** This is still the biggest failure type. Check finger-to-plate clearance with FK before the base moves, instead of relying on held=false.
+- **Closed grasps that stall at the rack.** Add a timeout-based release when the plate is seated but not confirmed.
+- **Slot 3.** It is the weakest slot on both protected blocks. Run a slot-3-only failure sweep on new dev seeds.
+- **Margin.** Measure the pass rate on more fresh dev blocks before trusting the 27/30 result, since it has no slack.
+
+## Reset audit
+
 Resetting the policy state between episodes did not explain the gap between sharded and single-process runs. The reset cleanup changed none of the 81 actions in the tested comparison, and only 7 of 20 round-4 failures passed when rerun in a fresh process.
 
 ## Reproduce
@@ -106,9 +115,7 @@ uv run --locked --no-dev advaitic-check
 
 est_sha=bd8ed33c87383b3b208ba251d8fa0b6f957d9f03a35cf6c8d23a81ce9cd867cd
 head_sha=64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff
-mkdir -p checkpoints/{est_v1b,astra}
-uv run --locked --with modal modal volume get advaitic-runs est_v1b/last.pt checkpoints/est_v1b/last.pt
-uv run --locked --with modal modal volume get advaitic-runs "heads/$head_sha.npz" "checkpoints/astra/$head_sha.npz"
+# Both weight files are committed under checkpoints/.
 printf '%s  %s\n' "$est_sha" checkpoints/est_v1b/last.pt \
   "$head_sha" "checkpoints/astra/$head_sha.npz" | sha256sum --check
 
