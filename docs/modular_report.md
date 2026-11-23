@@ -1,148 +1,246 @@
-# Modular G1 plate transfer
+# Moving a plate with a humanoid robot
 
-**Final policy:** commit `aa1e2731e0bdfa2a9f315f8cc9c758e3270474dc`, factory `method.modular.vertical_clearance:make_policy`.
+A Unitree G1 robot in simulation picks a plate off one rack, walks it over and puts it into a slot on a second rack. Our controller does this using only its three cameras and its own joint readings. On the reviewer's 30-episode test it succeeded **27/30 times (90%)**, which is exactly the pass bar.
 
-| Run | Result |
-| --- | --- |
-| Reviewer block `7310000` (run once) | **27/30, PASS**, exactly at the 27/30 bar |
-| Last dev round (8 new blocks) | 231/240 (96.25%), all 8 blocks ≥ 27/30 |
-| Confirmation block `2600000` (run once, earlier commit `54080e5`) | 25/30, FAIL |
+The controller is not one big neural network. A small network looks at the camera images and says where the plate is. Everything else is ordinary robotics: a model of the robot's own arm and a step-by-step plan (a state machine) that checks each step worked before moving on.
 
-The reviewer result has no margin. One more failure would have failed the block. Slot 3 is the weakest slot (3/5 on `7310000`).
+[Video](video/plate_transfer_aa1e273.mp4) · [Full experiment log](../EXPERIMENTS.md) · [Assignment](../README.md)
 
-Full log: [EXPERIMENTS.md](../EXPERIMENTS.md). Evaluator output: [report.json](final_7310000/report.json), [episodes.csv](final_7310000/episodes.csv).
+## The problem
+
+The scene is a MuJoCo simulation from [BiGym2](https://github.com/swirl-uk/BiGym2). It has a Unitree G1 humanoid with two-finger grippers, two racks and one plate.
+
+- At the start, the plate sits in one of **six slots** ("source slots") on rack 1. Both racks are also shifted by up to ±5 cm each episode.
+- The robot has to put the plate into **any** of the six slots on rack 2.
+- An episode counts as a success only if the plate is upright, sitting in a slot, touching rack 2, not touching the table, and let go by both hands, and all of this still holds one simulated second later. If the robot falls or the plate hits the floor, it fails. There is a time limit.
+- To pass, a policy needs **27 successes out of 30 episodes**, with exactly 5 episodes from each source slot.
+
+Walking and balance are handled by a fixed controller that comes with BiGym2, so we only command where the body should go, not individual leg joints.
+
+**What the policy sees:** three 84×84 colour images (one from the head camera and one from each wrist camera) and 50 numbers of body state, such as joint angles, gripper opening and body speed.
+
+**What the policy outputs:** 20 numbers each step: how fast the body should walk forward, sideways and turn, how high the pelvis should be, a target angle for each of the 7 joints in each arm, and open/close for each gripper.
+
+**The rules that matter most:** the policy may not read the simulator's internal state (for example the true plate position or which slot it started in). It has to work out everything from the cameras and body state. Replaying recorded motions or looking up a solution per starting position is not allowed. Using simulator state to make training labels is allowed, as long as the final policy does not use it.
+
+## What we tried first
+
+Before this controller we spent several days on learned policies (these runs are in earlier branches of the project, not in this repo):
+
+- A scripted "teacher" that replays a human demonstration's arm motion and steers the body with simple feedback. It succeeded about 80% of the time (191/240). Its most common failure was knocking the plate over with the arm after letting go.
+- Neural networks trained to copy the teacher from camera images. They plateaued at about 60% (for example 57/90), and a fine-tuned pretrained vision-language-action model (SmolVLA) got 44/90. More data, bigger models and other optimizers did not help.
+
+The students were learning the teacher's mistakes along with everything else. But this task has a fixed scene: the only things that change are where the plate and racks are. So we decided to **learn only what has to be learned (where things are) and do the rest with geometry and feedback**, which we can inspect and fix one piece at a time.
 
 ## How it works
 
-The policy uses only the evaluator's observations: three 84×84 RGB cameras (head, right wrist, left wrist) and the 50-value proprioception vector.
-
+```mermaid
+flowchart LR
+    A["3 camera images<br/>+ 50 body-state numbers"] --> B["Estimator network<br/>plate position, slot position,<br/>tilt, 'am I holding it?'"]
+    A --> C["Arm model<br/>(forward kinematics)<br/>where my hands are"]
+    B --> D["State machine<br/>which step am I on?<br/>did it work?"]
+    C --> D
+    D --> E["Targets<br/>where the body and hands<br/>should go next"]
+    E --> F["Inverse kinematics<br/>joint angles"]
+    F --> G["20-number action"]
 ```
-RGB + proprio → estimator (est_v1b) + contact head → task state → phase machine → IK → action
+
+There are three parts.
+
+### 1. Seeing: the estimator network
+
+A ResNet-18 (a standard image network) reads all three camera images plus some body-state numbers. It predicts:
+
+- where the plate is,
+- where the nearest rack slot is,
+- how tilted the plate is,
+- the probability that the robot is holding the plate.
+
+A second, tiny linear model on top of the same image features predicts whether the plate is touching the destination rack.
+
+In the code and logs this network is called **`est_v1b`** ("estimator, version 1b"). We trained it before this controller existed and kept it frozen the whole time.
+
+**Where its training data came from.** We ran the scripted teacher many times in simulation and saved the camera images together with the true plate and rack positions from the simulator. Those true positions are the labels. A network trained only on the teacher's runs sees only the situations the teacher gets into, so we also used **DAgger**: let the learned policy drive, record where it actually goes, and label those frames with the true positions afterwards. In total it saw 422 episodes on seeds that are never used for evaluation. The data is on Hugging Face (see [Reproduce](#reproduce)).
+
+Two ideas made the estimates reliable enough:
+
+- **Look while standing still.** Images are clearest when the robot is not moving, so the controller takes the median of several estimates while standing at the start and before grasping. It locks in the destination slot position at the start and does not change it later.
+- **After pickup, trust the arm, not the camera.** Once the plate is in the hand it partly blocks the cameras. From then on the controller assumes the plate moves with the hand, and works out its angle from the arm joints.
+
+### 2. Knowing where the hands are: the arm model
+
+The controller keeps its own copy of the robot's MuJoCo model, with the robot fixed in place. Feeding it the measured joint angles tells us exactly where each hand is (**forward kinematics**, FK). Asking it "which joint angles put the hand here?" gives arm commands (**inverse kinematics**, IK). This copy never reads the live simulation. It only uses the robot's fixed geometry, which the rules allow.
+
+### 3. Deciding what to do: the state machine
+
+The episode is a fixed sequence of steps (phases). Each phase moves toward a goal, and it only moves on when a check passes. If a phase takes too long, the controller retries or stops safely instead of doing something random.
+
+```mermaid
+stateDiagram-v2
+    [*] --> APPROACH
+    APPROACH --> PREGRASP: standing at the plate
+    PREGRASP --> GRASP: hands in position
+    GRASP --> LIFT: fingers closed on plate
+    LIFT --> CARRY: plate lifted, still held
+    CARRY --> ALIGN: reached rack 2
+    ALIGN --> LOWER: plate above the slot
+    LOWER --> RELEASE: plate seated in slot
+    RELEASE --> SETTLE: both grippers open
+    SETTLE --> RETREAT: plate still and supported
+    RETREAT --> HOLD: hands clear of plate
+
+    PREGRASP --> PREGRASP: timeout → retry grasp (max 2)
+    GRASP --> PREGRASP: slipped or timeout → retry
+    LIFT --> PREGRASP: dropped → retry
+    LOWER --> ALIGN: timeout → retry placement (once)
+    SETTLE --> HOLD: timeout → slow back-away + hand lift
+    RETREAT --> HOLD: plate moved → slow back-away + hand lift
+    LIFT --> HOLD: still failing after 2 retries
+    HOLD --> [*]
 ```
 
-**Perception.** `est_v1b` is a ResNet-18 trained earlier in this project. It predicts plate position, nearest rack-site position, plate tilt and whether the plate is held. A small linear head on the same features predicts rack contact. The controller locks the destination site from a median over the first stationary frames. After pickup it tracks plate orientation through arm forward kinematics (FK) instead of vision.
+| Phase | What the robot does | How it knows the phase is done |
+| --- | --- | --- |
+| APPROACH | Walks to a standing spot in front of the plate | Close enough to the spot, and slow |
+| PREGRASP | Puts both hands just outside the plate edges | Hands close to the IK targets |
+| GRASP | Closes both grippers | Finger readings say the plate is pinched |
+| LIFT | Raises the plate | Hand height (from FK) went up and the fingers still hold |
+| CARRY | Walks to rack 2 | Close to the standing spot for the locked slot |
+| ALIGN | Moves the plate above the slot | Plate (from FK) is centred over the slot |
+| LOWER | Lowers the plate into the slot | Rack contact detected, or the hands stop going down at the right height |
+| RELEASE | Opens both grippers and holds the arm still | Grippers measured open |
+| SETTLE | Waits for the plate to settle | 75 steps open, plate supported and upright |
+| RETREAT | Pulls the open hands back out the way they came in | Hands clear, plate did not move |
+| HOLD | If the hands are still near the plate (settling or retreat got stuck): backs the body away slowly while watching the plate, then lifts the open hands straight up out of the rack. Otherwise stays still | — |
 
-**Control.** A fixed sequence of phases:
+Release and retreat took most of our effort. The most common failure was: the robot opens its hands, the plate sits fine, and then a finger brushes the plate on the way out and knocks it out of the slot. The fixes were to hold the arm exactly where it was when the hands opened, wait for the plate to settle, and, if the hands were still close to the plate, back the body away slowly and then lift the hands **straight up** out of the rack.
 
-1. **Approach, pregrasp, grasp, lift.** Walk to a standoff, reach the plate with damped least-squares IK, close, and check the pinch and lift with finger joints and FK. Retry the grasp a bounded number of times.
-2. **Carry, align, lower.** Walk to the destination, center over the locked site, and lower. If release is not confirmed normally, a fallback triggers on FK height, a stalled descent or rack contact.
-3. **Release, settle, retreat.** Open both hands and hold the arm pose measured at opening. Wait for the plate to settle, then back the base away while watching plate motion. The final change adds a short vertical lift of the open hand so it clears the plate before leaving ([vertical_clearance.py](../method/modular/vertical_clearance.py)).
+The output each step is the 20-number action. The body commands come from simple feedback toward the target standing spot, and the arm commands come from IK.
 
-The action is the standard 20-value vector: base velocity, height and yaw rate, seven joint targets per arm, and two gripper commands. IK and FK use a separate fixed-base MuJoCo model driven by measured joint angles.
+## How we worked on it
 
-Simulator state was used only to make training labels and to debug on development seeds. It is never read at inference. There is no per-seed lookup or replay.
+We worked as a small team: Claude Code as the lead, plus three OpenAI Codex workers (Astra, Sol and Astra-grasp), each owning a part. The loop was always the same:
 
-## Training data
+1. Freeze a version of the controller.
+2. Run it on **fresh seeds** it had never been run on.
+3. Replay every failure in simulation and sort them into buckets (missed the grasp, never let go, re-touched the plate after letting go, and so on).
+4. Fix the biggest bucket and check that the fix did not break anything on the same seeds.
+5. Go back to step 1 with new seeds.
 
-| Model | Data |
-| --- | --- |
-| `est_v1b` estimator | ImageNet ResNet-18, fine-tuned for 8,000 steps on 422 episodes from three sources: `teacher_v1_dart0` (seeds 2200000–2200150), `teacher_v1_gen2` (2800001–2800239) and `dagger3_priv` (2500000–2500119). 6 held-out episodes per source. Labels come from simulator state. |
-| Contact head | Fit on frozen estimator features with simulator contact labels, seeds 3021000–3021039 and 3022000–3022023 (51 train / 13 validation episodes). |
-| Loaded-grasp normal | One constant fit on 12 grasps (3056500 series) and checked on 6 others. |
-| Grasp offset | One constant pre-close hand-to-plate transform, averaged from teacher rollouts on seeds 3000000–3000002. |
+**Seeds and blocks.** Each episode is set up by a seed number, and the evaluator turns a starting seed into a balanced block of 30 episodes (5 per slot). We used a separate range of seeds for development, and each block was used once and then retired, so we could not slowly tune to particular episodes. Two blocks were protected and run only once each on a frozen version: `2600000` as a confirmation test, and `7310000`, the reviewer's test block. We never trained or tuned on either.
 
-Training data (about 4 GB) is on Hugging Face: [KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data) (private; ask for access). It holds the three estimator datasets, the contact-head episodes and the grasp calibration.
+**A mistake we caught.** For speed, our early tests ran every episode in a separate process, many at once ("sharded" runs). The official evaluator runs all 30 episodes in **one** process. The sharded numbers turned out to be about 3 points too optimistic. A version that looked like 95% scored 25/30 on the confirmation block. From then on we ran every test exactly like the official evaluator: one process per 30-episode block.
 
-A separate DAgger run (seeds 3110000–3110299) trained extra heads, but the final policy does not use them.
+### Progress
+
+Each line is a frozen version (commit) and the one thing it changed. Early numbers are from sharded runs, so they are useful for comparing versions but not as final scores.
+
+| Version | What changed | Result |
+| --- | --- | --- |
+| `e588ae9` | First version: estimator + state machine | 18/88 (sharded) |
+| `9de5c51` | Hold the plate at a calibrated angle, lock the destination slot, add rack-contact detector | 52/88 (sharded) |
+| `bd951bc` | Median of estimates before pickup, check grasp and lift with finger readings | 158/180 (sharded, new seeds) |
+| `528c854` | If the hands get stuck after letting go, back the body away slowly while watching the plate | 112/119 (sharded, new seeds) |
+| `54080e5` | Backup way to detect "seated" from hand height | 114/114 sharded, but **25/30 on the confirmation block** |
+| `414f15a` | Clear all internal memory at the start of each episode | 220/240 (91.7%), official format |
+| `99e72f6` | Guards for losing grip, releasing on rack contact, plate dropping while seating | 220/240 (91.7%) |
+| `876a00f` | Hold the arm exactly still when the grippers open | 222/240 (92.5%) |
+| **`aa1e273`** | **After backing away, lift the open hands straight up out of the rack** | **231/240 (96.25%)** |
+
+From `414f15a` onward each row is 8 new blocks of 30, run exactly like the official evaluator.
 
 ## Results
 
-### Early rounds (sharded, not qualifying)
+**Final version:** commit `aa1e273`, policy `method.modular.vertical_clearance:make_policy`.
 
-These runs used one process per episode. They later turned out to be about 3 points too optimistic compared with the real evaluator format, so they are only useful for comparing versions with each other.
+| Test | Result |
+| --- | --- |
+| Reviewer block `7310000` (run once) | **27/30, PASS** |
+| 8 new development blocks | 231/240 (96.25%), every block ≥ 27/30 |
+| Confirmation block `2600000` (run once, on the earlier `54080e5`) | 25/30, FAIL |
 
-| Commit | Change | Result |
-| --- | --- | --- |
-| `e588ae9` | Baseline estimated-state controller | 18/88 |
-| `9de5c51` | Grasp-calibrated place orientation, site lock, contact head | 52/88 |
-| `bd951bc` | Median pickup estimate, proprio grasp checks, loaded-normal calibration | 81/90 dev; 158/180 on fresh blocks |
-| `528c854` | Guarded base withdrawal after release | 112/119 on fresh blocks |
-| `54080e5` | Late release fallback + withdrawal | 114/114 completed on fresh blocks |
+Successes per source slot on the reviewer block:
 
-### Qualifying format
+| Slot | 0 | 1 | 2 | 3 | 4 | 5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Successes (of 5) | 5 | 5 | 5 | 3 | 4 | 5 |
 
-From round 4 on, every dev block ran exactly like the reviewer run: one unmodified `advaitic-eval` process for 30 balanced episodes. Each round used blocks that had not been used before.
+Development blocks for the final version (starting seed: successes of 30): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
 
-| Round | Commit | Change | Result | Blocks ≥ 27/30 |
-| --- | --- | --- | ---: | ---: |
-| 4 | `414f15a` | `54080e5` + clear internal state on reset | 220/240 (91.7%) | 6/8 |
-| 4 (same blocks) | `528c854` | for comparison | 214/240 (89.2%) | 4/8 |
-| 5 | `99e72f6` | grasp-loss guard, rack-contact release, seating-drop check | 220/240 (91.7%) | 6/8 |
-| 6 | `876a00f` | hold measured arm pose at opening | 222/240 (92.5%) | 8/8 |
-| 7 | `aa1e273` | vertical hand lift before retreat | **231/240 (96.25%)** | **8/8** |
+What these numbers do and don't show:
 
-Round 7 per block (start seed: successes): 1039000: 29, 1045000: 30, 1055000: 27, 1065000: 29, 1075000: 30, 1085000: 29, 1095000: 30, 1046000: 27.
+- **The reviewer pass has no margin.** 27/30 is exactly the bar. One more failure would have failed it. The development rate (96%) says a typical 30-episode block scores about 29, but some blocks land at 27.
+- **Slot 3 is the weakest slot.** It was the lowest on both protected blocks.
+- **The last improvement is partly uncertain.** The 222 → 231 jump between the last two versions was measured on different seeds, so some of it may be luck. On one shared block both versions scored 27/30.
+- The three reviewer-block failures were all timeouts with no falls (seeds 7310000, 7310003 and 7310008).
 
-Rounds 6 and 7 ran on different blocks, so part of the 222 → 231 gain may be block-to-block noise. On one shared block (`3004800`) both scored 27/30 with the same successful seeds.
+The full evaluator output is in [docs/final_7310000/](final_7310000/). Every run, including failed ones, is in [EXPERIMENTS.md](../EXPERIMENTS.md).
 
-### Protected blocks
+### Video
 
-| Block | Commit | Result | Per slot (0–5) |
-| --- | --- | --- | --- |
-| 2600000 | `54080e5` | 25/30, FAIL | 3, 5, 5, 2, 5, 5 |
-| 7310000 | `aa1e273` | 27/30, PASS | 5, 5, 5, 3, 4, 5 |
+[plate_transfer_aa1e273.mp4](video/plate_transfer_aa1e273.mp4) (57 s). It shows eight development episodes covering all six source slots, including one where the first grasp slips and the robot re-grasps and succeeds, and one timeout. Details: [docs/video/README.md](video/README.md).
 
-Each block ran once, on a T4 with EGL rendering, after the policy was frozen. Neither was used for tuning. Integrity checks passed and there were no infrastructure errors. Submission SHA-256: `1b05190d2013d5d08f230e9253615c13dd8fc5b009686e72a55bfa7fa5586f25`. In `report.json` the slots are numbered 1–6.
+## What still fails
 
-## Failures
+We replayed the failures of the last few versions in simulation. They fall into a few types:
 
-Most failures happen after the plate is placed. The hand opens, clears the plate, then touches it again as the robot moves away, and the episode times out.
+1. **Re-touching the plate after letting go.** This is still the largest group. The estimator says "not holding" at these moments, so the "am I holding it?" signal cannot catch it.
+2. **Never letting go.** The plate reaches the rack but the "seated" checks never pass, and the robot waits until time runs out.
+3. **Plate left tilted** after release.
+4. **Losing the plate during lift** (rare).
 
-- `bd951bc`, 22 failures replayed: 15 touched the plate again after opening, 5 never opened at the rack, 1 did not finish the carry, 1 failed pickup.
-- Round 5, 20 failures: 11 touched again after opening, 3 tilted after opening, 5 stayed closed (2 on the rack, 3 off it), 1 opened during lift.
-- Round 6, 18 failures: 7 touched again after opening, 7 stayed closed (3 on the rack, 4 off it), 2 tilted on the rack, 2 opened during lift.
-- `7310000`: 3 timeouts, no falls (`7310000` slot 4, `7310003` slot 3, `7310008` slot 3).
-
-The estimator reported held=false at every re-touch, so the held signal cannot catch this. That is why the last two fixes hold the arm still at opening and, after the base backs away, lift the open hand straight up out of the rack.
-
-## Next steps
-
-- **Re-touch after release.** This is still the biggest failure type. Check finger-to-plate clearance with FK before the base moves, instead of relying on held=false.
-- **Closed grasps that stall at the rack.** Add a timeout-based release when the plate is seated but not confirmed.
-- **Slot 3.** It is the weakest slot on both protected blocks. Run a slot-3-only failure sweep on new dev seeds.
-- **Margin.** Measure the pass rate on more fresh dev blocks before trusting the 27/30 result, since it has no slack.
-
-## Reset audit
-
-Resetting the policy state between episodes did not explain the gap between sharded and single-process runs. The reset cleanup changed none of the 81 actions in the tested comparison, and only 7 of 20 round-4 failures passed when rerun in a fresh process.
+Next steps would be: check finger-to-plate distance with the arm model before the body moves, add a time-based release once the plate is clearly seated, run a sweep on slot 3 with new seeds, and measure the pass rate on more fresh blocks to know the real margin.
 
 ## Reproduce
 
-From a clean checkout of the final commit. This runs one round-7 dev block on CPU with OSMesa. The reported numbers used T4/EGL with the same pinned weights ([lead_qualify.py](../ops_modular/lead_qualify.py)).
+Linux, Python 3.12, [uv](https://docs.astral.sh/uv/). The evaluator, simulator and controller come from the original assignment and are unchanged.
 
 ```bash
-git checkout --detach aa1e2731e0bdfa2a9f315f8cc9c758e3270474dc
+git clone <this repo> && cd <this repo>
 uv sync --locked --python 3.12 --no-dev
-uv run --locked --no-dev advaitic-check
+uv run --locked --no-dev advaitic-check        # checks the simulator files are unchanged
+```
 
-est_sha=bd8ed33c87383b3b208ba251d8fa0b6f957d9f03a35cf6c8d23a81ce9cd867cd
-head_sha=64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff
-# Both weight files are committed under checkpoints/.
-printf '%s  %s\n' "$est_sha" checkpoints/est_v1b/last.pt \
-  "$head_sha" "checkpoints/astra/$head_sha.npz" | sha256sum --check
+The weights are in the repo:
 
+| File | What it is |
+| --- | --- |
+| `checkpoints/est_v1b/last.pt` | Estimator network (sha256 `bd8ed33c…7cd`) |
+| `checkpoints/astra/64dfe105….npz` | Rack-contact detector and grasp calibration |
+
+The policy runs in its own Python environment with CPU PyTorch:
+
+```bash
 uv venv --python 3.12 .policy
 uv pip install --python .policy/bin/python --index-url https://download.pytorch.org/whl/cpu \
   torch==2.5.1 torchvision==0.20.1
 eval_site=$(uv run --locked --no-dev python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
 policy_site=$(.policy/bin/python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')
 printf '%s\n' "$eval_site" > "$policy_site/advaitic_eval_env.pth"
+```
 
+Run one 30-episode block:
+
+```bash
+est_sha=bd8ed33c87383b3b208ba251d8fa0b6f957d9f03a35cf6c8d23a81ce9cd867cd
+head_sha=64dfe105e7f716c0ab5b7a9c487b7a8a1cac06565070b390e75992dfbee4deff
 export ADV_ESTIMATOR="$PWD/checkpoints/est_v1b/last.pt" ADV_HEADS="$PWD/checkpoints/astra/$head_sha.npz"
-export MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa ORT_DISABLE_TELEMETRY=1
-export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 LP_NUM_THREADS=2
-export CUDA_VISIBLE_DEVICES=''
+export MUJOCO_GL=egl ORT_DISABLE_TELEMETRY=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
-seed=1039000
 uv run --locked --no-dev advaitic-eval \
   --policy method.modular.vertical_clearance:make_policy --policy-python "$PWD/.policy/bin/python" \
   --method modular-controller --checkpoint "est_v1b@sha256:$est_sha+heads:$head_sha.npz" \
-  --episodes 30 --seed-start "$seed" --out "results/modular-$seed"
+  --episodes 30 --seed-start 7310000 --out results/final
 ```
 
-Factories for older commits:
+Our scored runs used a T4 GPU for rendering (`MUJOCO_GL=egl`), with the network on CPU. Without a GPU, use `MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa`. A block takes about 16 minutes on a T4. Our runner on Modal is [ops_modular/lead_qualify.py](../ops_modular/lead_qualify.py). Add `--video-episodes 3` (after `uv sync --locked --extra video`) to record videos.
 
-| Commit | Factory |
+<details>
+<summary>Older versions, retraining and training data</summary>
+
+**Older versions.** Check out the commit and use its policy:
+
+| Commit | Policy |
 | --- | --- |
 | `e588ae9` | `submission.policy_modular:make_policy` |
 | `9de5c51` | `submission.policy_modular_heads:make_policy` (heads `contact_v1_51257d33.npz`) |
@@ -152,21 +250,19 @@ Factories for older commits:
 | `99e72f6` | `submission.policy_modular_round4:make_policy` |
 | `876a00f` | `submission.policy_modular_round4:make_measured_policy` |
 
-Rebuild the contact head and grasp normal from the labeled archives (`runs` is the saved results directory):
+**Training data.** About 4 GB on Hugging Face: [KhushiJ2911/g1-plate-transfer-training-data](https://huggingface.co/datasets/KhushiJ2911/g1-plate-transfer-training-data) (private, ask for access).
+
+| Folder | Used for |
+| --- | --- |
+| `est_v1b/teacher_v1_dart0` | Estimator: teacher runs with random action noise, seeds 2200000–2200150 |
+| `est_v1b/teacher_v1_gen2` | Estimator: teacher runs, seeds 2800001–2800239 |
+| `est_v1b/dagger3_priv` | Estimator: DAgger runs relabeled with true positions, seeds 2500000–2500119 |
+| `contact_head/` | Rack-contact detector, seeds 3021000–3021039 and 3022000–3022023 |
+| `calibration/` | Grasp calibration, 12 grasps |
+
+**Retrain the estimator** (CUDA GPU, dataset folders under `/data`). The saved checkpoint is from step 8,000 of this 10,000-step run:
 
 ```bash
-out=$(mktemp -d)
-OPENBLAS_NUM_THREADS=1 uv run --locked python -m method.modular.fit_refinement \
-  contact "$out/contact_v1.npz" "$runs/astra_r3/training" "$runs/astra_r3/training_obs"
-uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/grasp_hand_frame.fit.json" \
-  --contact "$out/contact_v1.npz" --output "$out"
-```
-
-Retrain the estimator (CUDA, with the Hugging Face dataset downloaded and its `est_v1b/` folders mounted under `/data`; the saved checkpoint is from step 8,000 of a 10,000-step run):
-
-```bash
-MUJOCO_GL=egl ORT_DISABLE_TELEMETRY=1 uv run --locked python -m method.harness.label_replay \
-  /data/dagger3 --out /data/dagger3_priv
 python -m method.harness.train_estimator --device cuda --cache-dir /cache \
   --run-dir /runs/est_v1b \
   --data-dirs /data/teacher_v1_dart0 /data/teacher_v1_gen2 /data/dagger3_priv \
@@ -174,9 +270,33 @@ python -m method.harness.train_estimator --device cuda --cache-dir /cache \
   --val-every 1000 --num-workers 2 --seed 42
 ```
 
+**Rebuild the contact detector and grasp calibration** (`runs` = the downloaded dataset folder):
+
+```bash
+out=$(mktemp -d)
+OPENBLAS_NUM_THREADS=1 uv run --locked python -m method.modular.fit_refinement \
+  contact "$out/contact_v1.npz" "$runs/contact_head/training" "$runs/contact_head/training_obs"
+uv run --locked python ops_modular/astra_calibrate_normal.py "$runs/calibration/grasp_hand_frame.fit.json" \
+  --contact "$out/contact_v1.npz" --output "$out"
+```
+
+</details>
+
+## Where things are
+
+| Path | What's there |
+| --- | --- |
+| `method/modular/` | The controller: `phases.py` (state machine), `kinematics.py` (FK/IK), `controller.py`, `vertical_clearance.py` (final policy) |
+| `method/harness/` | Estimator network and its training code |
+| `submission/` | Policy entry points for earlier versions |
+| `ops_modular/` | Scripts that ran evaluations and experiments on Modal |
+| `tests/modular/` | Unit tests for the controller |
+| `docs/` | This report, video, final evaluator output |
+| `src/advaitic_eval/` | The assignment's evaluator (unchanged) |
+
 ## Credits
 
-- **SWIRL BiGym2:** task, robot model, simulator and demonstrations. Upstream NVIDIA controller and asset terms still apply ([notices](../THIRD_PARTY_NOTICES.md)).
-- **Advaitic:** evaluator, scoring and the observation/action interface.
-- **Torchvision:** ImageNet ResNet-18 weights.
-- **AI assistance:** Codex workers Astra (kinematics, perception heads, integration, clearance), Sol (phase control, release fallback, paired tests) and Astra-grasp (pickup and grasp calibration). Claude led coordination, candidate selection and evaluation.
+- [SWIRL BiGym2](https://github.com/swirl-uk/BiGym2): the task, robot model, simulator, walking controller and human demonstrations. Upstream terms apply ([notices](../THIRD_PARTY_NOTICES.md)).
+- Advaitic: the evaluator, scoring rules and observation/action interface.
+- Torchvision: ImageNet-pretrained ResNet-18 weights.
+- AI tools: Claude Code led coordination, picked which versions to test and ran evaluations. OpenAI Codex workers wrote most of the controller code: Astra (kinematics, perception, integration, final hand lift), Sol (state machine, release backup, paired tests) and Astra-grasp (pickup and grasp calibration).
