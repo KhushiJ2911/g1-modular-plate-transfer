@@ -149,6 +149,10 @@ Each line is a frozen version (commit) and the one thing it changed. Early numbe
 
 From `414f15a` onward each row is 8 new blocks of 30, run exactly like the official evaluator.
 
+![Success rate across versions](progress.png)
+
+Hollow points are sharded runs and solid points are official-format runs. At `54080e5` the two disagree: 114/114 sharded but 25/30 on the confirmation block. That gap is why we switched to the official format.
+
 ## Results
 
 **Final version:** commit `aa1e273`, policy `method.modular.vertical_clearance:make_policy`.
