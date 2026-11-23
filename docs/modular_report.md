@@ -119,7 +119,7 @@ The output each step is the 20-number action. The body commands come from simple
 
 ## How we worked on it
 
-We worked as a small team: Claude Code as the lead, plus three OpenAI Codex workers (Astra, Sol and Astra-grasp), each owning a part. The loop was always the same:
+Every change went through the same loop:
 
 1. Freeze a version of the controller.
 2. Run it on **fresh seeds** it had never been run on.
